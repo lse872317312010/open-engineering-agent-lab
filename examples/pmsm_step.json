@@ -1,0 +1,27 @@
+{
+  "model": {
+    "stator_resistance_ohm": 0.3,
+    "d_inductance_h": 0.0008,
+    "q_inductance_h": 0.0008,
+    "flux_linkage_wb": 0.03,
+    "pole_pairs": 7,
+    "inertia_kg_m2": 0.0002,
+    "viscous_friction_nms": 0.00001
+  },
+  "input": {
+    "vd_v": 0.0,
+    "vq_v": 5.0,
+    "load_torque_nm": 0.1
+  },
+  "simulation": {
+    "duration_s": 0.02,
+    "step_s": 0.00001,
+    "initial_state": {
+      "id_a": 0.0,
+      "iq_a": 0.0,
+      "mechanical_speed_rad_s": 0.0,
+      "mechanical_angle_rad": 0.0
+    }
+  }
+}
+

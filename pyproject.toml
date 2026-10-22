@@ -9,7 +9,7 @@ description = "Open Python research lab for agent-assisted motor-control enginee
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-dependencies = ["numpy>=1.26,<3"]
+dependencies = ["numpy>=1.26,<3", "jsonschema>=4.23,<5"]
 
 [project.optional-dependencies]
 dev = ["ruff>=0.6,<1", "pytest>=8,<9"]
@@ -31,3 +31,6 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+
+[tool.setuptools.package-data]
+oeal = ["schemas/*.json"]

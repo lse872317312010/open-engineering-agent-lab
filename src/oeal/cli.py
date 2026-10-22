@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from oeal import __version__
+from oeal.experiments import run_experiment
 from oeal.foc_io import run_foc
+from oeal.ir import validate_document
 from oeal.models import MotorParameters, PMSMInput, PMSMState, simulate
 
 
@@ -89,6 +91,11 @@ def main(argv: list[str] | None = None) -> int:
     foc = commands.add_parser("simulate-foc", help="run sampled FOC from JSON")
     foc.add_argument("config", type=Path)
     foc.add_argument("--output", type=Path, required=True)
+    experiment = commands.add_parser("run-experiment", help="run a validated IR experiment")
+    experiment.add_argument("config", type=Path)
+    experiment.add_argument("--output", type=Path, required=True)
+    validation = commands.add_parser("validate-spec", help="validate an IR document")
+    validation.add_argument("config", type=Path)
     args = parser.parse_args(argv)
 
     if args.command == "simulate":
@@ -100,6 +107,15 @@ def main(argv: list[str] | None = None) -> int:
         trace_path, summary_path = run_foc(args.config, args.output)
         print(f"trace: {trace_path}")
         print(f"summary: {summary_path}")
+        return 0
+    if args.command == "validate-spec":
+        validate_document(json.loads(args.config.read_text(encoding="utf-8")))
+        print("valid")
+        return 0
+    if args.command == "run-experiment":
+        result = run_experiment(json.loads(args.config.read_text(encoding="utf-8")))
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
         return 0
     return 2
 

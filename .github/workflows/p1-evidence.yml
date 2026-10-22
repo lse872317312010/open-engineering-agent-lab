@@ -29,6 +29,8 @@ jobs:
         run: oeal simulate examples/pmsm_step.json --output outputs/p0
       - name: Evaluate independent references and upstream APIs
         run: python benchmarks/validate_p1.py
+      - name: P2 IR cross-backend equivalence
+        run: python benchmarks/validate_p2.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

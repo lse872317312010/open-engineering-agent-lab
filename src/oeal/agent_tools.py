@@ -109,6 +109,17 @@ class ExperimentTools:
         }
 
     def record_evidence(self, record):
+        def check_level(value):
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if key in {"level", "evidence_level"} and child != "model_simulated":
+                        raise ValueError("agent tools cannot elevate evidence beyond model_simulated")
+                    check_level(child)
+            elif isinstance(value, list):
+                for child in value:
+                    check_level(child)
+
+        check_level(record)
         # Filenames are derived only from canonical content; no caller-controlled paths.
         text = canonical(record) + "\n"
         digest = document_hash(record)

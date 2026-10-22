@@ -56,9 +56,9 @@ def main():
         st = (ctypes.c_double * 2)(*state)
         inp = (ctypes.c_double * 7)(*inputs)
         out = (ctypes.c_double * 8)(*([999.0] * 8))
-        before = list(st)
+        before = bytes(st)
         status = library.oeal_pi_step(pa, st, inp, out)
-        if list(st) != before:
+        if bytes(st) != before:
             raise AssertionError("C mutated old state")
         return status, list(out)
 

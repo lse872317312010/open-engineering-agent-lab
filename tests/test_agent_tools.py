@@ -58,6 +58,8 @@ class AgentToolTests(TestCase):
             model = tools.inspect_model()
             model["id"] = "changed"
             self.assertNotEqual(tools.inspect_model()["id"], "changed")
+            with self.assertRaisesRegex(ValueError, "elevate"):
+                tools.record_evidence({"evidence_level": "PIL_measured"})
             digest = tools.record_evidence({"message": "test"})
             path = Path(temp) / (digest + ".json")
             path.write_text("corrupted")

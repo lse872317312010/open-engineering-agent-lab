@@ -113,7 +113,9 @@ class ExperimentTools:
             if isinstance(value, dict):
                 for key, child in value.items():
                     if key in {"level", "evidence_level"} and child != "model_simulated":
-                        raise ValueError("agent tools cannot elevate evidence beyond model_simulated")
+                        raise ValueError(
+                            "agent tools cannot elevate evidence beyond model_simulated"
+                        )
                     check_level(child)
             elif isinstance(value, list):
                 for child in value:

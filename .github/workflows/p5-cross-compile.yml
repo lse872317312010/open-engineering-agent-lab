@@ -21,9 +21,12 @@ jobs:
           python -m pip install -e .
       - name: Cross-compile STM32G474 kernel object
         run: python benchmarks/validate_p5.py
+      - name: Hash cross-compile artifacts
+        if: always()
+        run: python benchmarks/evidence_manifest.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: p5-cross-compile-only
-          path: outputs/p5/
+          path: outputs/
           if-no-files-found: error

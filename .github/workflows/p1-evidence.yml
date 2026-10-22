@@ -25,6 +25,11 @@ jobs:
           ruff check .
           python -m unittest discover -s tests -v
           python -m pytest
+      - name: Verify packaged IR schemas
+        run: |
+          python -m pip wheel --no-deps --wheel-dir outputs/package .
+          python -m pip install --force-reinstall --no-deps outputs/package/*.whl
+          oeal validate-spec examples/ir/foc-experiment.json
       - name: Reproduce original CLI
         run: oeal simulate examples/pmsm_step.json --output outputs/p0
       - name: Evaluate independent references and upstream APIs
@@ -35,6 +40,9 @@ jobs:
         run: python benchmarks/validate_p3.py
       - name: P4 double PI host SIL and static checks
         run: python benchmarks/validate_p4.py
+      - name: Hash reproducible evidence artifacts
+        if: always()
+        run: python benchmarks/evidence_manifest.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

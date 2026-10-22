@@ -1,9 +1,9 @@
 """Engineering models included in OEAL."""
 
 from oeal.models.pmsm import (
+    MotorParameters,
     PMSMInput,
     PMSMState,
-    MotorParameters,
     SimulationTrace,
     electromagnetic_torque,
     simulate,

@@ -1,0 +1,37 @@
+name: P1 evidence
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned research environment
+        run: |
+          python -m pip install -r benchmarks/requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Lint and tests
+        run: |
+          ruff check .
+          python -m unittest discover -s tests -v
+          python -m pytest
+      - name: Reproduce original CLI
+        run: oeal simulate examples/pmsm_step.json --output outputs/p0
+      - name: Evaluate independent references and upstream APIs
+        run: python benchmarks/validate_p1.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p1-evidence
+          path: outputs/
+          if-no-files-found: error

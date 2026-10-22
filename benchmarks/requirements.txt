@@ -1,0 +1,8 @@
+numpy==2.2.6
+scipy==1.15.3
+matplotlib==3.10.3
+pytest==8.4.2
+pathsim @ git+https://github.com/pathsim/pathsim.git@e7581fee178edcd003baceeae0e57d052856f0b9
+motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa
+agentic-embedded-lab @ git+https://github.com/eust-w/agentic-embedded-lab.git@369618815e4a11a7228d24e17de155d6fe19e411
+mavrith @ git+https://github.com/Yuzhe-Xu/Mavrith.git@718e64e24cfb2e40ebaec8a9c94bf56c121e041b

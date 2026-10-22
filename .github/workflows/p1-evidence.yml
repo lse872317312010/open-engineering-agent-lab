@@ -31,6 +31,8 @@ jobs:
         run: python benchmarks/validate_p1.py
       - name: P2 IR cross-backend equivalence
         run: python benchmarks/validate_p2.py
+      - name: P3 fixed-goal Agent tool iteration
+        run: python benchmarks/validate_p3.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

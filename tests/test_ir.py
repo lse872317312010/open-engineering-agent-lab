@@ -4,6 +4,8 @@ import math
 from pathlib import Path
 from unittest import TestCase
 
+from jsonschema import ValidationError
+
 from oeal.experiments import run_experiment
 from oeal.ir import canonical, document_hash, validate_document
 
@@ -38,7 +40,7 @@ class IRTests(TestCase):
             spec = copy.deepcopy(self.spec)
             change(spec)
             with self.subTest(change=change):
-                with self.assertRaises(Exception):
+                with self.assertRaises((ValueError, ValidationError)):
                     validate_document(spec)
 
     def test_other_contracts_and_result_shape(self):

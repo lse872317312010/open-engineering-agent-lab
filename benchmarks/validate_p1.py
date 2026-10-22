@@ -12,6 +12,7 @@ import sys
 import time
 from dataclasses import asdict, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -121,8 +122,7 @@ def pathsim_probe(config, rhs, expected):
 
 
 def motulator_probe():
-    from motulator.drive.model import SynchronousMachine
-    from motulator.drive.utils import SynchronousMachinePars
+    from motulator.drive.model import SynchronousMachine, SynchronousMachinePars
 
     par = SynchronousMachinePars(n_p=7, R_s=0.3, L_d=0.0008, L_q=0.001, psi_f=0.03)
     machine = SynchronousMachine(par)

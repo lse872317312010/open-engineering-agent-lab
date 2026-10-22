@@ -1,7 +1,6 @@
 """Restricted experiment tools; no code, paths, acceptance edits or device access."""
 
 import copy
-import json
 from pathlib import Path
 
 import numpy as np

@@ -12,7 +12,6 @@ import sys
 import time
 from dataclasses import asdict, replace
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 from scipy.integrate import solve_ivp

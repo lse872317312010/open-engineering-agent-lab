@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from oeal import __version__
+from oeal.foc_io import run_foc
 from oeal.models import MotorParameters, PMSMInput, PMSMState, simulate
 
 
@@ -85,10 +86,18 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="directory for CSV and JSON outputs",
     )
+    foc = commands.add_parser("simulate-foc", help="run sampled FOC from JSON")
+    foc.add_argument("config", type=Path)
+    foc.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 
     if args.command == "simulate":
         trace_path, summary_path = run_simulation(args.config, args.output)
+        print(f"trace: {trace_path}")
+        print(f"summary: {summary_path}")
+        return 0
+    if args.command == "simulate-foc":
+        trace_path, summary_path = run_foc(args.config, args.output)
         print(f"trace: {trace_path}")
         print(f"summary: {summary_path}")
         return 0

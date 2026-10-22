@@ -1,0 +1,24 @@
+{
+  "model": {
+    "stator_resistance_ohm": 0.3,
+    "d_inductance_h": 0.0008,
+    "q_inductance_h": 0.0008,
+    "flux_linkage_wb": 0.03,
+    "pole_pairs": 7,
+    "inertia_kg_m2": 0.002,
+    "viscous_friction_nms": 0.00001
+  },
+  "control": {
+    "duration_s": 0.02,
+    "control_period_s": 0.00005,
+    "integration_step_s": 0.000005,
+    "step_time_s": 0.001,
+    "id_reference_a": 0,
+    "iq_reference_a": 5,
+    "vdc_v": 48,
+    "current_limit_a": 10,
+    "bandwidth_per_s": 2000,
+    "tracking_rate_per_s": 2000,
+    "delay_samples": 0
+  }
+}

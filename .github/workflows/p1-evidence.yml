@@ -33,6 +33,8 @@ jobs:
         run: python benchmarks/validate_p2.py
       - name: P3 fixed-goal Agent tool iteration
         run: python benchmarks/validate_p3.py
+      - name: P4 double PI host SIL and static checks
+        run: python benchmarks/validate_p4.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

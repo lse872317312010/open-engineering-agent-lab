@@ -1,6 +1,7 @@
 # 阶段状态与证据索引
 
-记录日期：2026-10-22。工作分支 codex/roadmap-p1-p5，PR #3。
+更新日期：2026-10-23。实现见 PR #3/#4，验收范围按用户最新约束调整。
+真机由用户负责，不再阻塞仿真交付。详见 [acceptance-scope.md](acceptance-scope.md)。
 以下为该工作分支证据，不能据此宣称 main 已包含或通过这些功能。
 
 | 阶段 | 实际结果 | 范围与剩余项 |
@@ -9,10 +10,12 @@
 | P1 | 有限采用范围的 Gate 通过；已完成工程评审 ADR | PathSim 仅开环适配，motulator/AEL/Mavrith 为 reference-only；未覆盖行为逐项列明 |
 | P2 | IR v0.1 Gate 通过 | 五种对象、单位/时钟/预算、往返与 native/PathSim 开环适配；非通用方程编辑器 |
 | P3 | 单个受控离线提议/失败/修复/验收闭环通过 | 在线 LLM 和任意自然语言规划未验收；没有越过白名单的动态执行 |
-| P4 | double PI 控制状态内核 SIL Gate 通过 | 非完整 FOC 固件；float32、固定点、目标时序尚未验收 |
-| P5 | STM32G474 对象交叉编译通过，部署准备已建立 | **P5 Gate 未通过**：无板端 PIL、执行时间、抖动、栈和最终链接资源日志；TI 工具链/工程缺失 |
+| P4 | double 与 float32 PI 内核 SIL 通过 | 当前为 PI 内核；完整 FOC 固件和固定点未覆盖，真机目标时序由用户验收 |
+| P5 | PI 内核 SIL、STM32 构建与 ARM QEMU 集成仿真通过 | QEMU 运行 2173 案例；真实设备由用户负责。TI C2000 构建未验证 |
+| P6 | 多物理模型、独立参考、合成标定及 FMI RC 验证通过；报告验收见 CI | 交付中文交互 HTML、PDF、PNG/SVG、CSV 与浏览器证据；限定范围见 P6 契约 |
 
-后续阶段的离线准备不改变其 Gate 状态。没有硬件证据不标记 PIL_measured。
+本次改变阶段验收范围，保留原始结果与证据等级；不生成 PIL_measured。
+旧报告的 p5_gate_passed=false 对应当时真机 Gate，不代表新版仿真交付被硬件阻塞。
 
 ## 已核验的固定运行
 
@@ -38,10 +41,27 @@
 最终运行还生成 outputs/manifest.json。GitHub artifact 有保留期限，长期留档应下载
 后按 manifest 校验并移至项目存储。这里没有声称设置了外部存储。
 
-## P5 下一步的实际输入
+## float32 补充验证
 
-提供 STM32G474 板卡版本、当前固件仓库/分支、实际时钟/SDK/编译配置；
-按 p5-deployment-contract.md 接入现有 HAL 和保护链路。
-真实刷机/上电另行授权后才可采集原始 PIL/cycle/jitter/stack/link-map 日志。
-TI C2000 还需要确切器件、SDK 与已许可的工具链。
-在这些资料与运行能力缺失时，P5 Gate 保持 blocked，不生成替代实测数据。
+提交 a5b95a79ecea2bf95e96137e8809e7d0511a412d：
+[SIL run 39879262200](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/39879262200)、
+[ARM run 39879262155](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/39879262155)。
+8 手算向量、2000 连续样本、102 饱和恢复样本和 63 异常案例通过；
+最坏误差 1.0785e-5，处于预声明预算内。对象代码段总计 856 字节，
+未发现直接双精度依赖；不包含 libm 内部和最终链接开销。
+
+## 用户接手的真机事项
+
+源码、接口与状态更新顺序、共享向量、验证命令、CI 报告和交叉编译产物已提供。
+用户自行接入现有固件/HAL、保护链路并完成刷机、上电、PIL/HIL、
+目标时间/抖动/栈和最终链接资源验证；这些事项不阻塞 Agent 后续仿真研发。
+TI C2000 的确切器件/SDK/工具链按实际可用性补充，不宣称现已验证。
+
+## P6 多物理与报告
+
+数学/模型验证提交 be8f05d76377cfc3a6b501a96e2aee949c2d316d，
+[run 39883445674](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/39883445674)。
+49 项测试通过；全耦合独立 DOP853 末态误差 2.99e-12，热网络参考误差 5.33e-13 K；
+独立合成验证 RMSE 0.00477 K，FMI RC 误差 1.39e-13 K。
+报告与 UI 以 PR #7 最新 P6 工作流中的 report/ui-validation.json 为验收记录。
+[下载与复现指南](p6-report-guide.md) / [模型与固定阈值](p6-model-contract.md)。

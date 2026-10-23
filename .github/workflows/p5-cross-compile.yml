@@ -21,6 +21,8 @@ jobs:
           python -m pip install -e .
       - name: Cross-compile STM32G474 kernel object
         run: python benchmarks/validate_p5.py
+      - name: Cross-compile float32 PI and inspect precision dependencies
+        run: python benchmarks/validate_p5_f32.py
       - name: Hash cross-compile artifacts
         if: always()
         run: python benchmarks/evidence_manifest.py

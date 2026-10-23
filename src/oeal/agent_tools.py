@@ -166,3 +166,14 @@ def run_design_iteration(goal, ledger_dir):
     }
     tools.record_evidence(report)
     return report
+
+
+def create_experiment_tools(goal, ledger_dir, assets_root=None):
+    """One host entry point for legacy native FOC and registered IR 0.2 studies."""
+    if goal.get("version") == "0.2":
+        from oeal.study_tools import StudyTools
+
+        return StudyTools(goal, ledger_dir, assets_root)
+    if assets_root is not None:
+        raise ValueError("IR 0.1 sessions do not use an asset root")
+    return ExperimentTools(goal, ledger_dir)

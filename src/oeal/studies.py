@@ -197,7 +197,7 @@ def signal_unit(name):
         return "1"
     for suffix, unit in (
         ("_rad_s", "rad/s"), ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
-        ("_a", "A"), ("_v", "V"), ("_c", "degC"), ("_w", "W"), ("_j", "J"),
+        ("_n", "N"), ("_a", "A"), ("_v", "V"), ("_c", "degC"), ("_w", "W"), ("_j", "J"),
     ):
         if name.endswith(suffix):
             return unit
@@ -378,3 +378,24 @@ def run_study(document, assets_root=None):
     )
     result["metrics"], result["numeric_passed"], result["goal_passed"] = recompute(document, result)
     return validate_study(result)
+
+
+def export_streams(result, output_dir):
+    """Export registered signal streams and a shared unit/provenance manifest."""
+    import csv
+
+    validate_study(result)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, signal in result["streams"].items():
+        with (output_dir / (name + ".csv")).open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(signal["columns"])
+            writer.writerows(signal["samples"])
+    metadata = {
+        "experiment_sha256": result["experiment_sha256"], "raw_sha256": result["raw_sha256"],
+        "backend": result["backend"], "context": result["context"],
+        "streams": {name: {k: v for k, v in signal.items() if k != "samples"}
+                    for name, signal in result["streams"].items()},
+    }
+    (output_dir / "streams.json").write_text(json.dumps(metadata, indent=2, allow_nan=False))

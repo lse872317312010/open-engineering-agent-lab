@@ -50,11 +50,14 @@ def main():
     exported = OUT / "cli-native.json"
     subprocess.run(
         [sys.executable, "-m", "oeal", "run-experiment",
-         str(ROOT / "examples/studies/native_foc_v1.json"), "--output", str(exported)],
+         str(ROOT / "examples/studies/native_foc_v1.json"), "--output", str(exported),
+         "--csv-dir", str(OUT / "cli-csv")],
         check=True,
     )
     cli = json.loads(exported.read_text())
     assert cli["raw_sha256"] == results["native_foc_v1"]["raw_sha256"]
+    assert (OUT / "cli-csv/control.csv").read_text().startswith("time_s,id_a,iq_a")
+    assert json.loads((OUT / "cli-csv/streams.json").read_text())["raw_sha256"] == cli["raw_sha256"]
     report = {"passed": True, "profiles": results, "cross_backend_current_error_a": cross,
               "scope": "IR 0.2 native, motulator and UR5e registered adapters"}
     (OUT / "summary.json").write_text(json.dumps(report, indent=2))

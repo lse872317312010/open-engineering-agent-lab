@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     experiment.add_argument("config", type=Path)
     experiment.add_argument("--output", type=Path, required=True)
     experiment.add_argument("--assets-root", type=Path, default=None)
+    experiment.add_argument("--csv-dir", type=Path, default=None)
     commands.add_parser("list-models", help="list registered IR 0.2 models and capabilities")
     validation = commands.add_parser("validate-spec", help="validate an IR document")
     validation.add_argument("config", type=Path)
@@ -129,6 +130,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+        if args.csv_dir is not None:
+            if result["version"] != "0.2":
+                raise ValueError("shared CSV stream export requires IR 0.2")
+            from oeal.studies import export_streams
+
+            export_streams(result, args.csv_dir)
         return 0
     if args.command == "simulate-joint":
         trace_path, summary_path = run_joint_file(args.config, args.output)

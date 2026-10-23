@@ -8,6 +8,7 @@ import mujoco
 import numpy as np
 import optuna
 
+from oeal.agent_tools import create_experiment_tools
 from oeal.backends.robot import load_robot
 from oeal.design_analysis import (
     analyze_design,
@@ -17,7 +18,6 @@ from oeal.design_analysis import (
 )
 from oeal.ir import document_hash
 from oeal.studies import resolve_assets
-from oeal.study_tools import StudyTools
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "outputs/design"
@@ -64,7 +64,7 @@ def main():
     screening = screen_designs(inertia)
     training_goal = change(goal, "pwm", False)
     training_goal["id"] = "joint-pd-training-average"
-    tools = StudyTools(training_goal, OUT / "training-ledger", ASSETS)
+    tools = create_experiment_tools(training_goal, OUT / "training-ledger", ASSETS)
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     sampler = optuna.samplers.TPESampler(seed=20261023, n_startup_trials=5)
     study = optuna.create_study(direction="minimize", sampler=sampler)

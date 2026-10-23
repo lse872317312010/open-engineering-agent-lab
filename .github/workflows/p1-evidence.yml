@@ -40,6 +40,8 @@ jobs:
         run: python benchmarks/validate_p3.py
       - name: P4 double PI host SIL and static checks
         run: python benchmarks/validate_p4.py
+      - name: P4 float32 PI SIL and static checks
+        run: python benchmarks/validate_p4_f32.py
       - name: Hash reproducible evidence artifacts
         if: always()
         run: python benchmarks/evidence_manifest.py

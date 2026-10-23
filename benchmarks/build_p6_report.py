@@ -3,12 +3,12 @@
 import json
 import os
 import platform
-import resource
 import re
-import textwrap
+import resource
 import shutil
 import subprocess
 import sys
+import textwrap
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -17,9 +17,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.font_manager import FontProperties, fontManager
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 from matplotlib.path import Path as PlotPath
-from matplotlib.font_manager import FontProperties, fontManager
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "outputs/p6"
@@ -196,9 +196,12 @@ def main():
         ax.text(x + 12, y + 62, node["subtitle"], fontsize=8)
     ax.text(285, 22, "电流 / 角度 / 转速反馈", color=palette[2], fontsize=9)
     ax.text(550, 546, "绕组温度 → 实际铜阻", color=palette[2], fontsize=9)
-    ax.text(5, 582, "蓝色实线：控制信号    青色实线：能量耦合    紫色虚线：反馈 / 停机", fontsize=10)
-    ax.text(5, 616, "20 kHz：阈值锁存 → PI / 解耦 → 延迟选择 → 电压保持 → RK4 子步 → 下一 tick", fontsize=9)
-    ax.text(5, 644, "状态回放与详细连接见 index.html；参数和连接定义同时保留于 data.json。", fontsize=9)
+    ax.text(5, 582, "蓝色实线：控制信号    青色实线：能量耦合"
+            "    紫色虚线：反馈 / 停机", fontsize=10)
+    ax.text(5, 616, "20 kHz：阈值锁存 → PI / 解耦 → 延迟选择"
+            " → 电压保持 → RK4 子步 → 下一 tick", fontsize=9)
+    ax.text(5, 644, "状态回放与详细连接见 index.html；"
+            "参数和连接定义同时保留于 data.json。", fontsize=9)
     figures.append(("system-model", fig))
 
     mechanism_fig = plt.figure(figsize=(11.69, 8.27))
@@ -210,7 +213,8 @@ def main():
         mechanism_fig.text(0.06, y - 0.024, "\n".join(lines), fontsize=9,
                            va="top", linespacing=1.5)
         y -= 0.032 + len(lines) * 0.022
-    mechanism_fig.text(0.06, 0.04, "仿真状态回放；无速度/位置外环。零电压停机仍保留电磁、机械与热动态。", fontsize=9)
+    mechanism_fig.text(0.06, 0.04, "仿真状态回放；无速度/位置外环。"
+                       "零电压停机仍保留电磁、机械与热动态。", fontsize=9)
 
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
@@ -267,7 +271,9 @@ def main():
                          node["equation"], node["limits"]]
     report_lines += ["", "## 模块连接"]
     for edge in spec["edges"]:
-        report_lines.append(f"- {edge['from']} → {edge['to']}：{edge['label']}。{edge['mechanism']}")
+        report_lines.append(
+            f"- {edge['from']} → {edge['to']}：{edge['label']}。{edge['mechanism']}"
+        )
     report_lines += ["", "## 范围和复现", json.dumps(data["scope"], ensure_ascii=False, indent=2),
                      "", "所有参数与标定数据为合成研究值；不代表真机测量或硬件保护认证。",
                      "尚未实现完整关节 FMU/OpenModelica、开关级与齿隙接触。",

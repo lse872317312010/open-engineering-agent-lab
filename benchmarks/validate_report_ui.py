@@ -56,7 +56,8 @@ def main():
 
         page.locator("#case-select").select_option("5")
         assert "已锁存" in page.locator('#system-states [data-module="stop"]').inner_text()
-        assert "零平均电压命令" in page.locator('#system-states [data-module="inverter"]').inner_text()
+        inverter_state = page.locator('#system-states [data-module="inverter"]')
+        assert "零平均电压命令" in inverter_state.inner_text()
         page.locator('#system-states [data-module="stop"]').click()
         assert "CSV tripped = 1" in page.locator("#system-detail").inner_text()
         page.locator("#case-select").select_option("0")
@@ -126,7 +127,9 @@ def main():
             "module keyboard selection and mobile state cards",
         ],
         "page_errors": errors, "external_network_requests": network,
-        "screenshots": ["ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png"],
+        "screenshots": [
+            "ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png",
+        ],
     }
     (REPORT / "ui-validation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
     print("report-ui.json: " + json.dumps(report, ensure_ascii=False))

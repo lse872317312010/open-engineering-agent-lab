@@ -47,6 +47,12 @@ def csv(name, columns, rows):
     np.savetxt(OUT / name, rows, delimiter=",", header=",".join(columns), comments="")
 
 
+def preview(rows, stride):
+    """Decimate for browsing while retaining both real endpoint samples."""
+    indices = np.unique(np.r_[np.arange(0, len(rows), stride), len(rows) - 1])
+    return rows[indices].tolist()
+
+
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -235,7 +241,7 @@ def electrical_cases(magnetic_path):
                 "bus_min_v": float(rows[:, 9].min()), "bus_max_v": float(rows[:, 9].max()),
                 "peak_junction_c": float(rows[:, 20].max()),
             },
-            "control_columns": CONTROL_COLUMNS, "control": rows[::4].tolist(),
+            "control_columns": CONTROL_COLUMNS, "control": preview(rows, 4),
             "wave_columns": wave_columns, "wave_window": window.tolist(),
             "gate_columns": ["time_s", "duration_s", "qa", "qb", "qc", "blank_a",
                              "blank_b", "blank_c", "enabled"],
@@ -304,8 +310,8 @@ def robot_cases(path):
             valid = valid and contact_count > 0
         reports.append({
             "id": spec["id"], "title": spec["title"], "backend": "motulator + MuJoCo UR5e",
-            "config": config, "columns": ROBOT_COLUMNS, "samples": rows[::4].tolist(),
-            "control_columns": CONTROL_COLUMNS, "control": control[::20].tolist(),
+            "config": config, "columns": ROBOT_COLUMNS, "samples": preview(rows, 4),
+            "control_columns": CONTROL_COLUMNS, "control": preview(control, 20),
             "numeric_passed": valid, "position_goal_passed": error < 0.03,
             "metrics": {
                 "tail_position_error_rad": error, "peak_contacts": contact_count,

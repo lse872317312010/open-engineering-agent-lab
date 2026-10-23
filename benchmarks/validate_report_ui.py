@@ -162,6 +162,12 @@ def main():
             "module keyboard selection and mobile state cards",
         ],
         "page_errors": errors, "external_network_requests": network,
+        "open_models_available": bool(refined.get("passed")),
+        "open_model_checks": ([
+            "12 electrical and four robot experiments", "negative physical goal retained",
+            "blocked gates state replay", "robot timeline real endpoints",
+            "CSV export and 390px component cards",
+        ] if refined.get("passed") else ["not run in this baseline-only report"]),
         "screenshots": [
             "ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png",
         ],

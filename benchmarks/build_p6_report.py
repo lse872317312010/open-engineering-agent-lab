@@ -278,8 +278,9 @@ def main():
         fig, axes = plt.subplots(1, 2, figsize=(11.69, 6.5), layout="constrained")
         curve = np.asarray(refined["magnetic_map"]["curve"])
         axes[0].plot(curve[:, 0], curve[:, 1], label="上游非线性磁图")
-        axes[0].plot(curve[:, 0], curve[:, 2], "--", label="零电流线性切线")
-        axes[0].set(xlabel="q 电流 A", ylabel="q 磁链 Wb",
+        axes[0].plot(curve[:, 0], curve[:, 2], "--", label="零电流 q 切线")
+        axes[0].plot(curve[:, 0], curve[:, 3], label="d 磁链：交叉耦合")
+        axes[0].set(xlabel="q 电流 A", ylabel="磁链 Wb",
                     title="同一上游示例电机 · 不是用户电机标定")
         thermal = np.asarray(refined["thermal"]["samples"])
         for j, name in enumerate(("绕组", "铁心", "壳体", "等效结", "板", "散热器")):

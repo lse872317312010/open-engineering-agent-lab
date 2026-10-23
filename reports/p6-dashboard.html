@@ -77,7 +77,7 @@
 <details><summary>检查实际门极与死区事件</summary><p class="caption">各通道分层显示 qa/qb/qc 与 a/b/c 桥臂 blanking；关闭门极时，二极管状态由负载与事件求解器决定。事件 CSV 为门极命令，不能当作器件瞬态测量。</p><svg class="chart" id="refined-gate-chart" viewBox="0 0 900 270" role="img" aria-label="三桥臂门极与死区事件"></svg><p id="refined-gate-note" class="caption"></p></details></div>
 <div id="refined-robot" hidden><div class="refined-layout rowgap"><div><h3>柔性传动与负载</h3><svg class="chart" id="refined-torque-chart" viewBox="0 0 680 250" role="img" aria-label="机器人传动转矩和模型偏置"></svg><p class="caption">偏置包含重力与运动项；PD 前馈使用 MuJoCo 偏置。接触案例为初始重叠 0.01 m 的合成预加载夹具，峰值不是实测冲击力。</p></div><div><img class="robot-model-image" src="refined/ur5e-model.png" alt="MuJoCo 中实际运行的 UR5e 模型" loading="lazy"><p class="caption">固定版本 Menagerie UR5e；选定肩部轴由研究电机驱动，其他轴由上游位置执行器保持。</p></div></div></div>
 <details><summary>查看当前实验参数、后端与适用边界</summary><pre class="meta" id="refined-parameters"></pre></details>
-<div class="refined-layout rowgap"><div><h3>同一示例电机：磁图与线性切线</h3><svg class="chart" id="refined-map-chart" viewBox="0 0 680 260" role="img" aria-label="上游非线性磁图与零电流线性切线"></svg><p class="caption" id="refined-map-note"></p></div><div><h3>六节点温度与器件热通道</h3><svg class="chart" id="refined-thermal-chart" viewBox="0 0 680 260" role="img" aria-label="绕组铁心壳体结板散热器温度"></svg><p class="caption">绕组 / 铁心 / 壳体 / 等效结 / 板 / 散热器。短时实验温度反馈电阻；此 120 s 图为短时损耗回放，未运行长时完整 FOC。结温来自研究 RC 与损耗估计。</p></div></div>
+<div class="refined-layout rowgap"><div><h3>同一示例电机：磁图与线性切线</h3><svg class="chart" id="refined-map-chart" viewBox="0 0 680 260" role="img" aria-label="上游非线性磁图与零电流线性切线"></svg><p class="caption" id="refined-map-note"></p></div><div><h3>六节点温度与器件热通道</h3><div class="legend"><span style="color:var(--teal)">● 绕组</span><span style="color:var(--blue)">● 铁心</span><span style="color:var(--purple)">● 壳体</span><span style="color:var(--amber)">● 等效结</span><span style="color:#cc5963">● 板</span><span style="color:#718393">● 散热器</span></div><svg class="chart" id="refined-thermal-chart" viewBox="0 0 680 260" role="img" aria-label="绕组铁心壳体结板散热器温度"></svg><p class="caption">绕组 / 铁心 / 壳体 / 等效结 / 板 / 散热器。短时实验温度反馈电阻；此 120 s 图为短时损耗回放，未运行长时完整 FOC。结温来自研究 RC 与损耗估计。</p></div></div>
 <h3 class="rowgap">原始目标与运行质量</h3><div class="table-wrap"><table><thead><tr><th>实验</th><th>实际后端</th><th>尾段误差</th><th>目标</th><th>数值/域检查</th></tr></thead><tbody id="refined-results"></tbody></table></div>
 <div class="proof rowgap" id="refined-proofs"></div>
 <details><summary>模型版本、许可与实验之间的关系</summary><pre class="meta" id="refined-sources"></pre><p>motulator：MIT；MuJoCo：Apache-2.0；Menagerie UR5e：BSD-3-Clause。完整许可证随证据包分发。非线性磁图与原研究电机为不同参数集；只将同一磁图电机的切线/非线性模型作对比。六轴独立电驱、齿面有限元、半导体寄生/反向恢复、EMI 与实测校准尚未覆盖。</p></details>
@@ -218,7 +218,7 @@ function renderRefined(){
  el("refined-legend").textContent=robot?"青：关节角 · 蓝虚线：目标 · 紫：折算电机角":"青：真实 q 电流 · 蓝虚线：目标 · 紫虚线（如有）：同参数简化模型";
  chart("refined-trace-chart",series,"时间 ms",robot?"角度 rad":"电流 A",t*1000);
  el("refined-time").textContent=format(t*1000,2)+" ms";el("refined-states").replaceChildren();
- addRefinedState("电流控制",cv("voltage_limited")?"实际电压限幅":"本采样未限幅","iq "+format(cv("iq_a"),2)+" A · PIq "+format(cv("integral_q_v"),2)+" V",Boolean(cv("voltage_limited")));
+ addRefinedState("电流控制",!cv("enabled")?"门极关断 · PI复位":cv("voltage_limited")?"本采样电压限幅":"本采样未限幅","iq "+format(cv("iq_a"),2)+" A · PIq "+format(cv("integral_q_v"),2)+" V",Boolean(cv("voltage_limited")));
  if(robot){
   const free=Math.abs(value("twist_rad"))<=c.config.backlash_rad;
   addRefinedState("弹性 / 齿隙",free?"间隙内 · 未啮合":"接触传力","δ "+format(value("twist_rad"),5)+" rad · τ "+format(value("shaft_torque_nm"),2)+" N·m",free);
@@ -230,7 +230,7 @@ function renderRefined(){
   addRefinedState("电机",c.config.nonlinear?"上游非线性磁图":"线性磁模型","Te "+format(cv("torque_nm"),3)+" N·m · iq "+format(cv("iq_a"),2)+" A");
   addRefinedState("热通道","六节点短时耦合","绕组 "+format(cv("winding_c"),3)+" / 等效结 "+format(cv("junction_c"),3)+" °C");
   const w=c.wave_window;chart("refined-wave-chart",[1,2,3].map((j,i)=>({data:w.map(x=>[x[0]*1000,x[j]]),color:colors[i]})),"时间 ms","相电流 A");
-  chart("refined-voltage-chart",[4,5,6].map((j,i)=>({data:w.map(x=>[x[0]*1000,x[j]]),color:colors[i]})),"时间 ms","相电压 V");
+  chart("refined-voltage-chart",[4,5,6].map((j,i)=>({data:w.flatMap((x,k)=>[[x[0]*1000,x[j]],[(w[k+1]?.[0]??x[0])*1000,x[j]]]),color:colors[i]})),"时间 ms","相电压 V");
   const gates=c.gate_window;chart("refined-gate-chart",[2,3,4,5,6,7].map((j,i)=>({data:gates.flatMap(x=>[[x[0]*1000,i*1.5+x[j]],[(x[0]+x[1])*1000,i*1.5+x[j]]]),color:colors[i%4]})),"时间 ms","qa / qb / qc / blank a / b / c");
   el("refined-gate-note").textContent="全段门极区间 "+c.metrics.gate_intervals+"；窗口 "+gates.length+" 个区间。磁图超域样本 "+c.metrics.map_extrapolation_samples+"。";
  }
@@ -245,8 +245,8 @@ function initRefined(){
  el("refined-unavailable").hidden=true;el("refined-content").hidden=false;
  el("refined-gate").textContent="开源深化 · "+(R.passed?"声明数值门槛通过":"存在未通过项");
  fillRefinedCases();
- chart("refined-map-chart",[{data:R.magnetic_map.curve.map(r=>[r[0],r[1]])},{data:R.magnetic_map.curve.map(r=>[r[0],r[2]]),dash:true}],"q 轴电流 A","q 轴磁链 Wb");
- el("refined-map-note").textContent="青：上游非线性磁图；蓝虚线：零电流切线。反插值最大电流偏差 "+format(R.magnetic_map.roundtrip_max_error_a,4)+" A；运行域检查拒绝静默外推。";
+ chart("refined-map-chart",[{data:R.magnetic_map.curve.map(r=>[r[0],r[1]])},{data:R.magnetic_map.curve.map(r=>[r[0],r[2]]),dash:true},{data:R.magnetic_map.curve.map(r=>[r[0],r[3]]),color:colors[2]}],"q 轴电流 A","磁链 Wb");
+ el("refined-map-note").textContent="青：非线性 q 磁链；蓝虚线：零电流 q 切线；紫：d 磁链随 q 电流变化。反插值最大电流偏差 "+format(R.magnetic_map.roundtrip_max_error_a,4)+" A；运行域检查拒绝静默外推。";
  chart("refined-thermal-chart",[1,2,3,4,5,6].map((j,i)=>({data:R.thermal.samples.map(r=>[r[0],r[j]]),color:["var(--teal)","var(--blue)","var(--purple)","var(--amber)","#cc5963","#718393"][i]})),"时间 s","温度 °C");
  [...R.electrical,...R.robot.cases].forEach(c=>{const robot=Boolean(c.samples),error=robot?format(c.metrics.tail_position_error_rad,4)+" rad":format(c.metrics.tail_q_error_a,3)+" A",goal=robot?c.position_goal_passed:c.tracking_goal_passed;const tr=document.createElement("tr");[c.title,c.backend,error,goal?"达成":"未达",c.numeric_passed?"通过":"未通过"].forEach((v,i)=>{const td=document.createElement("td");td.textContent=v;if(i===3)td.className="status"+(goal?"":" warn");tr.append(td)});el("refined-results").append(tr)});
  const refs=R.references,robotRefs=R.robot.references;

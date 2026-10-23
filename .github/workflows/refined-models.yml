@@ -55,3 +55,8 @@ jobs:
           name: p6-open-models-report-and-evidence
           path: outputs/
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p6-open-models-report
+          path: outputs/report/
+          if-no-files-found: error

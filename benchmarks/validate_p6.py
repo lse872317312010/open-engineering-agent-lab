@@ -1,5 +1,6 @@
 """Predeclared independent P6 references, holdout calibration and bounded uncertainty."""
 
+import hashlib
 import json
 import math
 import os
@@ -196,7 +197,8 @@ def scenarios():
         ("compliant", "柔性传动与负载", control, JointParameters(stiffness_nm_per_rad=40),
          ThermalParameters(), InverterParameters(), [25, 25, 25], 2.0),
         ("low-bus", "低母线不可达目标",
-         replace(control, vdc_v=4, iq_reference_a=12), JointParameters(), ThermalParameters(),
+         replace(control, vdc_v=4, iq_reference_a=12, current_limit_a=15),
+         JointParameters(), ThermalParameters(),
          InverterParameters(), [25, 25, 25], 0.0),
         ("stop", "热阈值命令停机", control, JointParameters(), ThermalParameters(),
          InverterParameters(), [130, 60, 60], 0.0),
@@ -212,6 +214,7 @@ def scenarios():
         tail_error = float(abs(data[-80:, 2].mean() - settings.iq_reference_a))
         result.update({
             "id": key, "title": title, "samples": data[::4].tolist(),
+            "inputs": {"initial_temperature_c": initial, "load_nm": load},
             "metrics": {
                 "q_tail_error_a": tail_error, "peak_winding_c": float(data[:, 7].max()),
                 "peak_board_c": float(data[:, 9].max()),
@@ -247,6 +250,18 @@ def scenarios():
         "thermal_scope": "120 s prescribed ideal-current envelope; not full 20 kHz FOC",
         "uncertainty_scope": "bounded +/-20% resistance scenarios, not confidence intervals",
     }
+    save("inputs.json", {
+        "parameter_source": "synthetic_research",
+        "scenarios": [{"id": item["id"], "parameters": item["parameters"],
+                       **item["inputs"]} for item in reports],
+        "thermal_envelope": {"duration_s": 120, "step_s": 0.05,
+                             "high_current_a": [5, 12], "ambient_c": [25, 40],
+                             "high_duration_s": 40, "low_duration_s": 20,
+                             "low_current_fraction": 0.2,
+                             "correlated_resistance_factors": [0.8, 1.0, 1.2]},
+        "calibration": {"source": "analytic single-node RC", "true_r": 1.5, "true_c": 80,
+                        "step_s": 1, "ambient_c": 25, "seed": 20261023},
+    })
     save("scenarios.json", result)
     if not passed:
         raise AssertionError("P6 scenario or convergence validation failed")
@@ -264,7 +279,9 @@ def main():
         "source_commit": os.environ.get("GITHUB_SHA", "unrecorded"),
         "parameter_source": "synthetic_research", "evidence_level": "model_simulated",
         "elapsed_s": time.perf_counter() - start, "model": asdict(MOTOR),
-        "inputs": "examples/p6-joint.json", "command": "python benchmarks/validate_p6.py",
+        "inputs": "outputs/p6/inputs.json",
+        "inputs_sha256": hashlib.sha256((OUT / "inputs.json").read_bytes()).hexdigest(),
+        "command": "python benchmarks/validate_p6.py",
     }
     save("run.json", report)
     print("p6.json: " + json.dumps({**report, "references": refs,

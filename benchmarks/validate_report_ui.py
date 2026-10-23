@@ -12,7 +12,8 @@ REPORT = ROOT / "outputs/report"
 def main():
     errors, network = [], []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(channel="chrome")
+        browser_version = browser.version
         context = browser.new_context(viewport={"width": 1440, "height": 1024},
                                       accept_downloads=True, device_scale_factor=1)
         page = context.new_page()
@@ -73,7 +74,7 @@ def main():
     assert len(pngs) == 4
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
-        "passed": True, "browser": "Chromium via Playwright",
+        "passed": True, "browser": "system Chrome via Playwright", "browser_version": browser_version,
         "checks": [
             "offline data and six scenarios", "failure state displayed", "baseline overlay",
             "keyboard time cursor", "thermal scenario", "dark theme", "CSV/JSON export",

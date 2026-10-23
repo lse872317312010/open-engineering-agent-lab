@@ -53,8 +53,11 @@ class MultiPhysicsTests(TestCase):
         fine = run_joint(self.motor, replace(control, integration_step_s=5e-6))["samples"]
         np.testing.assert_allclose(coarse[:, :10], fine[:, :10], atol=2e-4, rtol=0)
         stopped = run_joint(
-            self.motor, control, initial_temperature_c=(130, 25, 25)
+            self.motor, control,
+            thermal=ThermalParameters(winding_j_per_k=0.1, winding_case_k_per_w=0.01),
+            initial_temperature_c=(130, 25, 25)
         )["samples"]
+        self.assertLess(stopped[-1, 7], 120)
         self.assertTrue(np.all(stopped[:, -1] == 1))
         self.assertTrue(np.all(stopped[:, -2] == 0))
 

@@ -11,7 +11,8 @@
 | P2 | IR v0.1 Gate 通过 | 五种对象、单位/时钟/预算、往返与 native/PathSim 开环适配；非通用方程编辑器 |
 | P3 | 单个受控离线提议/失败/修复/验收闭环通过 | 在线 LLM 和任意自然语言规划未验收；没有越过白名单的动态执行 |
 | P4 | double 与 float32 PI 内核 SIL 通过 | 当前为 PI 内核；完整 FOC 固件和固定点未覆盖，真机目标时序由用户验收 |
-| P5 | 当前 PI 内核仿真/SIL 与 STM32G474 构建交接范围通过 | 新版 Gate 不要求真机；用户负责 HAL 集成与板端测试。TI C2000 构建尚未验证 |
+| P5 | PI 内核 SIL、STM32 构建与 ARM QEMU 集成仿真通过 | QEMU 运行 2173 案例；真实设备由用户负责。TI C2000 构建未验证 |
+| P6 | 多物理模型、独立参考、合成标定及 FMI RC 验证通过；报告验收见 CI | 交付中文交互 HTML、PDF、PNG/SVG、CSV 与浏览器证据；限定范围见 P6 契约 |
 
 本次改变阶段验收范围，保留原始结果与证据等级；不生成 PIL_measured。
 旧报告的 p5_gate_passed=false 对应当时真机 Gate，不代表新版仿真交付被硬件阻塞。
@@ -55,3 +56,12 @@
 用户自行接入现有固件/HAL、保护链路并完成刷机、上电、PIL/HIL、
 目标时间/抖动/栈和最终链接资源验证；这些事项不阻塞 Agent 后续仿真研发。
 TI C2000 的确切器件/SDK/工具链按实际可用性补充，不宣称现已验证。
+
+## P6 多物理与报告
+
+数学/模型验证提交 be8f05d76377cfc3a6b501a96e2aee949c2d316d，
+[run 39883445674](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/39883445674)。
+49 项测试通过；全耦合独立 DOP853 末态误差 2.99e-12，热网络参考误差 5.33e-13 K；
+独立合成验证 RMSE 0.00477 K，FMI RC 误差 1.39e-13 K。
+报告与 UI 以 PR #7 最新 P6 工作流中的 report/ui-validation.json 为验收记录。
+[下载与复现指南](p6-report-guide.md) / [模型与固定阈值](p6-model-contract.md)。

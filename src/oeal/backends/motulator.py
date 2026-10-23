@@ -99,7 +99,7 @@ class DriveController:
         device = (
             c.get("device_drop_v", 0.0) * np.abs(phase).sum()
             + 1.5 * 0.02 * abs(true_i) ** 2
-            + 6 * 20e-6 / dt * abs(true_i)
+            + 6 * 20e-6 / dt * abs(true_i) * float(enabled)
         )
         # Device switching heat is a declared research estimate, not transistor physics.
         temperatures = self.thermal.advance([copper, core, 0, device, 0, 0])

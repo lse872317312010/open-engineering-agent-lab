@@ -116,7 +116,8 @@
       "id": "robot-contact",
       "title": "UR5e 外部接触夹具",
       "backlash_rad": 0.001,
-      "fixture": true
+      "fixture": true,
+      "fixture_scope": "synthetic preloaded sphere fixture; 0.01 m initial geometric overlap"
     }
   ],
   "sources": {

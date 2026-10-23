@@ -5,12 +5,14 @@
 
 ## 取得报告
 
-在 PR #7 的 **P6 multi-physics evidence and report** 工作流中，
+在 **P6 multi-physics evidence and report** 工作流中取得基础报告；
+深化报告使用 **Open-model refinement evidence** 工作流的对应产物。
+基础报告可
 下载 **p6-report-and-evidence** artifact：
 - report/index.html：离线中文交互界面，直接双击打开，无需服务器/账号/网络；
 - p6-report.zip：独立报告包，解压后打开 index.html；
-- report/report.pdf：五页标准图表与方法说明；
-- report/plots/：4 组 PNG/SVG，可用于文档或演示；
+- report/report.pdf：系统图、标准图表与方法说明；
+- report/plots/：基础报告 5 组、深化报告 8 组 PNG/SVG；
 - report/data/ 与 data.json：完整 CSV 与结构化报告；
 - report/ui-*.png、ui-validation.json：实际桌面/暗色/移动端截图和浏览器交互验收；
 - p6/：独立参考、标定、全部参数输入、FMU 和复现环境；
@@ -46,7 +48,7 @@ python benchmarks/validate_report_ui.py
 python benchmarks/evidence_manifest.py
 ```
 
-## 范围
+## 原 P6 基础实验范围
 
 实现：9 状态电气/双惯量/三节点热耦合、平均逆变器纹波/死区代理、
 采样更新与一周期延迟接口、命令停机事件、合成标定与独立验证、

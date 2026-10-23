@@ -3,6 +3,12 @@
 面向 PMSM / FOC / 机器人关节研究的 Python + Agent 工程实验仓库。
 参数和工况使用开放 JSON，仿真输出 CSV/JSON，验收与提议策略分离。
 
+## 验收约束
+
+按用户 2026-10-23 的要求：仿真环境中完成并通过固定指标即可交付，真机由用户负责。
+Agent 持续推进仿真/SIL 与可复现产物，不以板卡、PIL 或实测资源日志作为开发前置条件。
+详见 [验收范围](docs/acceptance-scope.md)；证据等级仍按实际来源保留。
+
 ## 已实现的离线能力
 
 - 原生 PMSM dq + 机械 RK4 模型；Clarke/Park、dq PI、回算抗积分饱和。
@@ -10,7 +16,7 @@
 - B0 独立 DOP853/步长收敛；B1 阶跃、正反转速、参数偏差和失败工况。
 - 五类 IR v0.1 Schema、单位/时钟/预算校验，native/PathSim 开环适配。
 - 白名单实验工具、固定验收器、按内容寻址的账本和离线失败修复策略。
-- double PI C 内核及主机 SIL；STM32G474 对象交叉编译流程。
+- double/float32 PI C 内核及主机 SIL；STM32G474 对象交叉编译流程。
 
 这些是研究软件能力。当前未运行真实板卡 PIL；未提供 TI C2000 构建结果。
 详细进度和确切证据见 [阶段状态](docs/stage-status.md)，总目标见 [路线图](docs/roadmap.md)。
@@ -61,7 +67,7 @@ P5 交叉编译需 ARM 工具链，运行 `python benchmarks/validate_p5.py`；
 这是合成研究参数的平均电压模型，不包含开关级逆变器、真实 ADC/ISR 时序、
 磁饱和、损耗温升或实际电机参数辨识。电流指令限幅不保证瞬态真实电流限幅。
 离线提议策略未测试在线 LLM；应用层白名单不是任意 Python 的 OS 沙箱。
-P4 当前验证 double PI 内核，未验证完整嵌入式 FOC、float32 或固定点。
+P4 当前验证 double/float32 PI 内核，未验证完整嵌入式 FOC 或固定点。
 交叉编译对象 size 不等于最终固件 Flash/RAM；板端 50 us 期限尚未测量。
 
 ## 文档

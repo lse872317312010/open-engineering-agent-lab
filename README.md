@@ -21,6 +21,23 @@ Agent 持续推进仿真/SIL 与可复现产物，不以板卡、PIL 或实测�
 这些是研究软件能力。当前未运行真实板卡 PIL；未提供 TI C2000 构建结果。
 详细进度和确切证据见 [阶段状态](docs/stage-status.md)，总目标见 [路线图](docs/roadmap.md)。
 
+## P6 多物理研究与交互报告
+
+新增 9 状态关节耦合、三节点热网络、平均逆变器误差、
+合成数据独立标定/验证与单节点 RC FMI 互操作。
+[报告使用说明](docs/p6-report-guide.md)介绍离线 HTML、PDF、
+PNG/SVG、CSV 和实际浏览器截图的下载与复现。
+
+```bash
+oeal simulate-joint examples/p6-joint.json --output outputs/joint
+python benchmarks/validate_p6.py
+python benchmarks/validate_fmi_thermal.py
+python benchmarks/build_p6_report.py
+```
+
+报告包含工况/热阻切换、基准叠加、时间游标、参数说明与导出。
+P6 合成研究数据不代表实测校准；完整范围见 [模型契约](docs/p6-model-contract.md)。
+
 ## 快速运行
 
 Python >=3.10；外部项目评测环境需 Python 3.12。

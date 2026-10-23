@@ -1,0 +1,51 @@
+name: P6 multi-physics evidence and report
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  p6:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install P6 environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Lint and model regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Independent P6 references and scenarios
+        run: python benchmarks/validate_p6.py
+      - name: FMI thermal interoperability
+        run: python benchmarks/validate_fmi_thermal.py
+      - name: Reproduce coupled joint CLI
+        run: oeal simulate-joint examples/p6-joint.json --output outputs/p6/cli
+      - name: Prepare report fonts and existing Chrome
+        run: |
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          google-chrome --version
+      - name: Generate interactive report and PDF figures
+        run: python benchmarks/build_p6_report.py
+      - name: Exercise report in Chromium
+        run: python benchmarks/validate_report_ui.py
+      - name: Package standalone report
+        run: python -c "import shutil; shutil.make_archive('outputs/p6-report', 'zip', 'outputs/report')"
+      - name: Hash P6 evidence
+        if: always()
+        run: python benchmarks/evidence_manifest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p6-report-and-evidence
+          path: outputs/
+          if-no-files-found: error

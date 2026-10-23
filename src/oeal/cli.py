@@ -14,6 +14,7 @@ from oeal import __version__
 from oeal.experiments import run_experiment
 from oeal.foc_io import run_foc
 from oeal.ir import validate_document
+from oeal.joint_io import run_joint_file
 from oeal.models import MotorParameters, PMSMInput, PMSMState, simulate
 
 
@@ -96,6 +97,9 @@ def main(argv: list[str] | None = None) -> int:
     experiment.add_argument("--output", type=Path, required=True)
     validation = commands.add_parser("validate-spec", help="validate an IR document")
     validation.add_argument("config", type=Path)
+    joint = commands.add_parser("simulate-joint", help="run a P6 coupled joint study")
+    joint.add_argument("config", type=Path)
+    joint.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 
     if args.command == "simulate":
@@ -116,6 +120,11 @@ def main(argv: list[str] | None = None) -> int:
         result = run_experiment(json.loads(args.config.read_text(encoding="utf-8")))
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+        return 0
+    if args.command == "simulate-joint":
+        trace_path, summary_path = run_joint_file(args.config, args.output)
+        print(f"trace: {trace_path}")
+        print(f"summary: {summary_path}")
         return 0
     return 2
 

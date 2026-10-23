@@ -1,0 +1,51 @@
+name: Architecture and one-time branch cleanup
+on:
+  push:
+    branches: [main, codex/architecture-and-branch-cleanup]
+    paths:
+      - docs/architecture*
+      - .github/workflows/architecture-maintenance.yml
+      - .github/maintenance/branch-cleanup-2026-10-23.json
+      - .github/scripts/cleanup_branches_20261023.py
+permissions:
+  contents: read
+concurrency:
+  group: branch-cleanup-2026-10-23
+  cancel-in-progress: false
+jobs:
+  maintenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check architecture files
+        run: |
+          python -m py_compile .github/scripts/cleanup_branches_20261023.py
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root = ET.parse("docs/architecture.svg").getroot()
+          assert root.tag == "{http://www.w3.org/2000/svg}svg"
+          for path in ("docs/architecture-overview.mmd", "docs/architecture-runtime.mmd"):
+              assert Path(path).read_text().startswith("flowchart ")
+          assert "architecture.md" in Path("README.md").read_text()
+          PY
+      - name: Preview SHA-checked cleanup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/scripts/cleanup_branches_20261023.py
+      - name: Archive superseded tips and remove obsolete branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/scripts/cleanup_branches_20261023.py --apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: branch-cleanup-2026-10-23
+          path: outputs/maintenance/
+          if-no-files-found: warn

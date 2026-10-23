@@ -1,0 +1,29 @@
+{
+  "motulator_commit": "2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa",
+  "menagerie_commit": "cda5236f98383f6fbaa4820c6b18dba892cd087f",
+  "files": {
+    "baldor_400rpm_map.npz": "13205be7fd92362f6a3ed0178f7c1652f942fd64",
+    "ur5e/ur5e.xml": "f4b1e50d0b61b326154993f2033fea92b6631ba0",
+    "ur5e/LICENSE": "f24e07cb6524f2a5e42a466c27c655a9ceb674a6",
+    "ur5e/assets/base_0.obj": "25107a3de8af5d2441e6c580e689feb0d99e41c6",
+    "ur5e/assets/base_1.obj": "5459fa5805d822ecec64ab62a7766aeda54ea0a3",
+    "ur5e/assets/forearm_0.obj": "22505187a49a0e828da529f8f69f15c6a2f1ca9c",
+    "ur5e/assets/forearm_1.obj": "ddc95e33bd6fb941c22318a8a17518dfb3b7c1e6",
+    "ur5e/assets/forearm_2.obj": "dc71f88f985cfb2cba78215681a7b4d1f4157a71",
+    "ur5e/assets/forearm_3.obj": "bade6fe9cc1875135c7f2336da6031e3d9bb0bed",
+    "ur5e/assets/shoulder_0.obj": "614ed810dde95952e568bf861934a3884e723446",
+    "ur5e/assets/shoulder_1.obj": "02689aeb311772b90e6b8eeb084535dea2d5f992",
+    "ur5e/assets/shoulder_2.obj": "bd1b208f22c7f079a168562824ed42c44cf5b856",
+    "ur5e/assets/upperarm_0.obj": "e0aaef2544745cfd7f45a96978ed2581bac83af4",
+    "ur5e/assets/upperarm_1.obj": "a7a93fbf51b1b8ca19316d5445e075286490ac26",
+    "ur5e/assets/upperarm_2.obj": "785a1c471e0eafb1a00e1d21dae5a48b1e8a4e07",
+    "ur5e/assets/upperarm_3.obj": "ec1021c45f4d89079d0b98b90755b09fddca196a",
+    "ur5e/assets/wrist1_0.obj": "f3576facd2c19623352ee7aa700eb919394ae1d3",
+    "ur5e/assets/wrist1_1.obj": "d84fc9d4d9bdad6f14485820852e6f231cf4d803",
+    "ur5e/assets/wrist1_2.obj": "a44022198eacae682556fb14031e8c1f5f91d94d",
+    "ur5e/assets/wrist2_0.obj": "068f5c00c047a021321427f25eea79a5689bfeac",
+    "ur5e/assets/wrist2_1.obj": "236cd7be295b0cf37114a4c875727c6ec9d2294c",
+    "ur5e/assets/wrist2_2.obj": "66872002fd7d3dd87ed680b6b9eff6eaf88b91af",
+    "ur5e/assets/wrist3.obj": "8159d7d1d75cfe690cc666c641ecf8f2a19f87cd"
+  }
+}

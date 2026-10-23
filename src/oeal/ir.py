@@ -29,6 +29,10 @@ def motor_from_spec(model):
 
 
 def validate_document(document):
+    if document.get("version") == "0.2":
+        from oeal.studies import validate_study
+
+        return validate_study(document)
     canonical(document)
     VALIDATOR.validate(document)
     kind = document["kind"]

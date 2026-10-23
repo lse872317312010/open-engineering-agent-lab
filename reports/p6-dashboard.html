@@ -29,7 +29,7 @@
 @media(max-width:720px){.refined-layout{grid-template-columns:1fr}.refined-metrics,.refined-states{grid-template-columns:1fr 1fr}}
 </style></head>
 <body><a class="skip" href="#main">跳到报告内容</a>
-<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#refined">开源模型深化</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
+<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#design">控制设计</a><a href="#refined">开源模型深化</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
 <main class="main" id="main"><header class="top"><div class="muted">研究工作台 / P6 多物理域实验</div><div class="top-actions"><span class="pill"><span class="dot"></span> 合成研究场景</span><button id="theme" type="button" aria-label="切换深浅主题">深色模式</button></div></header>
 <section id="overview"><div class="hero"><div><div class="eyebrow">P6 · MULTIPHYSICS STUDY</div><h1>看见耦合，理解边界。</h1><p>把电流、柔性关节与热演化放在同一份研究报告中。探索不同工况，再用独立数学参考判断哪些结论已成立、哪些目标还不可达。</p><div class="tags"><span class="pill" id="gate">正在读取验收结果</span><span class="muted" style="font-size:12px">离线交互 · 无需账号 · 数据内嵌</span></div></div><div class="actions"><a class="action primary" href="report.pdf" download>下载 PDF 报告</a><button id="export-json">导出完整数据</button></div></div>
 <div class="progress" aria-label="阶段交付范围"><div class="stage">P1 · 基准</div><div class="stage">P2 · 模型 IR</div><div class="stage">P3 · 受控闭环</div><div class="stage">P4 · SIL</div><div class="stage">P5 · ARM 仿真</div><div class="stage current">P6 · 多物理</div></div>
@@ -62,6 +62,26 @@
 <section class="panel"><div class="panel-head"><div><h2>不确定性有多大？</h2><p class="caption">扫描绕组/环境热阻 ±20%，保持同一输入包络。</p></div></div>
 <svg class="chart" id="uncertainty-chart" viewBox="0 0 680 250" role="img" aria-label="不同热阻下绕组温度的研究区间"></svg><div class="insight" id="uncertainty-insight"></div><p class="caption">这是给定参数范围的情景包络，不是统计置信区间。</p></section>
 <section class="panel wide"><div class="panel-head"><div><h2>所有结果，一起看</h2><p class="caption">数值检查与电流目标分开判断。不可达案例是边界证据，也会完整列出。</p></div><a class="action" href="plots/scenario-comparison.png" download>导出对比图 PNG</a></div><div class="table-wrap"><table><thead><tr><th>研究工况</th><th>尾段 q 误差</th><th>绕组峰温</th><th>转矩峰值</th><th>数值检查</th><th>电流目标</th></tr></thead><tbody id="comparison-table"></tbody></table></div></section>
+
+
+<section class="panel wide" id="design" aria-labelledby="design-title">
+<div class="panel-head"><div><h2 id="design-title">从实验到控制设计</h2><p class="caption">统一接口运行模型，用固定目标比较参数方案。优化器只调整控制增益，结果由原始轨迹重新计算。</p></div><span class="pill" id="design-gate">本次未运行设计实验</span></div>
+<p id="design-unavailable">运行 Unified studies and control design 工作流以生成这部分证据。原 P6 验收不代表此处已通过。</p>
+<div id="design-content" hidden>
+<div class="insight" id="design-summary"></div>
+<div class="table-wrap"><table><thead><tr><th>模型配置</th><th>后端</th><th>结果流</th><th>数值检查</th><th>物理目标</th></tr></thead><tbody id="unified-results"></tbody></table></div>
+<p class="caption">输入包含 SI 单位、受限模型注册表、固定资产哈希和计算预算；control / joint 是固定时钟流，waveforms 是自适应求解采样，gates 是事件流。CSV 导出同时保留单位清单。</p>
+<div class="refined-layout rowgap"><div><h3>8 次受限搜索</h3><p class="caption">平均逆变器用于训练；图示尾段位置偏差。数值失败单独标记，惩罚分数不冒充测量误差。</p><svg class="chart" id="design-trials-chart" viewBox="0 0 680 230" role="img" aria-label="优化试验的位置偏差"></svg><div id="design-trials" class="table-wrap"><table><thead><tr><th>试验</th><th>Kp</th><th>Kd</th><th>尾段误差 rad</th><th>状态</th></tr></thead><tbody id="design-trial-rows"></tbody></table></div></div>
+<div><h3>独立验证</h3><p class="caption">PWM 开关、死区与压降下重新计算；0.5 kg 附加载荷未参与训练。</p><div class="table-wrap"><table><thead><tr><th>工况</th><th>原始误差 rad</th><th>优化误差 rad</th><th>固定目标</th></tr></thead><tbody id="design-results"></tbody></table></div><p class="insight">验收固定：末 10% 时段平均绝对位置误差 ≤0.03 rad，电流峰值 ≤20 A，轴转矩峰值 ≤100 N·m。轨迹 +0.08 rad，时长 0.25 s。红线和失败不会因搜索而改变。</p></div></div>
+<p class="insight">运行机制：位置参考 → PD 与模型偏置补偿 → q 轴电流参考 → 20 kHz FOC → PWM / 死区 / 电机积分 → 50:1 弹性传动 → MuJoCo 连杆；电机与连杆每 200 μs 交换并保持轴转矩，关节位置和速度反馈至外环。热网络更新铜阻。其余五个关节采用上游位置保持执行器。</p>
+<div class="toolbar"><label class="control">验证工况 <select id="design-case"></select></label><button id="design-csv">导出对比轨迹 CSV</button></div>
+<div class="legend"><span><i class="key" style="background:var(--blue)"></i>原始增益</span><span><i class="key" style="background:var(--teal)"></i>优化增益</span><span>虚线：固定参考</span></div>
+<svg class="chart" id="design-trace-chart" viewBox="0 0 900 260" role="img" aria-label="原始与优化增益的机器人关节响应"></svg>
+<div class="cursor-controls"><label for="design-cursor">状态回放</label><input id="design-cursor" type="range" min="0" max="1000" step="1" value="1000"><output id="design-time" for="design-cursor"></output></div>
+<div class="refined-states" id="design-states" aria-live="polite"></div><p class="insight" id="design-insight"></p>
+<div class="refined-layout rowgap"><div><h3>线性设计参考</h3><p class="caption">python-control：重力补偿平衡点附近的双惯量与一阶电流环，横坐标为 log₁₀(角频率 / rad·s⁻¹)。</p><svg class="chart" id="design-frequency-chart" viewBox="0 0 680 240" role="img" aria-label="降阶模型开环频率响应"></svg><p class="caption" id="design-linear-note"></p></div><div><h3>哪些参数值得继续辨识</h3><p class="caption">SALib Morris，4 条轨迹、16 次降阶模型计算。刚度、惯量和带宽各 ±20%；不是实测置信区间。</p><div class="proof" id="design-sensitivity"></div></div></div>
+<details><summary>受保护目标、来源与分析边界</summary><pre class="meta" id="design-metadata"></pre></details>
+</div></section>
 
 <section class="panel wide" id="refined" aria-labelledby="refined-title">
 <div class="panel-head"><div><h2 id="refined-title">开源模型下的细节与差异</h2><p class="caption">从平均模型深入到开关事件、非线性磁图和机器人姿态负载。每个实验保留真实后端、来源、状态与目标未达结果。</p></div><span class="pill" id="refined-gate">本次未运行深化实验</span></div>
@@ -256,6 +276,54 @@ function initRefined(){
  el("refined-csv").addEventListener("click",()=>{const c=refinedCase(),robot=el("refined-domain").value==="robot",columns=robot?c.columns:c.control_columns,rows=robot?c.samples:c.control;download(c.id+"-report-samples.csv",[columns.join(","),...rows.map(r=>r.join(","))].join("\n"),"text/csv;charset=utf-8")});
 }
 
+
+const designNames={"switching-baseline":"原始负载 · 开关模型","switching-backlash":"0.001 rad 齿隙","switching-payload-holdout":"0.5 kg 载荷 · 留出验证"};
+function designPair(){return D.design.validations[Number(el("design-case").value)]}
+function addCells(parent,values){const tr=document.createElement("tr");values.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td)});el(parent).append(tr)}
+function designRow(item,fraction){const rows=item.trace.samples;return rows[Math.round(fraction*(rows.length-1))]}
+function renderDesign(){
+ const pair=designPair(),fraction=Number(el("design-cursor").value)/1000,old=pair.baseline,now=pair.optimized;
+ const get=(item,row,key)=>row[item.trace.columns.indexOf(key)],row=designRow(now,fraction),oldRow=designRow(old,fraction),time=row[0]*1000;
+ chart("design-trace-chart",[
+ {data:old.trace.samples.map(r=>[r[0]*1000,get(old,r,"joint_angle_rad")]),color:colors[1]},
+ {data:now.trace.samples.map(r=>[r[0]*1000,get(now,r,"joint_angle_rad")]),color:colors[0]},
+ {data:now.trace.samples.map(r=>[r[0]*1000,get(now,r,"reference_rad")]),color:colors[3],dash:true}
+ ],"时间 ms","关节角 rad",time);
+ el("design-time").textContent=format(time,2)+" ms";
+ el("design-states").replaceChildren();
+ const metrics=now.verification.metrics;
+ const states=[
+ ["关节跟踪","瞬时位置偏差 "+format(Math.abs(get(now,row,"joint_angle_rad")-get(now,row,"reference_rad")),4)+" rad","原始方案 "+format(Math.abs(get(old,oldRow,"joint_angle_rad")-get(old,oldRow,"reference_rad")),4)+" rad"],
+ ["弹性传动","轴转矩 "+format(get(now,row,"shaft_torque_nm"),2)+" N·m","相对扭转 "+format(get(now,row,"twist_rad"),4)+" rad"],
+ ["电流与转矩边界","整段电流峰值 "+format(metrics.current_peak_a,2)+" A","整段轴转矩峰值 "+format(metrics.shaft_torque_peak_nm,2)+" N·m"],
+ ["固定目标验收",now.verification.passed?"整段目标达成":"整段目标未达","尾段平均绝对误差 "+format(metrics.position_tail_error_rad,5)+" rad"]
+ ];
+ states.forEach(lines=>{const div=document.createElement("div");div.className="refined-state";lines.forEach((line,i)=>{const n=document.createElement(i===0?"strong":"span");n.textContent=line;div.append(n)});el("design-states").append(div)});
+ el("design-insight").textContent=designNames[pair.id]+"。原始 Kp / Kd = 150 / 20；优化后 "+format(now.gains.kp,2)+" / "+format(now.gains.kd,2)+"。状态卡区分游标瞬时量与整段峰值；采样轨迹为报告预览，完整流与验收证据在 evidence 工件。";
+}
+function initDesign(){
+ const A=D.design,U=D.unified;if(!A?.validations?.length)return;
+ el("design-content").hidden=false;el("design-unavailable").hidden=true;
+ el("design-gate").textContent=A.passed?"设计基准 · 固定门槛通过":"设计基准 · 门槛未通过";
+ el("design-summary").textContent="五种模型通过同一 IR / CLI / Agent 接口运行。Optuna 8 次搜索仅修改 Kp ∈ [50,1200]、Kd ∈ [5,100]，基准开关模型尾段误差改善 "+format(A.baseline_improvement_fraction*100,1)+"%。全部为仿真证据；载荷留出验证单独显示。";
+ Object.entries(U.profiles||{}).forEach(([profile,p])=>addCells("unified-results",[profile,p.backend||"见模型注册表",(p.streams||[]).join(", "),p.numeric_passed===false?"失败":"通过",p.goal_passed?"达成":"未达"]));
+ const valid=A.trials.filter(t=>t.verification.metrics);
+ chart("design-trials-chart",[
+ {data:valid.map(t=>[t.trial,t.verification.metrics.position_tail_error_rad]),color:colors[0]},
+ {data:[[0,.03],[7,.03]],color:colors[3],dash:true}
+ ],"试验编号","尾段误差 rad");
+ A.trials.forEach(t=>addCells("design-trial-rows",[t.trial,format(t.gains.kp,1),format(t.gains.kd,1),t.failure?"—":format(t.verification.metrics.position_tail_error_rad,5),t.failure?"数值失败":t.verification.passed?"达成":"未达"]));
+ A.validations.forEach((p,i)=>{const option=document.createElement("option");option.value=i;option.textContent=designNames[p.id];el("design-case").append(option);addCells("design-results",[designNames[p.id],format(p.baseline.verification.metrics.position_tail_error_rad,5),format(p.optimized.verification.metrics.position_tail_error_rad,5),p.optimized.verification.passed?"达成":"未达"])});
+ chart("design-frequency-chart",["baseline","optimized"].map((key,i)=>({data:A.linear_analysis[key].frequency.map(r=>[Math.log10(r[0]),r[1]]),color:colors[i===0?1:0]})),"log₁₀ 角频率","开环幅值 dB");
+ const linear=A.linear_analysis.optimized;el("design-linear-note").textContent="降阶闭环极点最右实部 "+format(linear.response.rightmost_pole_per_s,3)+" s⁻¹；相位裕度 "+(linear.phase_margin_deg===null?"无有限值":format(linear.phase_margin_deg,1)+"°")+"。仅辅助筛选，不能替代非线性验证。";
+ const names=["传动刚度","负载惯量","电流环带宽"],effects=A.sensitivity.mu_star;
+ names.forEach((name,i)=>{const div=document.createElement("div");div.className="proof-item";div.textContent=name;const strong=document.createElement("strong");strong.textContent=effects[i].toExponential(3)+" rad";div.append(strong);el("design-sensitivity").append(div)});
+ el("design-metadata").textContent=JSON.stringify({optimizer:A.optimizer,training_goal_sha256:A.training_goal_sha256,training_goal:A.training_goal,training_fidelity:A.training_fidelity,validation_fidelity:A.validation_fidelity,reference_checks:A.reference_checks,sensitivity_scope:A.sensitivity.scope,limits:A.limits},null,2);
+ el("design-case").addEventListener("change",renderDesign);el("design-cursor").addEventListener("input",renderDesign);
+ el("design-csv").addEventListener("click",()=>{const p=designPair(),o=p.baseline,n=p.optimized,idx=(x,k)=>x.trace.columns.indexOf(k);const rows=n.trace.samples.map((r,i)=>[r[0],o.trace.samples[i][idx(o,"joint_angle_rad")],r[idx(n,"joint_angle_rad")],r[idx(n,"reference_rad")]]);download(p.id+"-comparison.csv",["time_s,baseline_angle_rad,optimized_angle_rad,reference_rad",...rows.map(r=>r.join(","))].join("\n"),"text/csv;charset=utf-8")});
+ renderDesign();
+}
+
 function init(){
  const cases=D.scenarios.cases;
  cases.forEach((c,i)=>{const option=document.createElement("option");option.value=i;option.textContent=c.title;el("case-select").append(option)});
@@ -275,7 +343,7 @@ function init(){
  cells.forEach((text,i)=>{const td=document.createElement("td");td.textContent=text;if(i>=4)td.className="status"+((i===4?c.numeric_passed:c.tracking_goal_passed)?"":" warn");tr.append(td)});el("comparison-table").append(tr)});
  const proofs=[["机械能与耗散",D.references.mechanical_energy_error_j.toExponential(2)+" J"],["三节点热网络",D.references.thermal_expm_error_k.toExponential(2)+" K"],["步长减半差异",D.scenarios.step_halving_max_state_difference.toExponential(2)],["FMI 互操作",D.fmi.passed?"解析 / 重置 / 非法写入通过":"未通过"]];
  proofs.forEach(([title,value])=>{const p=document.createElement("div");p.className="proof-item";const a=document.createElement("span");a.textContent=title;const b=document.createElement("strong");b.textContent=value;p.append(a,b);el("proofs").append(p)});
- initSystem();renderShort();renderThermal();initRefined();
+ initSystem();renderShort();renderThermal();initRefined();initDesign();
 }
 el("case-select").addEventListener("change",event=>{selected=Number(event.target.value);renderShort()});
 el("time-cursor").addEventListener("input",renderShort);el("compare").addEventListener("change",renderShort);

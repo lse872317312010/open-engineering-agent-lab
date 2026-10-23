@@ -26,6 +26,8 @@ jobs:
           python -m pytest
       - name: Independent P6 references and scenarios
         run: python benchmarks/validate_p6.py
+      - name: FMI thermal interoperability
+        run: python benchmarks/validate_fmi_thermal.py
       - name: Reproduce coupled joint CLI
         run: oeal simulate-joint examples/p6-joint.json --output outputs/p6/cli
       - name: Hash P6 evidence

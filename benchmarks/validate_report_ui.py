@@ -85,6 +85,35 @@ def main():
         json_path = REPORT / "ui-export-check.json"
         download.save_as(str(json_path))
         assert json.loads(json_path.read_text())["gate"]["passed"]
+
+        refined = json.loads((REPORT / "data.json").read_text()).get("refined", {})
+        if refined.get("passed"):
+            assert page.locator("#refined-case option").count() == 12
+            assert page.locator("#refined-results tr").count() == 16
+            page.locator("#refined-case").select_option("9")
+            assert "未达" in page.locator("#refined-insight").inner_text()
+            page.locator("#refined-case").select_option("7")
+            page.locator("#refined-cursor").fill("500")
+            page.locator("#refined-cursor").dispatch_event("input")
+            assert "门极关闭" in page.locator("#refined-states").inner_text()
+            page.locator("#refined-domain").select_option("robot")
+            assert page.locator("#refined-case option").count() == 4
+            page.locator("#refined-case").select_option("2")
+            assert "MuJoCo" in page.locator("#refined-insight").inner_text()
+            assert "peak_fixture_force_n" in page.locator("#refined-parameters").text_content()
+            page.locator("#refined-cursor").focus()
+            page.locator("#refined-cursor").press("Home")
+            assert page.locator("#refined-time").inner_text() == "0.00 ms"
+            page.locator("#refined-cursor").press("End")
+            end_time = page.locator("#refined-time").inner_text()
+            assert "250.00 ms" in end_time, repr(end_time)
+            with page.expect_download() as info:
+                page.locator("#refined-csv").click()
+            file = REPORT / "refined-export-check.csv"
+            info.value.save_as(str(file))
+            assert file.read_text().startswith("time_s,joint_angle_rad")
+            page.locator("#refined").screenshot(path=str(REPORT / "ui-open-models.png"))
+
         page.set_viewport_size({"width": 390, "height": 844})
         page.reload(wait_until="load")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
@@ -102,7 +131,14 @@ def main():
         page.locator("#time-cursor").focus()
         page.locator("#time-cursor").press("ArrowLeft")
         assert page.locator("#time-cursor").input_value() == "999"
+
+        if refined.get("passed"):
+            page.locator("#refined-domain").select_option("robot")
+            page.locator("#refined-case").select_option("1")
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+            assert page.locator("#refined-states .refined-state").count() == 4
         page.screenshot(path=str(REPORT / "ui-mobile.png"), full_page=True)
+
         missing_labels = page.locator("input,select,button").evaluate_all("""nodes => nodes.filter(
             n => !(n.getAttribute('aria-label') || n.labels?.length ||
                    n.textContent.trim())).length""")
@@ -112,7 +148,7 @@ def main():
     assert not network, network
     assert (REPORT / "report.pdf").read_bytes().startswith(b"%PDF")
     pngs = list((REPORT / "plots").glob("*.png"))
-    assert len(pngs) == 5
+    assert len(pngs) == (8 if refined.get("passed") else 5)
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
         "passed": True, "browser": "system Chrome via Playwright",
@@ -121,12 +157,18 @@ def main():
             "offline data and six scenarios", "failure state displayed", "baseline overlay",
             "keyboard time cursor", "thermal scenario", "dark theme", "CSV/JSON export",
             "390px mobile viewport without horizontal overflow", "control labels",
-            "PDF and five PNG figures",
+            "PDF and expected baseline/extended PNG figures",
             "eight system modules and eleven typed connections",
             "system state replay, boundary, trip and pre-step status",
             "module keyboard selection and mobile state cards",
         ],
         "page_errors": errors, "external_network_requests": network,
+        "open_models_available": bool(refined.get("passed")),
+        "open_model_checks": ([
+            "12 electrical and four robot experiments", "negative physical goal retained",
+            "blocked gates state replay", "robot timeline real endpoints",
+            "CSV export and 390px component cards",
+        ] if refined.get("passed") else ["not run in this baseline-only report"]),
         "screenshots": [
             "ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png",
         ],

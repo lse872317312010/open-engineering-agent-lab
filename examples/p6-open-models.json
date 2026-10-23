@@ -1,0 +1,129 @@
+{
+  "parameter_source": "mixed: upstream example machine/map and UR5e geometry; synthetic drive, gear, thermal and sensor parameters",
+  "base": {
+    "period_s": 0.00005,
+    "duration_s": 0.03,
+    "step_time_s": 0.005,
+    "bus_v": 48,
+    "iq_reference_a": 5,
+    "current_limit_a": 15,
+    "bandwidth_per_s": 1000,
+    "pwm": true,
+    "delay": true,
+    "seed": 20261023,
+    "thermal_feedback": true,
+    "max_step_s": 0.000005
+  },
+  "electrical": [
+    {
+      "id": "average",
+      "title": "平均电压基线",
+      "pwm": false,
+      "delay": false
+    },
+    {
+      "id": "switching",
+      "title": "20 kHz 开关与延迟"
+    },
+    {
+      "id": "deadtime",
+      "title": "死区、续流与器件压降",
+      "deadtime_s": 0.000001,
+      "device_drop_v": 0.4
+    },
+    {
+      "id": "capacitor",
+      "title": "电容母线与负载阶跃",
+      "dc_bus": "capacitor",
+      "load_step_nm": 1
+    },
+    {
+      "id": "diode",
+      "title": "六脉波整流供电",
+      "dc_bus": "diode",
+      "load_step_nm": 1
+    },
+    {
+      "id": "sensors",
+      "title": "电流误差、ADC 与编码器",
+      "sensors": true
+    },
+    {
+      "id": "two-mass",
+      "title": "上游双惯量柔性轴",
+      "two_mass": true,
+      "load_step_nm": 0.05
+    },
+    {
+      "id": "blocked",
+      "title": "关断二极管续流与重启",
+      "block_interval_s": [
+        0.012,
+        0.02
+      ]
+    },
+    {
+      "id": "core-loss",
+      "title": "铁耗分支与六节点热反馈",
+      "core_conductance_s": 0.002
+    },
+    {
+      "id": "low-bus",
+      "title": "4 V 母线不可达边界",
+      "bus_v": 4,
+      "iq_reference_a": 12
+    },
+    {
+      "id": "mag-linear",
+      "title": "上游磁图的线性切线",
+      "magnetic": true,
+      "nonlinear": false,
+      "bus_v": 540,
+      "iq_reference_a": 10,
+      "current_limit_a": 20,
+      "inertia_kg_m2": 0.05
+    },
+    {
+      "id": "mag-nonlinear",
+      "title": "上游磁图与交叉饱和",
+      "magnetic": true,
+      "nonlinear": true,
+      "bus_v": 540,
+      "iq_reference_a": 10,
+      "current_limit_a": 20,
+      "inertia_kg_m2": 0.05
+    }
+  ],
+  "robot_base": {
+    "duration_s": 0.25,
+    "macro_step_s": 0.0002,
+    "deadtime_s": 0.000001,
+    "device_drop_v": 0.4,
+    "current_limit_a": 15
+  },
+  "robot": [
+    {
+      "id": "robot-elastic",
+      "title": "UR5e 姿态负载与弹性传动",
+      "backlash_rad": 0
+    },
+    {
+      "id": "robot-backlash",
+      "title": "UR5e 齿隙传动",
+      "backlash_rad": 0.001
+    },
+    {
+      "id": "robot-contact",
+      "title": "UR5e 外部接触夹具",
+      "backlash_rad": 0.001,
+      "fixture": true,
+      "fixture_scope": "synthetic preloaded sphere fixture; 0.01 m initial geometric overlap"
+    }
+  ],
+  "sources": {
+    "motulator_commit": "2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa",
+    "magnetic_map_blob": "13205be7fd92362f6a3ed0178f7c1652f942fd64",
+    "menagerie_commit": "cda5236f98383f6fbaa4820c6b18dba892cd087f",
+    "mujoco_version": "3.3.7"
+  }
+}

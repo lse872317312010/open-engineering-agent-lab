@@ -70,6 +70,9 @@ def main():
             "python benchmarks/validate_report_ui.py",
         ],
     }
+    refined_path = ROOT / "outputs/refined/report-data.json"
+    data["refined"] = (json.loads(refined_path.read_text()) if refined_path.exists()
+                       else {"available": False})
     payload = json.dumps(data, ensure_ascii=False, allow_nan=False).replace("</", "<\\/")
     template = (ROOT / "reports/p6-dashboard.html").read_text()
     (OUT / "index.html").write_text(template.replace("__REPORT_DATA__", payload), encoding="utf-8")
@@ -78,6 +81,10 @@ def main():
     raw.mkdir(exist_ok=True)
     for path in INPUT.glob("*.csv"):
         shutil.copyfile(path, raw / path.name)
+
+    if refined_path.exists():
+        shutil.copytree(ROOT / "outputs/refined", OUT / "refined", dirs_exist_ok=True)
+        shutil.copytree(ROOT / "research/licenses", OUT / "licenses", dirs_exist_ok=True)
 
     palette = ["#087d79", "#3b62c9", "#7b51b6", "#b46c25", "#cf5963", "#687c91"]
     figures = []
@@ -216,6 +223,75 @@ def main():
     mechanism_fig.text(0.06, 0.04, "仿真状态回放；无速度/位置外环。"
                        "零电压停机仍保留电磁、机械与热动态。", fontsize=9)
 
+
+    refined = data["refined"]
+    if refined.get("passed"):
+        cases = refined["electrical"]
+        fig, axes = plt.subplots(2, 2, figsize=(11.69, 8.27), layout="constrained")
+        fig.suptitle("开源电气模型 · 真实开关、母线与反馈", fontsize=18)
+        names = [c["title"] for c in cases]
+        errors = [c["metrics"]["tail_q_error_a"] for c in cases]
+        axes[0, 0].barh(names, errors, color=palette[0])
+        axes[0, 0].axvline(0.1, color=palette[3], linestyle="--")
+        axes[0, 0].set(xlabel="尾段平均 q 偏差 A", title="目标未达保留，不放宽 0.1 A")
+        for ident, color in zip(("average", "switching", "deadtime"), palette, strict=False):
+            case = next(c for c in cases if c["id"] == ident)
+            values = np.asarray(case["control"])
+            axes[0, 1].plot(values[:, 0] * 1000, values[:, 2],
+                            color=color, label=case["title"])
+        axes[0, 1].set(xlabel="时间 ms", ylabel="q 电流 A", title="同参数电机的模型差异")
+        case = next(c for c in cases if c["id"] == "deadtime")
+        waves = np.asarray(case["wave_window"])
+        for j, name in enumerate(("a", "b", "c")):
+            axes[1, 0].plot(waves[:, 0] * 1000, waves[:, j + 1], label=name)
+        axes[1, 0].set(xlabel="时间 ms", ylabel="相电流 A", title="真实 PWM 纹波窗口")
+        for ident, color in zip(("capacitor", "diode"), palette, strict=False):
+            case = next(c for c in cases if c["id"] == ident)
+            values = np.asarray(case["control"])
+            axes[1, 1].plot(values[:, 0] * 1000, values[:, 9],
+                            color=color, label=case["title"])
+        axes[1, 1].set(xlabel="时间 ms", ylabel="母线 V", title="储能母线与整流供电")
+        for ax in axes.flat:
+            ax.grid(alpha=0.15)
+        for ax in (axes[0, 1], axes[1, 0], axes[1, 1]):
+            ax.legend(fontsize=8)
+        figures.append(("open-electrical", fig))
+
+        fig, axes = plt.subplots(2, 2, figsize=(11.69, 8.27), layout="constrained")
+        fig.suptitle("开源机器人负载 · 电机、传动与 UR5e", fontsize=18)
+        for case, color in zip(refined["robot"]["cases"][:3], palette, strict=False):
+            values = np.asarray(case["samples"])
+            axes[0, 0].plot(values[:, 0], values[:, 1], color=color, label=case["title"])
+            axes[0, 1].plot(values[:, 0], values[:, 6], color=color, label=case["title"])
+            axes[1, 0].plot(values[:, 0], values[:, 9], color=color, label=case["title"])
+        axes[0, 0].set(xlabel="时间 s", ylabel="肩部角 rad", title="姿态相关负载")
+        axes[0, 1].set(xlabel="时间 s", ylabel="传动转矩 N·m", title="弹性 / 齿隙传力")
+        axes[1, 0].set(xlabel="时间 s", ylabel="夹具接触力 N", title="MuJoCo 实际接触事件")
+        axes[1, 1].imshow(plt.imread(OUT / "refined/ur5e-model.png"))
+        axes[1, 1].axis("off")
+        axes[1, 1].set_title("固定 Menagerie 模型；研究电机不等于厂商驱动器")
+        for ax in (axes[0, 0], axes[0, 1], axes[1, 0]):
+            ax.grid(alpha=0.15)
+            ax.legend(fontsize=7)
+        figures.append(("open-robot", fig))
+
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 6.5), layout="constrained")
+        curve = np.asarray(refined["magnetic_map"]["curve"])
+        axes[0].plot(curve[:, 0], curve[:, 1], label="上游非线性磁图")
+        axes[0].plot(curve[:, 0], curve[:, 2], "--", label="零电流 q 切线")
+        axes[0].plot(curve[:, 0], curve[:, 3], label="d 磁链：交叉耦合")
+        axes[0].set(xlabel="q 电流 A", ylabel="磁链 Wb",
+                    title="同一上游示例电机 · 不是用户电机标定")
+        thermal = np.asarray(refined["thermal"]["samples"])
+        for j, name in enumerate(("绕组", "铁心", "壳体", "等效结", "板", "散热器")):
+            axes[1].plot(thermal[:, 0], thermal[:, j + 1], label=name)
+        axes[1].set(xlabel="时间 s", ylabel="温度 °C",
+                    title="六节点热损耗回放 · 非长时完整 FOC")
+        for ax in axes:
+            ax.grid(alpha=0.15)
+            ax.legend(fontsize=8)
+        figures.append(("open-thermal", fig))
+
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
             fig.savefig(plots / (name + ".png"), dpi=180)
@@ -278,6 +354,29 @@ def main():
                      "", "所有参数与标定数据为合成研究值；不代表真机测量或硬件保护认证。",
                      "尚未实现完整关节 FMU/OpenModelica、开关级与齿隙接触。",
                      "", "复现命令：", "~~~bash", *data["commands"], "~~~"]
+    if refined.get("passed"):
+        report_lines += [
+            "", "## 开源模型深化实验", "",
+            "motulator 负责开关/磁图/母线，MuJoCo 负责 UR5e 连杆与接触；"
+            "通过固定数值门槛不代表每个物理目标都达成。",
+            json.dumps(refined["sources"], ensure_ascii=False, indent=2),
+            "", "| 实验 | 后端 | 物理目标 | 数值/域检查 |", "|---|---|---|---|",
+        ]
+        for case in refined["electrical"] + refined["robot"]["cases"]:
+            goal = case.get("tracking_goal_passed", case.get("position_goal_passed"))
+            report_lines.append(
+                f"| {case['title']} | {case['backend']} | "
+                f"{'达成' if goal else '未达'} | "
+                f"{'通过' if case['numeric_passed'] else '失败'} |"
+            )
+        report_lines += [
+            "", "独立参考：",
+            json.dumps(refined["references"], ensure_ascii=False, indent=2),
+            "", "机器人参考与宏步收敛：",
+            json.dumps(refined["robot"]["references"], ensure_ascii=False, indent=2),
+            str(refined["robot"]["macro_step_halving_error_rad"]) + " rad",
+            "", "范围限制：", *refined["limits"],
+        ]
     (OUT / "report.md").write_text("\n".join(report_lines), encoding="utf-8")
     (OUT / "START-HERE.txt").write_text(
         "打开 index.html 浏览中文交互报告；无需服务器或联网。\n"

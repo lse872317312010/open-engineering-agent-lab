@@ -1,0 +1,4 @@
+-r p6-requirements.txt
+motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa
+mujoco==3.3.7
+Pillow==11.3.0

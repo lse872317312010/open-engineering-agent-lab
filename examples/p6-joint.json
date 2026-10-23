@@ -1,0 +1,41 @@
+{
+  "version": "p6-0.1",
+  "parameter_source": "synthetic_research",
+  "motor": {
+    "stator_resistance_ohm": 0.3,
+    "d_inductance_h": 0.0008,
+    "q_inductance_h": 0.0008,
+    "flux_linkage_wb": 0.03,
+    "pole_pairs": 7,
+    "inertia_kg_m2": 0.002,
+    "viscous_friction_nms": 0.00001
+  },
+  "control": {
+    "duration_s": 0.08,
+    "control_period_s": 0.00005,
+    "integration_step_s": 0.000005,
+    "step_time_s": 0.001
+  },
+  "joint": {
+    "ratio": 10,
+    "load_inertia_kg_m2": 0.02,
+    "stiffness_nm_per_rad": 80,
+    "damping_nms": 0.15,
+    "transmission_error_rad": 0.0001
+  },
+  "thermal": {
+    "ambient_c": 25
+  },
+  "inverter": {
+    "ripple_fraction": 0.08,
+    "ripple_hz": 200,
+    "deadtime_s": 0.000001,
+    "device_drop_v": 0.4
+  },
+  "initial_temperature_c": [
+    25,
+    25,
+    25
+  ],
+  "load_nm": 0
+}

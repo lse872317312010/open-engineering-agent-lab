@@ -74,7 +74,8 @@ def main():
     assert len(pngs) == 4
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
-        "passed": True, "browser": "system Chrome via Playwright", "browser_version": browser_version,
+        "passed": True, "browser": "system Chrome via Playwright",
+        "browser_version": browser_version,
         "checks": [
             "offline data and six scenarios", "failure state displayed", "baseline overlay",
             "keyboard time cursor", "thermal scenario", "dark theme", "CSV/JSON export",

@@ -1,13 +1,13 @@
 # 阶段状态与证据索引
 
-更新日期：2026-10-23。实现见 PR #3/#4，验收范围按用户最新约束调整。
+更新日期：2026-10-23。PR #3–#9 已合并；统一接口与受保护设计见 PR #10。验收范围按用户约束调整。
 真机由用户负责，不再阻塞仿真交付。详见 [acceptance-scope.md](acceptance-scope.md)。
-以下为该工作分支证据，不能据此宣称 main 已包含或通过这些功能。
+阶段证据对应下列固定提交；新增能力以对应工作流结果为准。
 
 | 阶段 | 实际结果 | 范围与剩余项 |
 |---|---|---|
-| P0 | 原始 CLI、Ruff、unittest/pytest 与 3.10–3.12 矩阵通过 | 主分支原有 import lint 失败在工作分支修复；尚未合并 |
-| P1 | 有限采用范围的 Gate 通过；已完成工程评审 ADR | PathSim 仅开环适配，motulator/AEL/Mavrith 为 reference-only；未覆盖行为逐项列明 |
+| P0 | 原始 CLI、Ruff、unittest/pytest 与 3.10–3.12 矩阵通过 | 基础修复已合并；持续运行 Python 3.10–3.12 回归 |
+| P1 | 有限采用范围的 Gate 通过；已完成工程评审 ADR | PathSim 仅开环适配，motulator 已进一步接入；AEL/Mavrith 仍为 reference-only；未覆盖行为逐项列明 |
 | P2 | IR v0.1 Gate 通过 | 五种对象、单位/时钟/预算、往返与 native/PathSim 开环适配；非通用方程编辑器 |
 | P3 | 单个受控离线提议/失败/修复/验收闭环通过 | 在线 LLM 和任意自然语言规划未验收；没有越过白名单的动态执行 |
 | P4 | double 与 float32 PI 内核 SIL 通过 | 当前为 PI 内核；完整 FOC 固件和固定点未覆盖，真机目标时序由用户验收 |
@@ -65,3 +65,25 @@ TI C2000 的确切器件/SDK/工具链按实际可用性补充，不宣称现已
 独立合成验证 RMSE 0.00477 K，FMI RC 误差 1.39e-13 K。
 报告与 UI 以 PR #7 最新 P6 工作流中的 report/ui-validation.json 为验收记录。
 [下载与复现指南](p6-report-guide.md) / [模型与固定阈值](p6-model-contract.md)。
+
+
+## 开源模型深化与统一接口
+
+PR #9 已合并。motulator 固定提交覆盖实际 PWM、死区、二极管续流、母线、
+非线性磁图和传感器；MuJoCo / Menagerie 固定 UR5e 模型用于一个电机驱动关节，
+其余关节由上游位置执行器保持。六节点热网络支持损耗回放与电阻反馈。
+
+[已核验 run 39905210996](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/39905210996)
+保留 12 个电气工况与 4 个机器人工况、独立参考、51 项测试及报告浏览器证据。
+原始位置 PD 的尾段误差约 0.03756 rad，超过固定目标 0.03 rad；
+数值正确不能代替物理目标达成。接触夹具为有初始压入的合成场景，不是实物冲击标定。
+
+PR #10 将五种配置统一到 IR 0.2 / CLI / Agent 工具接口，保留 IR 0.1；
+增加原始流单位、资产锁、时钟与预算校验和独立重算验收。
+设计流程使用 python-control / Optuna / SALib，训练与 PWM / 齿隙 / 载荷验证分开。
+目标、轨迹、限值、预算和模型禁止由优化器修改。具体改善指标以该 PR 的最新
+Unified studies and control design 工作流与 report-data.json 为准，不提前声称通过。
+
+尚存的系统性缺口包括完整关节 FMI/OpenModelica 互操作、全系统能量与热源闭合、
+完整 FOC C 固件仿真、长时非线性鲁棒验证，以及通用在线 LLM 规划验收。
+真机不计入 Agent 交付前置条件。

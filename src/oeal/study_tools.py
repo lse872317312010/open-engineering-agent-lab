@@ -26,7 +26,9 @@ class StudyTools:
         self._ledger = Path(ledger_dir)
         self._ledger.mkdir(parents=True, exist_ok=True)
         self._trusted = set()
-        self._allowed = set(BOUNDS).intersection(goal["settings"])
+        allowed = ({"outer_kp_nm_per_rad", "outer_kd_nms_per_rad"}
+                   if goal["model"]["profile"] == "ur5e_joint_v1" else set(BOUNDS))
+        self._allowed = allowed.intersection(goal["settings"])
 
     def inspect_model(self):
         return copy.deepcopy(self._goal["model"])

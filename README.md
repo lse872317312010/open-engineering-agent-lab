@@ -38,6 +38,44 @@ python benchmarks/build_p6_report.py
 报告包含工况/热阻切换、基准叠加、时间游标、参数说明与导出。
 P6 合成研究数据不代表实测校准；完整范围见 [模型契约](docs/p6-model-contract.md)。
 
+## 统一实验与控制设计
+
+IR 0.2 的五个固定模型配置覆盖原生 FOC / 耦合关节、motulator 开关 PMSM、
+上游非线性磁图和 MuJoCo UR5e 单关节。CLI、Agent 和评测共用同一执行接口。
+IR 0.1 仍兼容。参数附单位，模型资产校验固定哈希，计算时钟与预算在执行前校验。
+控制采样、关节宏步、求解波形与门极事件分别保留原始时间语义。
+
+```bash
+oeal list-models
+oeal validate-spec examples/studies/native_foc_v1.json
+oeal run-experiment examples/studies/native_foc_v1.json \
+  --output outputs/study.json --csv-dir outputs/study-csv
+```
+
+完整环境使用 Python 3.12。含固定提交的 Menagerie 资产准备、许可证、完整证据
+与离线交互报告的步骤见
+[Unified studies and control design 工作流](.github/workflows/unified-design.yml)。
+
+```bash
+pip install -r benchmarks/design-requirements.txt
+pip install -e ".[dev]"
+python benchmarks/validate_open_models.py
+oeal run-experiment examples/studies/ur5e_joint_v1.json \
+  --assets-root outputs/open-models --output outputs/robot-study.json
+python benchmarks/validate_unified_studies.py
+python benchmarks/validate_design_iteration.py
+```
+
+准备资产前需按工作流将 Menagerie 固定提交检出至 vendor/menagerie。
+python-control 提供降阶线性筛选；Optuna 在固定范围内仅调整位置 PD 增益；
+SALib 做降阶 Morris 敏感度。平均逆变器训练后，在 PWM / 死区模型、齿隙和
+额外 0.5 kg 载荷留出工况中重新验证。固定目标不会随搜索修改。
+[开发与验收契约](docs/unified-studies-design-contract.md)列出范围、版本和门槛；
+实际指标以对应 CI 的 outputs/design/report-data.json 为准。
+
+报告增加搜索记录、原始/优化响应叠加、验证工况切换、组件状态回放及分析边界。
+这仍是受保护的离线设计工具，不是已验收的在线通用 LLM 工程师。
+
 ## 快速运行
 
 Python >=3.10；外部项目评测环境需 Python 3.12。

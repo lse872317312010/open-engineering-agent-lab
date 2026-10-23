@@ -325,6 +325,13 @@ def recompute(document, result):
         raise ValueError("control stream does not cover the protected clock")
     current_peak = float(np.hypot(data[:, names.index("id_a")],
                                   data[:, names.index("iq_a")]).max())
+    if "waveforms" in signals:
+        wave = signals["waveforms"]
+        samples = np.asarray(wave["samples"], dtype=float)
+        current_peak = max(current_peak, float(np.hypot(
+            samples[:, wave["columns"].index("id_a")],
+            samples[:, wave["columns"].index("iq_a")],
+        ).max()))
     metrics["current_peak_a"] = current_peak
     if result["primary_stream"] == "joint":
         q = rows[:, primary["columns"].index("joint_angle_rad")]

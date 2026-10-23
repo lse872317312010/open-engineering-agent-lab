@@ -25,3 +25,10 @@ P5 调整为“目标相关仿真验证与硬件交接包”：
 既有运行报告中的 p5_gate_passed=false 表示旧版真机 Gate 未运行/未通过；
 保留历史原始报告。新版仿真交付状态在 docs/stage-status.md 中单独说明，
 不改写过去的测量事实。本约束替代此前文档把真机结果设为 Agent 开发前置条件的条款。
+
+## ARM / RISC-V 处理器集成仿真
+
+用户于 2026-10-23 进一步允许以 ARM 或 RISC-V 环境集成仿真完成 PIL-style 验证，
+由 Agent 选择后端。本轮采用 QEMU ARM Cortex-M4，见 [processor-emulation.md](processor-emulation.md)。
+处理器仿真报告标记 processor_emulated，保留 ELF、原始回传与独立比对结果；
+该验证可用于仿真 Gate，不要求真机，不标记为 PIL_measured。

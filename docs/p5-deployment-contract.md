@@ -51,3 +51,10 @@ PIL 使用固定测试向量，经 UART/SWD 等已授权通道回传实际结果
 报告 **最大观测时间**；无静态分析或保守论证不使用 WCET 表述。
 实际运行结果必须关联原始日志散列，不能从主机 SIL 或 ELF size 推导。
 刷机、上电及电机运行依照总路线图要求单独授权，当前工作不操作硬件。
+
+## ARM 处理器仿真交付
+
+可使用 QEMU ARM 或可替换 RISC-V 后端执行交叉编译后的控制内核，
+通过共享测试向量与宿主参考独立比较。首个实现见 [processor-emulation.md](processor-emulation.md)。
+运行 `python benchmarks/validate_qemu_arm.py`（需 ARM GCC/newlib 和 qemu-system-arm）。
+这是允许的仿真验收路径，真实设备集成继续由用户负责。

@@ -73,6 +73,21 @@ def main():
     refined_path = ROOT / "outputs/refined/report-data.json"
     data["refined"] = (json.loads(refined_path.read_text()) if refined_path.exists()
                        else {"available": False})
+    for key, relative in (
+        ("unified", "outputs/unified/summary.json"),
+        ("design", "outputs/design/report-data.json"),
+    ):
+        path = ROOT / relative
+        data[key] = json.loads(path.read_text()) if path.exists() else {"available": False}
+    if data["design"].get("validations"):
+        data["scope"]["design"] = data["design"]["scope"]
+        data["commands"] = [
+            "pip install -r benchmarks/design-requirements.txt", 'pip install -e ".[dev]"',
+            "python benchmarks/validate_open_models.py",
+            "python benchmarks/validate_unified_studies.py",
+            "python benchmarks/validate_design_iteration.py",
+            *data["commands"][2:],
+        ]
     payload = json.dumps(data, ensure_ascii=False, allow_nan=False).replace("</", "<\\/")
     template = (ROOT / "reports/p6-dashboard.html").read_text()
     (OUT / "index.html").write_text(template.replace("__REPORT_DATA__", payload), encoding="utf-8")
@@ -292,6 +307,52 @@ def main():
             ax.legend(fontsize=8)
         figures.append(("open-thermal", fig))
 
+    design = data["design"]
+    if design.get("validations"):
+        fig, axes = plt.subplots(2, 2, figsize=(11.69, 8.27), layout="constrained")
+        fig.suptitle("固定目标下的控制设计 · 平均模型训练，开关模型验证", fontsize=17)
+        valid = [t for t in design["trials"] if "metrics" in t["verification"]]
+        axes[0, 0].plot(
+            [t["trial"] for t in valid],
+            [t["verification"]["metrics"]["position_tail_error_rad"] for t in valid],
+            "o-", color=palette[0],
+        )
+        axes[0, 0].axhline(0.03, linestyle="--", color=palette[3])
+        axes[0, 0].set(xlabel="Optuna 试验", ylabel="尾段位置偏差 rad",
+                       title="只调整 Kp / Kd；失败试验保留于数据")
+        for ax, pair in zip(axes.flat[1:], design["validations"], strict=True):
+            for key, color in (("baseline", palette[1]), ("optimized", palette[0])):
+                trace = pair[key]["trace"]
+                values = np.asarray(trace["samples"])
+                column = trace["columns"].index("joint_angle_rad")
+                ax.plot(values[:, 0] * 1000, values[:, column], label=key, color=color)
+            reference = trace["columns"].index("reference_rad")
+            ax.plot(values[:, 0] * 1000, values[:, reference], "--",
+                    color=palette[3], label="fixed reference")
+            ax.set(xlabel="时间 ms", ylabel="关节角 rad", title=pair["id"])
+            ax.legend(fontsize=7)
+        for ax in axes.flat:
+            ax.grid(alpha=0.15)
+        figures.append(("design-comparison", fig))
+
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 6.5), layout="constrained")
+        for key, color in (("baseline", palette[1]), ("optimized", palette[0])):
+            values = np.asarray(design["linear_analysis"][key]["frequency"])
+            axes[0].semilogx(values[:, 0], values[:, 1], label=key, color=color)
+        axes[0].set(xlabel="角频率 rad/s", ylabel="开环幅值 dB",
+                    title="python-control · 平衡点附近降阶模型")
+        axes[0].legend()
+        si = design["sensitivity"]
+        axes[1].barh(["传动刚度", "负载惯量", "电流环带宽"],
+                      si["mu_star"], color=palette[:3])
+        axes[1].set(xlabel="Morris 平均绝对基本效应 rad",
+                    title="SALib · 降阶模型 ±20% 范围")
+        for ax in axes:
+            ax.grid(alpha=0.15)
+        fig.text(0.1, 0.01, "线性筛选和敏感度不是非线性系统稳定性证明或实测置信区间。",
+                 fontsize=9)
+        figures.append(("design-analysis", fig))
+
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
             fig.savefig(plots / (name + ".png"), dpi=180)
@@ -311,7 +372,7 @@ def main():
             "120 秒热研究采用指定理想电流包络，未运行完整 20 kHz FOC。",
             "标定与独立验证功率工况分开；所有温度数据均为合成解析数据。",
             "±20% 热阻扫描是限定情景，不是实测不确定度或统计置信区间。",
-            "", "未覆盖：完整关节 FMU/OpenModelica、开关级逆变器、齿隙接触、真机实测。",
+            "", "未覆盖：完整关节 FMU/OpenModelica、全系统能量闭合、真机实测。",
             "真实设备/HAL/硬件测试由用户负责；未通过的物理目标保留失败状态。",
             "", "运行来源：", str(run["source_commit"]), generated,
             "完整参数、逐工况数据、方法约定和可复现命令见同目录 index.html / data.json。",
@@ -352,7 +413,7 @@ def main():
         )
     report_lines += ["", "## 范围和复现", json.dumps(data["scope"], ensure_ascii=False, indent=2),
                      "", "所有参数与标定数据为合成研究值；不代表真机测量或硬件保护认证。",
-                     "尚未实现完整关节 FMU/OpenModelica、开关级与齿隙接触。",
+                     "尚未实现完整关节 FMU/OpenModelica、全系统能量闭合与真机参数标定。",
                      "", "复现命令：", "~~~bash", *data["commands"], "~~~"]
     if refined.get("passed"):
         report_lines += [
@@ -377,6 +438,26 @@ def main():
             str(refined["robot"]["macro_step_halving_error_rad"]) + " rad",
             "", "范围限制：", *refined["limits"],
         ]
+    if design.get("validations"):
+        report_lines += [
+            "", "## 统一实验接口与受保护的控制设计",
+            "IR 0.2 的五个配置共用带单位输入、结果流、CLI 和 Agent 工具接口。",
+            "Optuna 仅修改 Kp / Kd；轨迹、时长、限流、验收阈值与预算固定。",
+            "训练采用平均逆变器；验证采用 PWM、死区与压降；0.5 kg 载荷未参与训练。",
+            "设计门槛：" + str(design["passed"]),
+            "选定增益：" + json.dumps(design["best_gains"]),
+            "基准尾段误差改善：" + str(design["baseline_improvement_fraction"]),
+            "", "| 验证工况 | 原始误差 rad | 优化误差 rad | 优化后固定目标 |",
+            "|---|---:|---:|---|",
+        ]
+        for pair in design["validations"]:
+            old = pair["baseline"]["verification"]
+            new = pair["optimized"]["verification"]
+            report_lines.append(
+                f"| {pair['id']} | {old['metrics']['position_tail_error_rad']:.6g} | "
+                f"{new['metrics']['position_tail_error_rad']:.6g} | {new['passed']} |"
+            )
+        report_lines += ["", "分析边界：", *design["limits"]]
     (OUT / "report.md").write_text("\n".join(report_lines), encoding="utf-8")
     (OUT / "START-HERE.txt").write_text(
         "打开 index.html 浏览中文交互报告；无需服务器或联网。\n"

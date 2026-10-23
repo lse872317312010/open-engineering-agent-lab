@@ -122,7 +122,7 @@ def main():
         ("switching-payload-holdout", change(goal, "payload_kg", 0.5)),
     ):
         fixed["id"] = label
-        session = StudyTools(fixed, OUT / (label + "-ledger"), ASSETS)
+        session = create_experiment_tools(fixed, OUT / (label + "-ledger"), ASSETS)
         baseline_candidate = session.propose_change({
             "outer_kp_nm_per_rad": 150.0, "outer_kd_nms_per_rad": 20.0,
         })

@@ -30,6 +30,7 @@ def main():
         results[profile] = {
             "input_sha256": document_hash(spec), "raw_sha256": result["raw_sha256"],
             "metrics": result["metrics"], "goal_passed": result["goal_passed"],
+            "backend": result["backend"], "numeric_passed": result["numeric_passed"],
             "streams": list(result["streams"]),
         }
         print("unified-case.json: " + json.dumps({"profile": profile, **results[profile]}),

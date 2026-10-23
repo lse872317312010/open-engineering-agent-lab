@@ -114,6 +114,27 @@ def main():
             assert file.read_text().startswith("time_s,joint_angle_rad")
             page.locator("#refined").screenshot(path=str(REPORT / "ui-open-models.png"))
 
+        design = json.loads((REPORT / "data.json").read_text()).get("design", {})
+        if design.get("validations"):
+            assert page.locator("#unified-results tr").count() == 5
+            assert page.locator("#design-trial-rows tr").count() == 8
+            assert page.locator("#design-results tr").count() == 3
+            assert page.locator("#design-trace-chart polyline").count() == 3
+            page.locator("#design-case").select_option("2")
+            assert "0.5 kg" in page.locator("#design-insight").inner_text()
+            page.locator("#design-cursor").focus()
+            page.locator("#design-cursor").press("Home")
+            assert page.locator("#design-time").inner_text() == "0.00 ms"
+            page.locator("#design-cursor").press("End")
+            assert page.locator("#design-time").inner_text() == "250.00 ms"
+            assert page.locator("#design-states .refined-state").count() == 4
+            with page.expect_download() as info:
+                page.locator("#design-csv").click()
+            file = REPORT / "design-export-check.csv"
+            info.value.save_as(str(file))
+            assert file.read_text().startswith("time_s,baseline_angle_rad")
+            page.locator("#design").screenshot(path=str(REPORT / "ui-design.png"))
+
         page.set_viewport_size({"width": 390, "height": 844})
         page.reload(wait_until="load")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
@@ -137,6 +158,10 @@ def main():
             page.locator("#refined-case").select_option("1")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
             assert page.locator("#refined-states .refined-state").count() == 4
+        if design.get("validations"):
+            page.locator("#design-case").select_option("1")
+            assert "齿隙" in page.locator("#design-insight").inner_text()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         page.screenshot(path=str(REPORT / "ui-mobile.png"), full_page=True)
 
         missing_labels = page.locator("input,select,button").evaluate_all("""nodes => nodes.filter(
@@ -148,7 +173,7 @@ def main():
     assert not network, network
     assert (REPORT / "report.pdf").read_bytes().startswith(b"%PDF")
     pngs = list((REPORT / "plots").glob("*.png"))
-    assert len(pngs) == (8 if refined.get("passed") else 5)
+    assert len(pngs) == (10 if design.get("validations") else 8 if refined.get("passed") else 5)
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
         "passed": True, "browser": "system Chrome via Playwright",
@@ -164,6 +189,7 @@ def main():
         ],
         "page_errors": errors, "external_network_requests": network,
         "open_models_available": bool(refined.get("passed")),
+        "design_available": bool(design.get("validations")),
         "open_model_checks": ([
             "12 electrical and four robot experiments", "negative physical goal retained",
             "blocked gates state replay", "robot timeline real endpoints",

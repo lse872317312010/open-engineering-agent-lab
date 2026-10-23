@@ -225,6 +225,8 @@ def electrical_cases(magnetic_path):
         ]
         csv(spec["id"] + "-waveforms.csv", wave_columns, waves)
         events = np.asarray(controller.drive.oeal_pwm_records)
+        events = events[events[:, 0] < config["duration_s"] - 1e-12].copy()
+        events[:, 1] = np.minimum(events[:, 1], config["duration_s"] - events[:, 0])
         csv(spec["id"] + "-gates.csv",
             ["time_s", "duration_s", "qa", "qb", "qc", "blank_a", "blank_b", "blank_c",
              "enabled"], events)

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OEAL · P6 多物理研究报告</title>
+<style>
+:root{color-scheme:light;--bg:#f3f6fb;--card:#fff;--ink:#18273e;--muted:#52647c;--line:#dce4ef;--teal:#087d79;--blue:#3b62c9;--purple:#7b51b6;--amber:#a95a13;--rail:#12233b;--shadow:0 12px 40px #18273e08}
+:root[data-theme=dark]{color-scheme:dark;--bg:#0c1728;--card:#14243b;--ink:#edf3ff;--muted:#adc0db;--line:#30445e;--teal:#58d4c2;--blue:#8dabff;--purple:#c4a1f5;--amber:#ffbf79;--rail:#081323;--shadow:none}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 Inter,"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif}button,input,select{font:inherit}button,a,select,input{touch-action:manipulation}button,select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 14px}button{cursor:pointer}a{color:var(--teal);text-underline-offset:3px}button:hover,a.action:hover{border-color:var(--teal)}:focus-visible{outline:3px solid var(--blue);outline-offset:3px}.skip{position:absolute;left:16px;top:-80px;background:var(--card);padding:12px;z-index:9}.skip:focus{top:12px}
+.shell{display:grid;grid-template-columns:218px 1fr;min-height:100vh}.rail{background:var(--rail);color:#c3d3ea;padding:30px 23px;position:sticky;top:0;height:100vh}.brand{font-size:23px;font-weight:800;color:#fff;letter-spacing:1px;display:flex;gap:12px;align-items:center}.mark{display:grid;place-items:center;width:34px;height:38px;background:#42cdb4;color:#10243b;border-radius:11px}.brand-sub{font-size:11px;letter-spacing:2px;margin:10px 0 42px;color:#a9bed9}.rail a{display:block;color:#c3d3ea;text-decoration:none;padding:12px;margin:8px -5px;border-radius:10px}.rail a.active{background:#234158;color:#7ff0d7}.rail small{display:block;margin-top:35px;font-size:12px;color:#a9bed9}.main{padding:26px 40px 48px;max-width:1600px;min-width:0}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:27px}.muted{color:var(--muted)}.top .muted{font-size:13px}.top-actions,.actions,.tags,.legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pill{display:inline-flex;gap:6px;align-items:center;border-radius:30px;font-size:12px;padding:5px 11px;background:color-mix(in srgb,var(--teal) 10%,var(--card));color:var(--teal)}.dot{width:7px;height:7px;border-radius:50%;background:currentColor}.hero{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}.eyebrow{color:var(--teal);font-size:12px;letter-spacing:2px;font-weight:700}h1{font-size:clamp(27px,3.3vw,45px);line-height:1.3;letter-spacing:-1.1px;margin:10px 0 15px}h2{font-size:19px;margin:0 0 4px}h3{font-size:15px;margin:0}p{margin:7px 0 14px}.hero p{max-width:720px;color:var(--muted)}.action{text-decoration:none;padding:9px 15px;border:1px solid var(--line);border-radius:10px;white-space:nowrap;color:var(--ink);background:var(--card)}.primary{background:var(--teal);color:var(--card);border-color:var(--teal)}.progress{display:flex;gap:6px;margin:20px 0 25px}.stage{flex:1;padding:9px 7px;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:9px;color:var(--muted);font-size:12px}.stage.current{border-color:var(--teal);color:var(--teal);font-weight:700}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}.card,.panel{background:var(--card);border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow)}.card{padding:20px}.card .label{font-size:12px;color:var(--muted)}.value{font-size:28px;font-weight:740;letter-spacing:-1px;margin-top:5px;font-variant-numeric:tabular-nums}.unit{font-size:12px;font-weight:500;letter-spacing:0;color:var(--muted);margin-left:5px}.hint{font-size:12px;color:var(--muted);margin-top:3px}.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}.panel{padding:22px;min-width:0}.wide{grid-column:1/-1}.panel-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:15px}.caption{font-size:12px;color:var(--muted);margin:2px 0 8px}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 15px}.control{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}.control select{max-width:100%}.status{font-size:12px;font-weight:700;color:var(--teal)}.status.warn{color:var(--amber)}svg.chart{width:100%;height:auto;display:block;overflow:visible}.chart text{fill:var(--muted);font-size:11px}.chart .gridline{stroke:var(--line);stroke-dasharray:3 4}.chart .cursor{stroke:var(--muted);stroke-dasharray:5 4}.legend{font-size:12px;margin-bottom:8px}.key{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.cursor-controls{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;font-size:12px}.cursor-controls input{width:100%;accent-color:var(--teal)}output{font-variant-numeric:tabular-nums;white-space:nowrap}.readout{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:10px 0}.readout strong{color:var(--ink)}.insight{padding:13px 16px;border-radius:10px;border-left:3px solid var(--teal);background:color-mix(in srgb,var(--teal) 7%,var(--card));font-size:13px;margin-top:15px}.insight.warn{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 7%,var(--card))}.rowgap{margin-top:20px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}th{color:var(--muted);font-size:12px;font-weight:500}td,th{padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}td:first-child,th:first-child{padding-left:0}.comparison{font-size:12px;background:var(--bg);padding:6px 10px;border-radius:8px}.assumptions{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:20px}.assumptions p{font-size:13px;color:var(--muted);margin-bottom:0}.proof{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px}.proof-item{border:1px solid var(--line);border-radius:10px;padding:12px}.proof-item strong{display:block;color:var(--teal)}details{border-top:1px solid var(--line);margin-top:17px;padding-top:14px}summary{cursor:pointer;font-size:13px}.meta{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:var(--muted)}footer{margin-top:25px;font-size:12px;color:var(--muted);display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:1100px){.rail{padding:24px 16px}.shell{grid-template-columns:175px 1fr}.main{padding:24px}.grid{grid-template-columns:1fr}.cards{gap:12px}.value{font-size:24px}.assumptions{grid-template-columns:1fr}}
+@media(max-width:720px){.shell{display:block}.rail{position:static;height:auto;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}.brand{font-size:18px}.brand-sub,.rail nav,.rail small{display:none}.main{padding:18px 14px}.top{margin-bottom:20px}.top .muted{max-width:55%;font-size:11px}.hero{display:block}.hero .actions{margin-top:14px}.cards{grid-template-columns:1fr 1fr;margin-top:20px}.card{padding:15px}.panel{padding:17px}.progress{gap:3px}.stage{font-size:10px;padding:7px 2px}.panel-head{flex-wrap:wrap}.proof{grid-template-columns:1fr}.top-actions{gap:5px}button,select{padding:8px 10px}.cursor-controls{grid-template-columns:auto 1fr}.cursor-controls output{grid-column:1/-1;text-align:right}.assumptions{grid-template-columns:1fr}.value{font-size:25px}}
+@media print{.rail,.top-actions,.actions,.toolbar,.cursor-controls,button{display:none!important}.shell{display:block}.main{padding:0}.panel,.card{box-shadow:none;break-inside:avoid}body{background:#fff;color:#111}.grid{display:block}.panel{margin:12px 0}.cards{grid-template-columns:repeat(4,1fr)}}
+@media(prefers-reduced-motion:no-preference){button,.action{transition:border-color .15s,background .15s}}
+</style></head>
+<body><a class="skip" href="#main">跳到报告内容</a>
+<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
+<main class="main" id="main"><header class="top"><div class="muted">研究工作台 / P6 多物理域实验</div><div class="top-actions"><span class="pill"><span class="dot"></span> 合成研究场景</span><button id="theme" type="button" aria-label="切换深浅主题">深色模式</button></div></header>
+<section id="overview"><div class="hero"><div><div class="eyebrow">P6 · MULTIPHYSICS STUDY</div><h1>看见耦合，理解边界。</h1><p>把电流、柔性关节与热演化放在同一份研究报告中。探索不同工况，再用独立数学参考判断哪些结论已成立、哪些目标还不可达。</p><div class="tags"><span class="pill" id="gate">正在读取验收结果</span><span class="muted" style="font-size:12px">离线交互 · 无需账号 · 数据内嵌</span></div></div><div class="actions"><a class="action primary" href="report.pdf" download>下载 PDF 报告</a><button id="export-json">导出完整数据</button></div></div>
+<div class="progress" aria-label="阶段交付范围"><div class="stage">P1 · 基准</div><div class="stage">P2 · 模型 IR</div><div class="stage">P3 · 受控闭环</div><div class="stage">P4 · SIL</div><div class="stage">P5 · ARM 仿真</div><div class="stage current">P6 · 多物理</div></div>
+<div class="cards"><div class="card"><div class="label">已验证研究工况</div><div class="value" id="case-count">—</div><div class="hint">成功与失败案例均保留</div></div><div class="card"><div class="label">全耦合参考误差</div><div class="value" id="reference-error">—</div><div class="hint">独立 DOP853 对照 · 最大状态差</div></div><div class="card"><div class="label">独立验证温度 RMSE</div><div class="value"><span id="fit-rmse">—</span><span class="unit">K</span></div><div class="hint">训练与验证工况分开</div></div><div class="card"><div class="label">FMI 热模型误差</div><div class="value" id="fmi-error">—</div><div class="hint">单节点 RC · 非完整关节 FMU</div></div></div></section>
+<div class="grid">
+<section class="panel wide" id="explorer"><div class="panel-head"><div><h2>探索关节的短时响应</h2><p class="caption">全耦合电气 / 双惯量 / 三节点热模型，控制器按 20 kHz 更新。</p></div><span class="status" id="case-status" role="status" aria-live="polite">—</span></div>
+<div class="toolbar"><label class="control" for="case-select">研究工况 <select id="case-select"></select></label><div class="control"><label><input type="checkbox" id="compare"> 叠加基准 q 轴电流</label><button id="download-csv">下载当前 CSV</button></div></div>
+<div class="legend"><span><i class="key" style="background:var(--teal)"></i>q 轴电流</span><span><i class="key" style="background:var(--blue)"></i>d 轴电流</span><span class="comparison" id="goal-label">目标 5 A</span></div>
+<svg class="chart" id="current-chart" viewBox="0 0 900 240" role="img" aria-label="d q 轴电流随时间的仿真曲线"></svg>
+<div class="cursor-controls"><label for="time-cursor">时间游标</label><input id="time-cursor" type="range" min="0" max="1000" value="1000" step="1"><output id="cursor-time" for="time-cursor">—</output></div>
+<div class="readout" id="cursor-values" aria-live="polite"></div><div class="insight" id="case-insight">—</div>
+</section>
+<section class="panel"><div class="panel-head"><div><h2>机械传递</h2><p class="caption">输出轴转矩（N·m），观察弹性和传动误差。</p></div></div><svg class="chart" id="mechanical-chart" viewBox="0 0 680 250" role="img" aria-label="关节输出转矩曲线"></svg><div class="readout" id="mechanical-values"></div></section>
+<section class="panel" id="thermal"><div class="panel-head"><div><h2>120 秒热演化</h2><p class="caption">由理想电流包络驱动，不代表 120 秒全速 FOC。</p></div><label class="control" for="thermal-select"><span class="sr-only">热研究工况</span><select id="thermal-select"><option value="1">标称散热 · 5 A</option><option value="0">热阻 −20% · 5 A</option><option value="2">热阻 +20% · 5 A</option><option value="stress">高负荷 · 12 A / 40°C</option></select></label></div>
+<div class="legend"><span><i class="key" style="background:var(--teal)"></i>绕组</span><span><i class="key" style="background:var(--blue)"></i>壳体</span><span><i class="key" style="background:var(--purple)"></i>功率板</span></div>
+<svg class="chart" id="thermal-chart" viewBox="0 0 680 250" role="img" aria-label="三个热节点温度随时间曲线"></svg><div class="insight" id="thermal-insight"></div></section>
+<section class="panel" id="validation"><div class="panel-head"><div><h2>标定之后，再独立验证</h2><p class="caption">不同功率输入的独立验证集；解析 RC 温度与辨识模型预测。</p></div></div><div class="legend"><span><i class="key" style="background:var(--teal)"></i>解析参考</span><span><i class="key" style="background:var(--purple)"></i>辨识预测</span></div>
+<svg class="chart" id="calibration-chart" viewBox="0 0 680 250" role="img" aria-label="独立温度验证集参考与预测曲线"></svg><div class="readout" id="fit-values"></div><p class="caption">数据为合成解析温度，加噪训练；这里的误差不是实测电机偏差。</p></section>
+<section class="panel"><div class="panel-head"><div><h2>不确定性有多大？</h2><p class="caption">扫描绕组/环境热阻 ±20%，保持同一输入包络。</p></div></div>
+<svg class="chart" id="uncertainty-chart" viewBox="0 0 680 250" role="img" aria-label="不同热阻下绕组温度的研究区间"></svg><div class="insight" id="uncertainty-insight"></div><p class="caption">这是给定参数范围的情景包络，不是统计置信区间。</p></section>
+<section class="panel wide"><div class="panel-head"><div><h2>所有结果，一起看</h2><p class="caption">数值检查与电流目标分开判断。不可达案例是边界证据，也会完整列出。</p></div><a class="action" href="plots/scenario-comparison.png" download>导出对比图 PNG</a></div><div class="table-wrap"><table><thead><tr><th>研究工况</th><th>尾段 q 误差</th><th>绕组峰温</th><th>转矩峰值</th><th>数值检查</th><th>电流目标</th></tr></thead><tbody id="comparison-table"></tbody></table></div></section>
+<section class="panel wide" id="evidence"><div class="panel-head"><div><h2>结论可追溯，使用边界清楚</h2><p class="caption">P6 验收依据与可下载交付物。</p></div><a class="action" href="report.md" download>下载文字报告</a></div><div class="proof" id="proofs"></div>
+<div class="assumptions"><div><h3>01 · 参数来源</h3><p>默认参数是明确记录的合成研究值。没有真实数据时，不生成实测标定或器件额定值结论。</p></div><div><h3>02 · 模型适用域</h3><p>逆变器使用平均死区代理，机械域使用连续柔性模型。开关级、齿隙接触、完整关节 FMU 尚未覆盖。</p></div><div><h3>03 · 交接方式</h3><p>仿真验收与复现产物由本报告交付；真实硬件、HAL 和设备实验由你接手，不阻塞仿真研发。</p></div></div>
+<details><summary>展开版本、证据等级和复现命令</summary><pre class="meta" id="metadata"></pre></details>
+</section></div><footer><span>OEAL · Open Engineering Agent Lab / P6 研究报告</span><span>生成日期 <span id="generated-date"></span> · 仅代表文中声明的仿真范围</span></footer>
+</main></div>
+<script type="application/json" id="report-data">__REPORT_DATA__</script>
+<script>
+"use strict";
+const D=JSON.parse(document.getElementById("report-data").textContent);
+const el=id=>document.getElementById(id);
+const colors=["var(--teal)","var(--blue)","var(--purple)","var(--amber)"];
+let selected=0;
+function format(n,d=3){return Number(n).toFixed(d)}
+function download(name,text,type){const a=document.createElement("a");const u=URL.createObjectURL(new Blob([text],{type}));a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+function chart(id,series,xLabel,yLabel,cursor=null){
+ const svg=el(id),parts=svg.getAttribute("viewBox").split(" ").map(Number),w=parts[2],h=parts[3],m={l:57,r:15,t:12,b:35};
+ const xs=series.flatMap(s=>s.data.map(p=>p[0])),ys=series.flatMap(s=>s.data.map(p=>p[1]));
+ let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+ if(ymin===ymax){ymin-=1;ymax+=1}const pad=(ymax-ymin)*.12;ymin-=pad;ymax+=pad;
+ const X=x=>m.l+(x-xmin)/(xmax-xmin||1)*(w-m.l-m.r),Y=y=>h-m.b-(y-ymin)/(ymax-ymin)*(h-m.t-m.b);
+ let html="";
+ for(let i=0;i<5;i++){let y=ymin+(ymax-ymin)*i/4;html+='<line class="gridline" x1="'+m.l+'" x2="'+(w-m.r)+'" y1="'+Y(y)+'" y2="'+Y(y)+'"/><text x="'+(m.l-8)+'" y="'+(Y(y)+4)+'" text-anchor="end">'+format(y,Math.abs(y)<2?2:1)+'</text>'}
+ for(let i=0;i<5;i++){let x=xmin+(xmax-xmin)*i/4;html+='<text x="'+X(x)+'" y="'+(h-13)+'" text-anchor="middle">'+format(x,xmax<1?3:0)+'</text>'}
+ series.forEach((s,i)=>{html+='<polyline data-series="'+i+'" fill="none" stroke="'+(s.color||colors[i%4])+'" stroke-width="2.3" '+(s.dash?'stroke-dasharray="6 4" ':'')+'points="'+s.data.map(p=>X(p[0]).toFixed(2)+","+Y(p[1]).toFixed(2)).join(" ")+'"/>'});
+ if(cursor!==null)html+='<line class="cursor" x1="'+X(cursor)+'" x2="'+X(cursor)+'" y1="'+m.t+'" y2="'+(h-m.b)+'"/>';
+ html+='<text x="'+m.l+'" y="10">'+yLabel+'</text><text x="'+(w-m.r)+'" y="'+(h-1)+'" text-anchor="end">'+xLabel+'</text>';
+ svg.innerHTML=html;
+}
+function currentCase(){return D.scenarios.cases[selected]}
+function renderShort(){
+ const c=currentCase(),rows=c.samples;
+ const index=Math.round(Number(el("time-cursor").value)/1000*(rows.length-1)),row=rows[index];
+ const series=[{data:rows.map(r=>[r[0]*1000,r[2]])},{data:rows.map(r=>[r[0]*1000,r[1]])}];
+ if(el("compare").checked)series.push({data:D.scenarios.cases[0].samples.map(r=>[r[0]*1000,r[2]]),dash:true,color:colors[2]});
+ chart("current-chart",series,"时间 ms","电流 A",row[0]*1000);
+ chart("mechanical-chart",[{data:rows.map(r=>[r[0]*1000,r[10]])}],"时间 ms","转矩 N·m",row[0]*1000);
+ el("cursor-time").textContent=format(row[0]*1000,2)+" ms";
+ el("cursor-values").innerHTML="<span>q 轴 <strong>"+format(row[2])+" A</strong></span><span>d 轴 <strong>"+format(row[1])+" A</strong></span><span>母线 <strong>"+format(row[13],2)+" V</strong></span>";
+ el("mechanical-values").innerHTML="<span>负载速度 <strong>"+format(row[6])+" rad/s</strong></span><span>输出角度 <strong>"+format(row[5],4)+" rad</strong></span>";
+ el("goal-label").textContent="目标 "+c.parameters.control.iq_reference_a+" A";
+ const ok=c.tracking_goal_passed;
+ el("case-status").textContent=c.metrics.command_stopped?"命令停机已触发":ok?"电流目标达成":"电流目标未达";
+ el("case-status").className="status"+(ok?"":" warn");
+ const descriptions={
+  baseline:"基准工况用于观察电流、柔性传动和温度之间的耦合。可切换工况，并叠加基准 q 轴曲线比较。",
+  inverter:"加入 8% 母线纹波、平均死区与压降代理。电压误差随电流方向变化，控制器的补偿能力由曲线和误差共同判断。",
+  hot:"热启动改变铜阻，负载也同时存在。该场景用于观察参数漂移，不代表已测量的真实热启动性能。",
+  compliant:"降低传动刚度并施加负载，输出转矩的动态响应会改变。此模型不包含齿隙接触。",
+  "low-bus":"母线只有 4 V，电流目标提高到 12 A。目标未达是预期边界，数值检查仍需通过；没有降低目标来隐藏失败。",
+  stop:"绕组初温超过示例阈值，零电压命令锁存。它验证的是仿真指令语义，不等于断电或硬件保护链路。"
+ };
+ el("case-insight").textContent=descriptions[c.id];
+ el("case-insight").className="insight"+(ok?"":" warn");
+}
+function renderThermal(){
+ const stress=el("thermal-select").value==="stress";
+ const rows=stress?D.scenarios.thermal_stress.samples:D.scenarios.thermal_cases[Number(el("thermal-select").value)].samples;
+ chart("thermal-chart",[1,2,3].map((j,i)=>({data:rows.map(r=>[r[0],r[j]]),color:colors[i]})),"时间 s","温度 °C");
+ const last=rows[rows.length-1];
+ el("thermal-insight").textContent="120 s 末态：绕组 "+format(last[1],1)+"°C，壳体 "+format(last[2],1)+"°C，功率板 "+format(last[3],1)+"°C。"+(stress?"高负荷是否越过示例范围，以实际生成结果为准。":"切换热阻场景，比较同一电流包络下的散热敏感度。");
+ el("thermal-insight").className="insight"+(stress&&!D.scenarios.thermal_stress.within_illustrative_limits?" warn":"");
+}
+function init(){
+ const cases=D.scenarios.cases;
+ cases.forEach((c,i)=>{const option=document.createElement("option");option.value=i;option.textContent=c.title;el("case-select").append(option)});
+ el("case-count").innerHTML=cases.length+'<span class="unit">个</span>';
+ el("reference-error").textContent=D.references.coupled_dop853_error.toExponential(2);
+ el("fit-rmse").textContent=format(D.calibration.holdout_rmse_k,4);
+ el("fmi-error").textContent=D.fmi.max_error_k.toExponential(2);
+ el("gate").textContent=D.gate.passed?"P6 声明范围 · 验收通过":"P6 声明范围 · 尚有未通过项";
+ el("generated-date").textContent=D.generated_date;
+ el("metadata").textContent=JSON.stringify({source_commit:D.run.source_commit,evidence:"model_simulated / synthetic_research",scope:D.scope,commands:D.commands},null,2);
+ chart("calibration-chart",[{data:D.calibration.holdout.map(r=>[r[0],r[1]])},{data:D.calibration.holdout.map(r=>[r[0],r[2]]),color:colors[2],dash:true}],"时间 s","温度 °C");
+ el("fit-values").innerHTML="<span>辨识热阻 <strong>"+format(D.calibration.fit.resistance_k_per_w,3)+" K/W</strong></span><span>辨识热容 <strong>"+format(D.calibration.fit.capacity_j_per_k,2)+" J/K</strong></span>";
+ chart("uncertainty-chart",D.scenarios.thermal_cases.map((c,i)=>({data:c.samples.map(r=>[r[0],r[1]]),color:colors[i]})),"时间 s","绕组温度 °C");
+ const ends=D.scenarios.thermal_cases.map(c=>c.samples[c.samples.length-1][1]);
+ el("uncertainty-insight").textContent="在热阻 ±20% 的限定扫描中，120 s 绕组末温为 "+format(Math.min(...ends),1)+"–"+format(Math.max(...ends),1)+"°C。";
+ cases.forEach(c=>{const tr=document.createElement("tr");const cells=[c.title,format(c.metrics.q_tail_error_a)+" A",format(c.metrics.peak_winding_c,1)+" °C",format(c.metrics.peak_shaft_torque_nm,2)+" N·m",c.numeric_passed?"通过":"失败",c.metrics.command_stopped?"停机案例":c.tracking_goal_passed?"达成":"未达"];
+ cells.forEach((text,i)=>{const td=document.createElement("td");td.textContent=text;if(i>=4)td.className="status"+((i===4?c.numeric_passed:c.tracking_goal_passed)?"":" warn");tr.append(td)});el("comparison-table").append(tr)});
+ const proofs=[["机械能与耗散",D.references.mechanical_energy_error_j.toExponential(2)+" J"],["三节点热网络",D.references.thermal_expm_error_k.toExponential(2)+" K"],["步长减半差异",D.scenarios.step_halving_max_state_difference.toExponential(2)],["FMI 互操作",D.fmi.passed?"解析 / 重置 / 非法写入通过":"未通过"]];
+ proofs.forEach(([title,value])=>{const p=document.createElement("div");p.className="proof-item";const a=document.createElement("span");a.textContent=title;const b=document.createElement("strong");b.textContent=value;p.append(a,b);el("proofs").append(p)});
+ renderShort();renderThermal();
+}
+el("case-select").addEventListener("change",event=>{selected=Number(event.target.value);renderShort()});
+el("time-cursor").addEventListener("input",renderShort);el("compare").addEventListener("change",renderShort);
+el("thermal-select").addEventListener("change",renderThermal);
+el("theme").addEventListener("click",()=>{const dark=document.documentElement.dataset.theme!=="dark";document.documentElement.dataset.theme=dark?"dark":"light";el("theme").textContent=dark?"浅色模式":"深色模式"});
+el("download-csv").addEventListener("click",()=>{const c=currentCase();download(c.id+"-report-samples.csv",[c.columns.join(","),...c.samples.map(r=>r.join(","))].join("\n"),"text/csv;charset=utf-8")});
+el("export-json").addEventListener("click",()=>download("oeal-p6-report-data.json",JSON.stringify(D,null,2),"application/json"));
+init();
+</script></body></html>

@@ -30,6 +30,17 @@ jobs:
         run: python benchmarks/validate_fmi_thermal.py
       - name: Reproduce coupled joint CLI
         run: oeal simulate-joint examples/p6-joint.json --output outputs/p6/cli
+      - name: Install report fonts and browser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          python -m playwright install --with-deps chromium
+      - name: Generate interactive report and PDF figures
+        run: python benchmarks/build_p6_report.py
+      - name: Exercise report in Chromium
+        run: python benchmarks/validate_report_ui.py
+      - name: Package standalone report
+        run: python -c "import shutil; shutil.make_archive('outputs/p6-report', 'zip', 'outputs/report')"
       - name: Hash P6 evidence
         if: always()
         run: python benchmarks/evidence_manifest.py

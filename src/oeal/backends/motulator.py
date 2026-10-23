@@ -203,7 +203,19 @@ def run_drive(config, magnetic_map=None, robot=None):
             max_step=config.get("max_step_s", 10e-6),
         ),
     )
-    result = sim.simulate(t_stop=config["duration_s"], N_eval=2)
+    # Upstream stops at the first sampling instant strictly after t_stop. Its
+    # accumulated event clock can land a few ulps above the requested final tick.
+    # Put the stop boundary between ticks to retain the real final sample.
+    ticks = round(config["duration_s"] / config["period_s"])
+    if not math.isclose(
+        ticks * config["period_s"], config["duration_s"], abs_tol=1e-12
+    ):
+        raise ValueError("duration must align with the controller period")
+    result = sim.simulate(
+        t_stop=(ticks + 0.25) * config["period_s"], N_eval=2
+    )
+    if not math.isclose(controller.rows[-1][0], config["duration_s"], abs_tol=1e-12):
+        raise AssertionError("final real controller sample was not retained")
     if not result.success:
         raise AssertionError("upstream motulator simulation did not finish")
     return result, controller

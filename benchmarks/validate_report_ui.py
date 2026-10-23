@@ -105,7 +105,8 @@ def main():
             page.locator("#refined-cursor").press("Home")
             assert page.locator("#refined-time").inner_text() == "0.00 ms"
             page.locator("#refined-cursor").press("End")
-            assert "250.00 ms" in page.locator("#refined-time").inner_text()
+            end_time = page.locator("#refined-time").inner_text()
+            assert "250.00 ms" in end_time, repr(end_time)
             with page.expect_download() as info:
                 page.locator("#refined-csv").click()
             file = REPORT / "refined-export-check.csv"

@@ -190,8 +190,10 @@ def electrical_cases(magnetic_path):
         config = CONFIG["base"] | spec
         result, controller = run_drive(config, magnetic if spec.get("magnetic") else None)
         rows = np.asarray(controller.rows)
-        time = result.mdl.t
-        iq = result.mdl.machine.i_s_dq.imag
+        full_time = result.mdl.t
+        in_scope = full_time <= config["duration_s"] + 1e-12
+        time = full_time[in_scope]
+        iq = result.mdl.machine.i_s_dq.imag[in_scope]
         tail = time >= config["duration_s"] - 0.005
         mean_q = float(np.trapezoid(iq[tail], time[tail]) / np.ptp(time[tail]))
         last_cycle = time >= config["duration_s"] - config["period_s"]
@@ -211,10 +213,11 @@ def electrical_cases(magnetic_path):
         phase_i = np.asarray(complex2abc(result.mdl.machine.i_s_ab)).T
         phase_u = np.asarray(complex2abc(result.mdl.converter.u_c_ab)).T
         waves = np.column_stack((
-            time, phase_i, phase_u, result.mdl.converter.u_dc,
-            result.mdl.converter.i_dc_int, result.mdl.machine.i_s_dq.real, iq,
+            full_time, phase_i, phase_u, result.mdl.converter.u_dc,
+            result.mdl.converter.i_dc_int, result.mdl.machine.i_s_dq.real,
+            result.mdl.machine.i_s_dq.imag,
             result.mdl.machine.tau_M, result.mdl.converter.enabled,
-        ))
+        ))[in_scope]
         csv(spec["id"] + "-control.csv", CONTROL_COLUMNS, rows)
         wave_columns = [
             "time_s", "ia_a", "ib_a", "ic_a", "ua_v", "ub_v", "uc_v",
@@ -301,6 +304,7 @@ def robot_cases(path):
         robot = RobotLoad(robot_model, data, config)
         _, controller = run_drive(config, robot=robot)
         rows = np.asarray(robot.rows)
+        assert abs(rows[-1, 0] - config["duration_s"]) < 1e-12
         control = np.asarray(controller.rows)
         csv(spec["id"] + ".csv", ROBOT_COLUMNS, rows)
         csv(spec["id"] + "-control.csv", CONTROL_COLUMNS, control)

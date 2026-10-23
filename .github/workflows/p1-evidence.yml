@@ -1,0 +1,53 @@
+name: P1 evidence
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned research environment
+        run: |
+          python -m pip install -r benchmarks/requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Lint and tests
+        run: |
+          ruff check .
+          python -m unittest discover -s tests -v
+          python -m pytest
+      - name: Verify packaged IR schemas
+        run: |
+          python -m pip wheel --no-deps --wheel-dir outputs/package .
+          python -m pip install --force-reinstall --no-deps outputs/package/*.whl
+          oeal validate-spec examples/ir/foc-experiment.json
+      - name: Reproduce original CLI
+        run: oeal simulate examples/pmsm_step.json --output outputs/p0
+      - name: Evaluate independent references and upstream APIs
+        run: python benchmarks/validate_p1.py
+      - name: P2 IR cross-backend equivalence
+        run: python benchmarks/validate_p2.py
+      - name: P3 fixed-goal Agent tool iteration
+        run: python benchmarks/validate_p3.py
+      - name: P4 double PI host SIL and static checks
+        run: python benchmarks/validate_p4.py
+      - name: P4 float32 PI SIL and static checks
+        run: python benchmarks/validate_p4_f32.py
+      - name: Hash reproducible evidence artifacts
+        if: always()
+        run: python benchmarks/evidence_manifest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p1-evidence
+          path: outputs/
+          if-no-files-found: error

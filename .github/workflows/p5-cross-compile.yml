@@ -1,0 +1,34 @@
+name: P5 cross-compile preparation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stm32-object:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install cross compiler and package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+          python -m pip install -e .
+      - name: Cross-compile STM32G474 kernel object
+        run: python benchmarks/validate_p5.py
+      - name: Cross-compile float32 PI and inspect precision dependencies
+        run: python benchmarks/validate_p5_f32.py
+      - name: Hash cross-compile artifacts
+        if: always()
+        run: python benchmarks/evidence_manifest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p5-cross-compile-only
+          path: outputs/
+          if-no-files-found: error

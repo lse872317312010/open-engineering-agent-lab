@@ -1,0 +1,592 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oeal.local/schemas/ir-0.1.json",
+  "$defs": {
+    "ModelSpec": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "ModelSpec"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dynamics": {
+          "const": "pmsm_dq_v1"
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "stator_resistance_ohm": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "ohm"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "d_inductance_h": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "H"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "q_inductance_h": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "H"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "flux_linkage_wb": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "Wb"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "pole_pairs": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "unit": {
+                  "const": "1"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "inertia_kg_m2": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "kg*m^2"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "viscous_friction_nms": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "N*m*s/rad"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "stator_resistance_ohm",
+            "d_inductance_h",
+            "q_inductance_h",
+            "flux_linkage_wb",
+            "pole_pairs",
+            "inertia_kg_m2",
+            "viscous_friction_nms"
+          ],
+          "additionalProperties": false
+        },
+        "clocks": {
+          "type": "object",
+          "properties": {
+            "control": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "s"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "pwm": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "s"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "control",
+            "pwm"
+          ],
+          "additionalProperties": false
+        },
+        "ports": {
+          "const": [
+            {
+              "name": "voltage_dq",
+              "unit": "V",
+              "shape": [
+                2
+              ]
+            },
+            {
+              "name": "current_dq",
+              "unit": "A",
+              "shape": [
+                2
+              ]
+            },
+            {
+              "name": "speed",
+              "unit": "rad/s",
+              "shape": []
+            }
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "id",
+        "dynamics",
+        "parameters",
+        "clocks",
+        "ports"
+      ],
+      "additionalProperties": false
+    },
+    "ExperimentSpec": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "ExperimentSpec"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSpec"
+        },
+        "mode": {
+          "enum": [
+            "open_loop",
+            "foc"
+          ]
+        },
+        "backend": {
+          "enum": [
+            "native",
+            "pathsim"
+          ]
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "duration_s": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "control_period_s": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "integration_step_s": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "step_time_s": {
+              "type": "number",
+              "minimum": 0
+            },
+            "id_reference_a": {
+              "type": "number"
+            },
+            "iq_reference_a": {
+              "type": "number"
+            },
+            "vdc_v": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "current_limit_a": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "bandwidth_per_s": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "tracking_rate_per_s": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "delay_samples": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          "required": [
+            "duration_s",
+            "control_period_s",
+            "integration_step_s",
+            "step_time_s",
+            "id_reference_a",
+            "iq_reference_a",
+            "vdc_v",
+            "current_limit_a",
+            "bandwidth_per_s",
+            "tracking_rate_per_s",
+            "delay_samples"
+          ],
+          "additionalProperties": false
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "vd_v": {
+              "type": "number"
+            },
+            "vq_v": {
+              "type": "number"
+            },
+            "load_torque_nm": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "vd_v",
+            "vq_v",
+            "load_torque_nm"
+          ],
+          "additionalProperties": false
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "budget_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000000
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "id",
+        "model",
+        "mode",
+        "backend",
+        "settings",
+        "input",
+        "seed",
+        "budget_steps"
+      ],
+      "additionalProperties": false
+    },
+    "SimulationResult": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "SimulationResult"
+        },
+        "experiment_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evidence_level": {
+          "const": "model_simulated"
+        },
+        "backend": {
+          "enum": [
+            "native",
+            "pathsim"
+          ]
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 1
+          },
+          "minItems": 2
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "source_commit": {
+          "type": "string"
+        },
+        "sample_semantics": {
+          "enum": [
+            "control_ticks_and_endpoint",
+            "endpoints"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "experiment_sha256",
+        "evidence_level",
+        "backend",
+        "columns",
+        "samples",
+        "metrics",
+        "source_commit",
+        "sample_semantics"
+      ],
+      "additionalProperties": false
+    },
+    "CodeArtifact": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "CodeArtifact"
+        },
+        "target": {
+          "enum": [
+            "host",
+            "STM32G474",
+            "TI-C2000"
+          ]
+        },
+        "abi": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compiler": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "binary_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "resource_report_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "target",
+        "abi",
+        "compiler",
+        "flags",
+        "source_sha256",
+        "binary_sha256",
+        "resource_report_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "Evidence"
+        },
+        "level": {
+          "enum": [
+            "reference_math",
+            "model_simulated",
+            "SIL_passed",
+            "PIL_measured",
+            "HIL_measured",
+            "physical_measured"
+          ]
+        },
+        "subject_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "artifact_hashes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "level",
+        "subject_sha256",
+        "source_commit",
+        "command",
+        "environment",
+        "passed",
+        "limitations",
+        "artifact_hashes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ModelSpec"
+    },
+    {
+      "$ref": "#/$defs/ExperimentSpec"
+    },
+    {
+      "$ref": "#/$defs/SimulationResult"
+    },
+    {
+      "$ref": "#/$defs/CodeArtifact"
+    },
+    {
+      "$ref": "#/$defs/Evidence"
+    }
+  ]
+}

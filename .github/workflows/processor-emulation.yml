@@ -1,0 +1,36 @@
+name: ARM processor emulation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qemu-m4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ARM/QEMU environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
+          python -m pip install -e ".[dev]"
+      - name: Lint and regression tests
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Run ARM ELF and compare target outputs
+        run: python benchmarks/validate_qemu_arm.py
+      - name: Hash processor simulation evidence
+        if: always()
+        run: python benchmarks/evidence_manifest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qemu-arm-processor-evidence
+          path: outputs/
+          if-no-files-found: error

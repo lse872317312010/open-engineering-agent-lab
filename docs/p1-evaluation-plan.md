@@ -101,14 +101,14 @@ experiments/
 
 ## F. 执行顺序（Issue/PR 可按此拆分）
 
-- [ ] **P1-01** 检查远程 CI：Python 3.10–3.12 的构建/测试结果和可复现命令。
-- [ ] **P1-02** 固定 B0 工况、独立数学参考及误差指标脚本。
-- [ ] **P1-03** PathSim 最小接入试验：B0 + 无界面 API + 多速率/事件能力检查。
-- [ ] **P1-04** motulator 最小接入试验：电机模型和 B1 控制参考对比。
-- [ ] **P1-05** 评审 Agentic Embedded Lab / Mavrith：可复用接口、数据/证据模型和许可。
-- [ ] **P1-06** 在 OEAL 原生代码中构建 B1 20 kHz FOC 与独立测试。
-- [ ] **P1-07** 执行 B2 时序语义探索，明确适配代价。
-- [ ] **P1-08** 汇总对比、形成 ADR，制定 P2 IR 的最小语义契约。
+- [x] **P1-01** 检查远程 CI：Python 3.10–3.12 的构建/测试结果和可复现命令。
+- [x] **P1-02** 固定 B0 工况、独立数学参考及误差指标脚本。
+- [x] **P1-03** PathSim 最小接入试验：B0 + 无界面 API + 多速率/事件能力检查。
+- [x] **P1-04** motulator 最小接入试验：电机模型和 B1 控制参考对比。
+- [x] **P1-05** 评审 Agentic Embedded Lab / Mavrith：可复用接口、数据/证据模型和许可。
+- [x] **P1-06** 在 OEAL 原生代码中构建 B1 20 kHz FOC 与独立测试。
+- [x] **P1-07** 执行 B2 时序语义探索，明确适配代价。
+- [x] **P1-08** 汇总对比、形成 ADR，制定 P2 IR 的最小语义契约。
 
 ## G. P1 Gate：完成条件
 
@@ -120,3 +120,12 @@ experiments/
 5. CI 记录包含确切 commit、Python 版本和测试日志；没有真实 MCU 证据就不写“PIL/硬实时已验证”。
 
 通过后进入 P2 的模型 IR v0.1 设计。允许提前做 Agent 与 UI 的隔离 PoC，但它们不能绕开此 Gate。
+
+## H. 本轮执行范围与证据
+
+2026-10-22 已完成本轮有限采用范围的评测；Gate 工程评审与决策见
+[ADR 0001](decisions/0001-simulator-and-model-interface.md)，运行证据见 [阶段状态](stage-status.md)。
+P1-04 是电机方程/RL 模型探针，未验证 motulator 完整控制栈；
+P1-05 仅验证 AEL schema 和 Mavrith typed-port API，均为 reference-only；
+P1-07 为排程与单周期延迟探索，不是 PWM/ADC 开关级验证。
+原有 main CI 曾因 import lint 失败，工作分支已修复并核验，尚未合并。

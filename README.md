@@ -1,65 +1,97 @@
 # Open Engineering Agent Lab
 
-面向电机控制与机器人关节研发的开放式 Python 研究基地。项目先用一个可验证的 PMSM dq 模型打通
-“参数化工况 → 可重复仿真 → 结构化结果 → 自动测试”链路，再逐步接入控制器、热模型、动力学和
-Agent 工作流。模型、数据和实验记录采用可读、可迁移的开放格式，不依赖某一家商业建模环境或模型服务。
+面向 PMSM / FOC / 机器人关节研究的 Python + Agent 工程实验仓库。
+参数和工况使用开放 JSON，仿真输出 CSV/JSON，验收与提议策略分离。
 
-## 当前能力
+## 验收约束
 
-- PMSM 转子坐标系 dq 电气方程与机械运动方程，使用固定步长 RK4 积分。
-- JSON 工况输入，命令行执行，导出 CSV 轨迹和 JSON 摘要，方便脚本或 Agent 调用。
-- pytest 数值与 CLI 测试，以及 Python 3.10–3.12 的 GitHub Actions 检查。
-- 核心仿真只依赖 NumPy；Agent/LLM 不属于运行仿真的必需依赖。
+按用户 2026-10-23 的要求：仿真环境中完成并通过固定指标即可交付，真机由用户负责。
+Agent 持续推进仿真/SIL 与可复现产物，不以板卡、PIL 或实测资源日志作为开发前置条件。
+详见 [验收范围](docs/acceptance-scope.md)；证据等级仍按实际来源保留。
 
-这是研究用的平均电压模型，当前不包含开关级逆变器、采样/PWM 时序、饱和、损耗、温升或真实电机参数辨识。
-结果不能直接用于硬件安全判断或量产参数定型。
+## 已实现的离线能力
 
-## 快速开始
+- 原生 PMSM dq + 机械 RK4 模型；Clarke/Park、dq PI、回算抗积分饱和。
+- 默认 20 kHz FOC、线性平均 SVPWM、静止电压保持、可选一周期延迟。
+- B0 独立 DOP853/步长收敛；B1 阶跃、正反转速、参数偏差和失败工况。
+- 五类 IR v0.1 Schema、单位/时钟/预算校验，native/PathSim 开环适配。
+- 白名单实验工具、固定验收器、按内容寻址的账本和离线失败修复策略。
+- double/float32 PI C 内核及主机 SIL；STM32G474 对象交叉编译流程。
+
+这些是研究软件能力。当前未运行真实板卡 PIL；未提供 TI C2000 构建结果。
+详细进度和确切证据见 [阶段状态](docs/stage-status.md)，总目标见 [路线图](docs/roadmap.md)。
+
+## P6 多物理研究与交互报告
+
+新增 9 状态关节耦合、三节点热网络、平均逆变器误差、
+合成数据独立标定/验证与单节点 RC FMI 互操作。
+[报告使用说明](docs/p6-report-guide.md)介绍离线 HTML、PDF、
+PNG/SVG、CSV 和实际浏览器截图的下载与复现。
+
+```bash
+oeal simulate-joint examples/p6-joint.json --output outputs/joint
+python benchmarks/validate_p6.py
+python benchmarks/validate_fmi_thermal.py
+python benchmarks/build_p6_report.py
+```
+
+报告包含工况/热阻切换、基准叠加、时间游标、参数说明与导出。
+P6 合成研究数据不代表实测校准；完整范围见 [模型契约](docs/p6-model-contract.md)。
+
+## 快速运行
+
+Python >=3.10；外部项目评测环境需 Python 3.12。
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate
 python -m pip install -e ".[dev]"
-python -m unittest discover -s tests -v
 ruff check .
+python -m unittest discover -s tests -v
+python -m pytest
+
+oeal simulate examples/pmsm_step.json --output outputs/open-loop
+oeal simulate-foc examples/foc_step.json --output outputs/foc
+oeal validate-spec examples/ir/foc-experiment.json
+oeal run-experiment examples/ir/foc-experiment.json --output outputs/ir-result.json
 ```
 
-运行样例：
+FOC trace.csv 包含时间、状态、实际保持电压、占空比、参考和限幅标志；
+summary.json 包含独立重算指标、配置/轨迹散列和证据等级。
+原始 PMSM 示例未为新后端修改。
+
+## 重现阶段验收
+
+在 Python 3.12 的独立环境运行：
 
 ```bash
-oeal simulate examples/pmsm_step.json --output outputs/pmsm_step
-# 也可以：python -m oeal simulate examples/pmsm_step.json --output outputs/pmsm_step
+python -m pip install -r benchmarks/requirements.txt
+python -m pip install -e ".[dev]"
+python benchmarks/validate_p1.py
+python benchmarks/validate_p2.py
+python benchmarks/validate_p3.py
+python benchmarks/validate_p4.py
+python benchmarks/evidence_manifest.py
 ```
 
-输出目录包含：
+P4 需要 GCC。固定上游提交、传递依赖 freeze、命令/版本、输入/产物散列、
+轨迹、指标和失败案例均保存在 CI artifact。
+P5 交叉编译需 ARM 工具链，运行 `python benchmarks/validate_p5.py`；
+它只生成对象、反汇编和资源编译报告，不刷机、不测板端时间。
 
-- `trace.csv`：每个仿真步的时间、电流、机械转速/角度和电磁转矩。
-- `summary.json`：输入参数、采样设置、末态及峰值摘要，并记录包版本、输入配置 SHA-256 和积分方法。
+## 模型和执行边界
 
-## 面向 Agent 的调用约定
+这是合成研究参数的平均电压模型，不包含开关级逆变器、真实 ADC/ISR 时序、
+磁饱和、损耗温升或实际电机参数辨识。电流指令限幅不保证瞬态真实电流限幅。
+离线提议策略未测试在线 LLM；应用层白名单不是任意 Python 的 OS 沙箱。
+P4 当前验证 double/float32 PI 内核，未验证完整嵌入式 FOC 或固定点。
+交叉编译对象 size 不等于最终固件 Flash/RAM；板端 50 us 期限尚未测量。
 
-Agent 以仓库内 JSON 工况作为显式输入，通过 `oeal simulate` 执行，不直接改动模型内部状态。每次实验应保存：
+## 文档
 
-1. 输入工况 JSON 和代码版本（后续实验记录会自动补齐）。
-2. 仿真轨迹与摘要文件。
-3. 由验证脚本计算的指标、约束是否通过，以及失败原因。
+- [P1 评测计划](docs/p1-evaluation-plan.md) / [选型 ADR](docs/decisions/0001-simulator-and-model-interface.md)
+- [FOC 时序与方程](docs/foc-contract.md) / [PI 契约](docs/current-controller.md)
+- [IR 契约](docs/ir-v0.1.md) / [Agent 工具契约](docs/agent-tool-contract.md)
+- [C/SIL 契约](docs/sil-contract.md) / [P5 部署与测量契约](docs/p5-deployment-contract.md)
 
-这样可以把“提出假设/选择参数”的模型推理与“数值求解/验收”的确定性工具分开。后续 Agent 适配通过薄接口加入，
-不把某个云端 API、账号或编排框架写进模型核心。
-
-## 目录
-
-```text
-src/oeal/models/     物理模型与数值积分
-examples/            可直接运行的输入工况
-tests/               方程、积分和命令行回归测试
-docs/                模型边界、设计原则和路线图
-experiments/         实验记录格式约定
-.github/workflows/   持续集成
-```
-
-## 研发路线
-
-路线见 [`docs/roadmap.md`](docs/roadmap.md)。第一阶段优先建立数值可信度和实验可重复性，再扩展到 FOC 与多物理场；
-每次扩展都需要先给出模型假设、单位、有效范围和独立验证案例。
-
+MIT 许可证。第三方代码只在独立评测环境安装，采用结论和许可记录见 research/reviews。

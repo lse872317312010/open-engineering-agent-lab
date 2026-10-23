@@ -1,0 +1,94 @@
+{
+  "version": "0.1",
+  "kind": "ExperimentSpec",
+  "id": "b1-step-5a",
+  "model": {
+    "version": "0.1",
+    "kind": "ModelSpec",
+    "id": "synthetic-pmsm-v1",
+    "dynamics": "pmsm_dq_v1",
+    "parameters": {
+      "stator_resistance_ohm": {
+        "value": 0.3,
+        "unit": "ohm"
+      },
+      "d_inductance_h": {
+        "value": 0.0008,
+        "unit": "H"
+      },
+      "q_inductance_h": {
+        "value": 0.0008,
+        "unit": "H"
+      },
+      "flux_linkage_wb": {
+        "value": 0.03,
+        "unit": "Wb"
+      },
+      "pole_pairs": {
+        "value": 7,
+        "unit": "1"
+      },
+      "inertia_kg_m2": {
+        "value": 0.002,
+        "unit": "kg*m^2"
+      },
+      "viscous_friction_nms": {
+        "value": 0.00001,
+        "unit": "N*m*s/rad"
+      }
+    },
+    "clocks": {
+      "control": {
+        "value": 0.00005,
+        "unit": "s"
+      },
+      "pwm": {
+        "value": 0.000008333333333333334,
+        "unit": "s"
+      }
+    },
+    "ports": [
+      {
+        "name": "voltage_dq",
+        "unit": "V",
+        "shape": [
+          2
+        ]
+      },
+      {
+        "name": "current_dq",
+        "unit": "A",
+        "shape": [
+          2
+        ]
+      },
+      {
+        "name": "speed",
+        "unit": "rad/s",
+        "shape": []
+      }
+    ]
+  },
+  "mode": "foc",
+  "backend": "native",
+  "settings": {
+    "duration_s": 0.02,
+    "control_period_s": 0.00005,
+    "integration_step_s": 0.000005,
+    "step_time_s": 0.001,
+    "id_reference_a": 0,
+    "iq_reference_a": 5,
+    "vdc_v": 48,
+    "current_limit_a": 10,
+    "bandwidth_per_s": 2000,
+    "tracking_rate_per_s": 2000,
+    "delay_samples": 0
+  },
+  "input": {
+    "vd_v": 0,
+    "vq_v": 0,
+    "load_torque_nm": 0
+  },
+  "seed": 0,
+  "budget_steps": 100000
+}

@@ -24,7 +24,7 @@
 <div class="legend"><span><i class="key" style="background:var(--teal)"></i>q 轴电流</span><span><i class="key" style="background:var(--blue)"></i>d 轴电流</span><span class="comparison" id="goal-label">目标 5 A</span></div>
 <svg class="chart" id="current-chart" viewBox="0 0 900 240" role="img" aria-label="d q 轴电流随时间的仿真曲线"></svg>
 <div class="cursor-controls"><label for="time-cursor">时间游标</label><input id="time-cursor" type="range" min="0" max="1000" value="1000" step="1"><output id="cursor-time" for="time-cursor">—</output></div>
-<div class="readout" id="cursor-values" aria-live="polite"></div><div class="insight" id="case-insight">—</div>
+<div class="readout" id="cursor-values" aria-live="polite"></div><div class="insight" id="case-insight">—</div><details><summary>查看当前工况的模型参数与来源</summary><div class="table-wrap"><table><thead><tr><th>参数</th><th>值</th><th>来源</th></tr></thead><tbody id="parameter-table"></tbody></table></div><p class="caption">图表浏览采用每 4 个控制样本取 1；完整 CSV 随证据包提供。</p></details>
 </section>
 <section class="panel"><div class="panel-head"><div><h2>机械传递</h2><p class="caption">输出轴转矩（N·m），观察弹性和传动误差。</p></div></div><svg class="chart" id="mechanical-chart" viewBox="0 0 680 250" role="img" aria-label="关节输出转矩曲线"></svg><div class="readout" id="mechanical-values"></div></section>
 <section class="panel" id="thermal"><div class="panel-head"><div><h2>120 秒热演化</h2><p class="caption">由理想电流包络驱动，不代表 120 秒全速 FOC。</p></div><label class="control" for="thermal-select"><span class="sr-only">热研究工况</span><select id="thermal-select"><option value="1">标称散热 · 5 A</option><option value="0">热阻 −20% · 5 A</option><option value="2">热阻 +20% · 5 A</option><option value="stress">高负荷 · 12 A / 40°C</option></select></label></div>
@@ -88,13 +88,15 @@ function renderShort(){
  };
  el("case-insight").textContent=descriptions[c.id];
  el("case-insight").className="insight"+(ok?"":" warn");
+ const p=c.parameters,params=[["定子电阻",p.motor.stator_resistance_ohm+" Ω"],["d / q 轴电感",(p.motor.d_inductance_h*1000)+" / "+(p.motor.q_inductance_h*1000)+" mH"],["减速比",p.joint.ratio],["传动刚度",p.joint.stiffness_nm_per_rad+" N·m/rad"],["负载惯量",p.joint.load_inertia_kg_m2+" kg·m²"],["环境温度",p.thermal.ambient_c+" °C"]];
+ el("parameter-table").replaceChildren();params.forEach(([name,value])=>{const tr=document.createElement("tr");[name,String(value),"合成研究参数"].forEach(text=>{const td=document.createElement("td");td.textContent=text;tr.append(td)});el("parameter-table").append(tr)});
 }
 function renderThermal(){
  const stress=el("thermal-select").value==="stress";
  const rows=stress?D.scenarios.thermal_stress.samples:D.scenarios.thermal_cases[Number(el("thermal-select").value)].samples;
  chart("thermal-chart",[1,2,3].map((j,i)=>({data:rows.map(r=>[r[0],r[j]]),color:colors[i]})),"时间 s","温度 °C");
  const last=rows[rows.length-1];
- el("thermal-insight").textContent="120 s 末态：绕组 "+format(last[1],1)+"°C，壳体 "+format(last[2],1)+"°C，功率板 "+format(last[3],1)+"°C。"+(stress?"高负荷是否越过示例范围，以实际生成结果为准。":"切换热阻场景，比较同一电流包络下的散热敏感度。");
+ el("thermal-insight").textContent="120 s 末态：绕组 "+format(last[1],1)+"°C，壳体 "+format(last[2],1)+"°C，功率板 "+format(last[3],1)+"°C。"+(stress?("高负荷"+(D.scenarios.thermal_stress.within_illustrative_limits?"未越过":"已越过")+"示例温度范围；该范围仅用于研究比较。"):"切换热阻场景，比较同一电流包络下的散热敏感度。");
  el("thermal-insight").className="insight"+(stress&&!D.scenarios.thermal_stress.within_illustrative_limits?" warn":"");
 }
 function init(){

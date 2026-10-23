@@ -56,6 +56,7 @@ def main():
         page.reload(wait_until="load")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         page.locator("#case-select").select_option("3")
+        assert "40 N·m/rad" in page.locator("#parameter-table").inner_text()
         page.locator("#time-cursor").focus()
         page.locator("#time-cursor").press("ArrowLeft")
         assert page.locator("#time-cursor").input_value() == "999"

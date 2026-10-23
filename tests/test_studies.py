@@ -13,7 +13,7 @@ from oeal.experiments import run_experiment
 from oeal.foc import FOCConfig, simulate_foc
 from oeal.ir import document_hash, validate_document
 from oeal.models import MotorParameters
-from oeal.studies import FOC_FIELDS, MOTOR, resolve_assets, resolved_settings
+from oeal.studies import FOC_FIELDS, MOTOR, recompute, resolve_assets, resolved_settings
 from oeal.study_tools import StudyTools
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,13 +63,16 @@ class StudyTests(unittest.TestCase):
 
     def test_result_shape_time_and_units_rejected(self):
         result = run_experiment(example())
-        for change in ("time", "unit", "hash"):
+        for change in ("time", "unit", "shape", "hash"):
             altered = copy.deepcopy(result)
             if change == "time":
                 altered["streams"]["control"]["samples"][1][0] = 0
                 altered["raw_sha256"] = document_hash(altered["streams"])
             elif change == "unit":
                 altered["streams"]["control"]["units"][1] = "V"
+                altered["raw_sha256"] = document_hash(altered["streams"])
+            elif change == "shape":
+                altered["streams"]["control"]["samples"][1].pop()
                 altered["raw_sha256"] = document_hash(altered["streams"])
             else:
                 altered["streams"]["control"]["samples"][1][1] += 1
@@ -106,3 +109,25 @@ class StudyTests(unittest.TestCase):
                 tools.propose_change({"duration_s": 1})
             with self.assertRaises(ValueError):
                 tools.propose_change({"bandwidth_per_s": 99999})
+
+    def test_switching_peak_and_robot_tuning_scope_are_protected(self):
+        spec = example()
+        result = run_experiment(spec)
+        result["streams"]["waveforms"] = {
+            "columns": ["time_s", "id_a", "iq_a"], "units": ["s", "A", "A"],
+            "samples": [[0, 0, 0], [0.010001, 0, 25]],
+            "sample_semantics": "solver_samples",
+        }
+        spec["acceptance"]["current_peak_a"] = {"value": 20, "unit": "A"}
+        metrics, numeric, passed = recompute(spec, result)
+        self.assertTrue(numeric)
+        self.assertEqual(metrics["current_peak_a"], 25)
+        self.assertFalse(passed)
+        with tempfile.TemporaryDirectory() as directory:
+            tools = StudyTools(example("ur5e_joint_v1"), directory)
+            with self.assertRaises(ValueError):
+                tools.propose_change({"bandwidth_per_s": 2000})
+            with self.assertRaises(ValueError):
+                tools.propose_change({"current_limit_a": 30})
+            candidate = tools.propose_change({"outer_kp_nm_per_rad": 300})
+            self.assertEqual(candidate["settings"]["outer_kp_nm_per_rad"]["value"], 300)

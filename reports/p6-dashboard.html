@@ -73,6 +73,7 @@
 <p class="caption">输入包含 SI 单位、受限模型注册表、固定资产哈希和计算预算；control / joint 是固定时钟流，waveforms 是自适应求解采样，gates 是事件流。CSV 导出同时保留单位清单。</p>
 <div class="refined-layout rowgap"><div><h3>8 次受限搜索</h3><p class="caption">平均逆变器用于训练；图示尾段位置偏差。数值失败单独标记，惩罚分数不冒充测量误差。</p><svg class="chart" id="design-trials-chart" viewBox="0 0 680 230" role="img" aria-label="优化试验的位置偏差"></svg><div id="design-trials" class="table-wrap"><table><thead><tr><th>试验</th><th>Kp</th><th>Kd</th><th>尾段误差 rad</th><th>状态</th></tr></thead><tbody id="design-trial-rows"></tbody></table></div></div>
 <div><h3>独立验证</h3><p class="caption">PWM 开关、死区与压降下重新计算；0.5 kg 附加载荷未参与训练。</p><div class="table-wrap"><table><thead><tr><th>工况</th><th>原始误差 rad</th><th>优化误差 rad</th><th>固定目标</th></tr></thead><tbody id="design-results"></tbody></table></div><p class="insight">验收固定：末 10% 时段平均绝对位置误差 ≤0.03 rad，电流峰值 ≤20 A，轴转矩峰值 ≤100 N·m。轨迹 +0.08 rad，时长 0.25 s。红线和失败不会因搜索而改变。</p></div></div>
+<p class="insight">运行机制：位置参考 → PD 与模型偏置补偿 → q 轴电流参考 → 20 kHz FOC → PWM / 死区 / 电机积分 → 50:1 弹性传动 → MuJoCo 连杆；电机与连杆每 200 μs 交换并保持轴转矩，关节位置和速度反馈至外环。热网络更新铜阻。其余五个关节采用上游位置保持执行器。</p>
 <div class="toolbar"><label class="control">验证工况 <select id="design-case"></select></label><button id="design-csv">导出对比轨迹 CSV</button></div>
 <div class="legend"><span><i class="key" style="background:var(--blue)"></i>原始增益</span><span><i class="key" style="background:var(--teal)"></i>优化增益</span><span>虚线：固定参考</span></div>
 <svg class="chart" id="design-trace-chart" viewBox="0 0 900 260" role="img" aria-label="原始与优化增益的机器人关节响应"></svg>

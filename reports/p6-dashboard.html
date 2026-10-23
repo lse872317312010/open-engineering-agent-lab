@@ -11,9 +11,20 @@
 @media(max-width:720px){.shell{display:block}.rail{position:static;height:auto;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}.brand{font-size:18px}.brand-sub,.rail nav,.rail small{display:none}.main{padding:18px 14px}.top{margin-bottom:20px}.top .muted{max-width:55%;font-size:11px}.hero{display:block}.hero .actions{margin-top:14px}.cards{grid-template-columns:1fr 1fr;margin-top:20px}.card{padding:15px}.panel{padding:17px}.progress{gap:3px}.stage{font-size:10px;padding:7px 2px}.panel-head{flex-wrap:wrap}.proof{grid-template-columns:1fr}.top-actions{gap:5px}button,select{padding:8px 10px}.cursor-controls{grid-template-columns:auto 1fr}.cursor-controls output{grid-column:1/-1;text-align:right}.assumptions{grid-template-columns:1fr}.value{font-size:25px}}
 @media print{.rail,.top-actions,.actions,.toolbar,.cursor-controls,button{display:none!important}.shell{display:block}.main{padding:0}.panel,.card{box-shadow:none;break-inside:avoid}body{background:#fff;color:#111}.grid{display:block}.panel{margin:12px 0}.cards{grid-template-columns:repeat(4,1fr)}}
 @media(prefers-reduced-motion:no-preference){button,.action{transition:border-color .15s,background .15s}}
+
+.system-svg{width:100%;display:block;min-width:740px}.system-scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.system-svg text{fill:var(--ink);font-size:13px}.system-svg .node-title{font-size:16px;font-weight:700}.system-svg .node-sub{fill:var(--muted);font-size:12px}
+.system-svg .module rect{fill:var(--card);stroke:var(--line);stroke-width:2}.system-svg .module{cursor:pointer}.system-svg .module[aria-pressed=true] rect{stroke:var(--blue);stroke-width:3}
+.system-svg .module[data-state=warn] .node-status{fill:var(--amber)}.system-svg .node-status{fill:var(--teal);font-weight:700;font-size:12px}.system-svg .node-value{font-size:11px}
+.system-svg .flow{fill:none;stroke-width:2;opacity:.65}.system-svg .flow.active{stroke-width:3;opacity:1}.system-svg .feedback{stroke-dasharray:6 4}
+.system-summary{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.system-detail{border:1px solid var(--line);border-radius:12px;padding:17px;margin-top:15px}
+.system-detail p{font-size:13px}.system-detail code{display:block;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:12px;border-radius:8px}
+.system-status-list{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.system-state{padding:10px;border:1px solid var(--line);border-radius:10px;text-align:left;font-size:12px}.system-state strong,.system-state span{display:block}.system-state[data-state=warn]{border-color:var(--amber)}
+.system-links{font-size:13px;padding-left:20px}.system-links li{margin:8px 0}
+@media(max-width:720px){.system-status-list{grid-template-columns:1fr 1fr}}
 </style></head>
 <body><a class="skip" href="#main">跳到报告内容</a>
-<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
+<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
 <main class="main" id="main"><header class="top"><div class="muted">研究工作台 / P6 多物理域实验</div><div class="top-actions"><span class="pill"><span class="dot"></span> 合成研究场景</span><button id="theme" type="button" aria-label="切换深浅主题">深色模式</button></div></header>
 <section id="overview"><div class="hero"><div><div class="eyebrow">P6 · MULTIPHYSICS STUDY</div><h1>看见耦合，理解边界。</h1><p>把电流、柔性关节与热演化放在同一份研究报告中。探索不同工况，再用独立数学参考判断哪些结论已成立、哪些目标还不可达。</p><div class="tags"><span class="pill" id="gate">正在读取验收结果</span><span class="muted" style="font-size:12px">离线交互 · 无需账号 · 数据内嵌</span></div></div><div class="actions"><a class="action primary" href="report.pdf" download>下载 PDF 报告</a><button id="export-json">导出完整数据</button></div></div>
 <div class="progress" aria-label="阶段交付范围"><div class="stage">P1 · 基准</div><div class="stage">P2 · 模型 IR</div><div class="stage">P3 · 受控闭环</div><div class="stage">P4 · SIL</div><div class="stage">P5 · ARM 仿真</div><div class="stage current">P6 · 多物理</div></div>
@@ -27,6 +38,17 @@
 <div class="readout" id="cursor-values" aria-live="polite"></div><div class="insight" id="case-insight">—</div><details><summary>查看当前工况的模型参数与来源</summary><div class="table-wrap"><table><thead><tr><th>参数</th><th>值</th><th>来源</th></tr></thead><tbody id="parameter-table"></tbody></table></div><p class="caption">图表浏览采用每 4 个控制样本取 1；完整 CSV 随证据包提供。</p></details>
 </section>
 <section class="panel"><div class="panel-head"><div><h2>机械传递</h2><p class="caption">输出轴转矩（N·m），观察弹性和传动误差。</p></div></div><svg class="chart" id="mechanical-chart" viewBox="0 0 680 250" role="img" aria-label="关节输出转矩曲线"></svg><div class="readout" id="mechanical-values"></div></section>
+
+<section class="panel wide" id="system-model" aria-labelledby="system-heading">
+<div class="panel-head"><div><h2 id="system-heading">系统如何运行</h2><p class="caption">跟随上方研究工况与时间游标回放。点击模块或下方状态卡，查看运行机制及连接；状态文字与颜色同时表达。</p></div><a class="action" href="plots/system-model.png" download>导出系统模型 PNG</a></div>
+<div class="system-summary"><span class="pill" id="system-time"></span><span class="pill" id="system-goal"></span></div>
+<p class="caption">实线蓝色：控制信号 · 实线青色：功率/能量耦合 · 虚线紫色：状态反馈与停机。箭头端点表示作用方向；选中模块会突出相关连接。图中温度流指状态反馈，实际热传导双向取决于温差。</p>
+<div class="system-scroll" tabindex="0" role="region" aria-label="系统连接图，可横向滚动"><svg class="system-svg" id="system-map" viewBox="0 0 1120 560" role="group" aria-label="控制、电气、机械和热网络的系统模块图"></svg></div>
+<p class="caption">手机可横向查看全图，也可使用下面的状态卡逐个浏览全部模块。</p>
+<div class="system-status-list" id="system-states" aria-label="当前采样时刻的组件状态"></div>
+<div class="system-detail" id="system-detail" aria-live="polite"></div>
+<details><summary>查看完整运行时序、连续状态和模型边界</summary><p id="system-timing"></p><p>连续状态：id、iq、θm、ωm、θl、ωl、Tw、Tc、Tb；另有 PI 积分、上周期命令和停机锁存等离散状态。</p><p id="system-scope"></p><p>瞬时状态与整段验收分开：图中电流偏差阈值 0.1 A 仅作游标提示；整段目标按尾段平均误差判断。电压利用率 ≥98% 标为“接近电压边界”，不声称 PI 内部饱和。热状态依赖当前温度和锁存标志。未记录的内部量明确标注。</p></details>
+</section>
 <section class="panel" id="thermal"><div class="panel-head"><div><h2>120 秒热演化</h2><p class="caption">由理想电流包络驱动，不代表 120 秒全速 FOC。</p></div><label class="control" for="thermal-select"><span class="sr-only">热研究工况</span><select id="thermal-select"><option value="1">标称散热 · 5 A</option><option value="0">热阻 −20% · 5 A</option><option value="2">热阻 +20% · 5 A</option><option value="stress">高负荷 · 12 A / 40°C</option></select></label></div>
 <div class="legend"><span><i class="key" style="background:var(--teal)"></i>绕组</span><span><i class="key" style="background:var(--blue)"></i>壳体</span><span><i class="key" style="background:var(--purple)"></i>功率板</span></div>
 <svg class="chart" id="thermal-chart" viewBox="0 0 680 250" role="img" aria-label="三个热节点温度随时间曲线"></svg><div class="insight" id="thermal-insight"></div></section>
@@ -64,6 +86,58 @@ function chart(id,series,xLabel,yLabel,cursor=null){
  svg.innerHTML=html;
 }
 function currentCase(){return D.scenarios.cases[selected]}
+
+let systemSelected="motor", systemSnapshot=null;
+function initSystem(){
+ const spec=D.system_model,svg=el("system-map"),ns="http://www.w3.org/2000/svg";
+ function make(tag,attrs,text){const n=document.createElementNS(ns,tag);Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v));if(text)n.textContent=text;return n}
+ const defs=make("defs");["signal","energy","feedback"].forEach((kind,i)=>{const m=make("marker",{id:"arrow-"+kind,viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"});m.append(make("path",{d:"M0 0L10 5L0 10Z",fill:colors[[1,0,2][i]]}));defs.append(m)});svg.append(defs);
+ spec.edges.forEach((e,i)=>{const path=make("path",{d:e.path,class:"flow "+e.kind,stroke:colors[{signal:1,energy:0,feedback:2}[e.kind]],"marker-end":"url(#arrow-"+e.kind+")","data-edge":i});path.append(make("title",{},e.label+"："+e.mechanism));svg.append(path)});
+ [["电流 / 角度 / 转速反馈",430,25],["电压命令",240,130],["αβ 保持",520,130],["实际电压",800,130],["转矩与运动",975,280],["电流 / 铜阻",700,260],["温度 → 铜阻",560,545],["停机覆盖",25,280]].forEach(([text,x,y])=>svg.append(make("text",{x,y,class:"node-sub"},text)));
+ spec.nodes.forEach(n=>{const g=make("g",{class:"module",transform:"translate("+n.x+" "+n.y+")",role:"button",tabindex:0,"aria-label":n.title,"aria-pressed":"false","data-module":n.id});g.append(make("rect",{width:220,height:115,rx:13}),make("text",{x:15,y:28,class:"node-title"},n.title),make("text",{x:15,y:51,class:"node-sub"},n.subtitle),make("text",{x:15,y:78,class:"node-status"}),make("text",{x:15,y:100,class:"node-value"}));svg.append(g);
+ const button=document.createElement("button");button.type="button";button.className="system-state";button.dataset.module=n.id;button.setAttribute("aria-label","查看"+n.title+"机制");const title=document.createElement("strong");title.textContent=n.title;button.append(title,document.createElement("span"),document.createElement("span"));el("system-states").append(button);
+ });
+ function select(event){const target=event.target.closest("[data-module]");if(target){systemSelected=target.dataset.module;renderSystemDetail()}}
+ svg.addEventListener("click",select);el("system-states").addEventListener("click",select);
+ svg.addEventListener("keydown",event=>{if((event.key==="Enter"||event.key===" ")&&event.target.closest("[data-module]")){event.preventDefault();select(event)}});
+ el("system-timing").textContent=spec.timing;el("system-scope").textContent=spec.scope;
+}
+function renderSystem(c,row){
+ const p=c.parameters,get=name=>row[c.columns.indexOf(name)],t=get("time_s"),iq=get("iq_a"),id=get("id_a"),tripped=Boolean(get("tripped")),ref=t+1e-12>=p.control.step_time_s?p.control.iq_reference_a:0;
+ const bus=get("bus_v"),voltage=get("voltage_abs_v"),util=voltage/(bus/Math.sqrt(3)),tw=get("winding_c"),tb=get("board_c"),thermalWarn=tw>=p.thermal.stop_winding_c||tb>=p.thermal.stop_board_c;
+ const f=(n,d=2)=>format(n,d),values={
+ control:[tripped?"停机 · PI 复位":t<p.control.step_time_s?"等待目标阶跃":Math.abs(iq-ref)<=0.1?"瞬时 q 偏差 ≤0.1 A":"电流跟踪中", "iq* "+f(ref)+" / iq "+f(iq)+" A",tripped,
+ "当前 q 目标 "+f(ref)+" A；实际 id / iq "+f(id)+" / "+f(iq)+" A；配置 d/q 目标 "+p.control.id_reference_a+" / "+p.control.iq_reference_a+" A；电流径向限制 "+p.control.current_limit_a+" A。此处 q 目标显示阶跃前后原始参考，控制器内部还会执行径向参考限幅。"],
+ delay:[tripped?"停机覆盖延迟":p.control.delay_samples?"一周期延迟启用":"本周期命令",f(p.control.control_period_s*1e6,0)+" μs / "+p.control.delay_samples+" 拍",tripped,
+ "控制周期 "+f(p.control.control_period_s*1e6,0)+" μs；积分最大步长 "+f(p.control.integration_step_s*1e6,1)+" μs；配置延迟 "+p.control.delay_samples+" 拍。保持命令和 PI 内部量未在 CSV 导出。"],
+ inverter:[tripped?"零平均电压命令":util>=.98?"接近电压边界":"电压范围内","利用率 "+f(util*100,1)+"% · "+f(bus)+" V",tripped||util>=.98,
+ "实时母线 "+f(bus)+" V；实际 |u_dq| "+f(voltage,3)+" V；电压圆上限 "+f(bus/Math.sqrt(3),3)+" V；输出利用率 "+f(util*100,1)+"%。纹波 "+f(p.inverter.ripple_fraction*100,1)+"%；死区 "+f(p.inverter.deadtime_s*1e6,2)+" μs；器件压降 "+p.inverter.device_drop_v+" V。"],
+ motor:[tripped?"停机后电磁动态":"电磁动态积分","id / iq "+f(id)+" / "+f(iq)+" A",false,
+ "温度修正铜阻 "+f(p.motor.stator_resistance_ohm*(1+p.thermal.copper_alpha_per_k*(tw-25)),4)+" Ω；电机速度 "+f(get("motor_speed_rad_s"))+" rad/s；电机角度 "+f(get("motor_angle_rad"),4)+" rad。零电压命令下电流仍由状态方程演化。"],
+ joint:[tripped?"停机后仍积分":"弹性传动运行","τs "+f(get("shaft_torque_nm"))+" N·m",false,
+ "负载角度 "+f(get("load_angle_rad"),4)+" rad；负载速度 "+f(get("load_speed_rad_s"))+" rad/s；负载侧传动转矩 "+f(get("shaft_torque_nm"),3)+" N·m；外部负载 "+c.inputs.load_nm+" N·m；刚度 "+p.joint.stiffness_nm_per_rad+" N·m/rad；减速比 "+p.joint.ratio+"。"],
+ losses:["按状态计算热源","铜耗 "+f(get("copper_w"))+" W",false,
+ "铜耗 "+f(get("copper_w"),3)+" W；板损代理 "+f(get("board_loss_w"),3)+" W。壳体还接收机械摩擦和传动阻尼热源，其瞬时功率未单独导出。"],
+ thermal:[thermalWarn?"当前温度达到阈值":tripped?"温度未越限 · 已锁存":"当前温度低于阈值","绕组 "+f(tw,1)+" / 板 "+f(tb,1)+" °C",thermalWarn||tripped,
+ "绕组 / 壳体 / 板温 "+f(tw,2)+" / "+f(get("case_c"),2)+" / "+f(tb,2)+" °C；环境 "+p.thermal.ambient_c+" °C；绕组 / 板温示例停机阈值 "+p.thermal.stop_winding_c+" / "+p.thermal.stop_board_c+" °C。"],
+ stop:[tripped?"已锁存 · 不自动恢复":"未触发","绕组 / 板 "+p.thermal.stop_winding_c+" / "+p.thermal.stop_board_c+" °C",tripped,
+ "CSV tripped = "+Number(tripped)+"；当前采样判断来自运行时实际锁存标志。停机后 PI 清零、延迟旁路、零平均电压，机械与温度继续积分。"]
+ };
+ systemSnapshot={c,row,values};
+ el("system-time").textContent=c.title+" · "+f(t*1000,2)+" ms";
+ el("system-goal").textContent="整段目标："+(c.metrics.command_stopped?"停机案例":c.tracking_goal_passed?"达成":"未达");
+ D.system_model.nodes.forEach(n=>{const [status,value,warn]=values[n.id];const g=el("system-map").querySelector('[data-module="'+n.id+'"]'),b=el("system-states").querySelector('[data-module="'+n.id+'"]');g.dataset.state=b.dataset.state=warn?"warn":"normal";g.querySelector(".node-status").textContent=status;g.querySelector(".node-value").textContent=value;b.children[1].textContent=status;b.children[2].textContent=value;});
+ renderSystemDetail();
+}
+function renderSystemDetail(){
+ if(!systemSnapshot)return;const n=D.system_model.nodes.find(n=>n.id===systemSelected),v=systemSnapshot.values[n.id],panel=el("system-detail");panel.replaceChildren();
+ function add(tag,text){const e=document.createElement(tag);e.textContent=text;panel.append(e);return e}
+ add("h3",n.title+" · "+v[0]);add("p",v[3]);add("p",n.mechanism);add("code",n.equation);add("p",n.limits).className="muted";
+ add("h3","相关连接");const list=add("ul","");list.className="system-links";
+ D.system_model.edges.forEach((e,i)=>{const active=e.from===n.id||e.to===n.id;el("system-map").querySelector('[data-edge="'+i+'"]').classList.toggle("active",active);if(active){const item=document.createElement("li"),name=id=>D.system_model.nodes.find(m=>m.id===id).title;item.textContent=name(e.from)+" → "+name(e.to)+"："+e.label+"。"+e.mechanism;list.append(item)}});
+ document.querySelectorAll("[data-module]").forEach(e=>e.setAttribute("aria-pressed",String(e.dataset.module===n.id)));
+}
+
 function renderShort(){
  const c=currentCase(),rows=c.samples;
  const index=Math.round(Number(el("time-cursor").value)/1000*(rows.length-1)),row=rows[index];
@@ -88,6 +162,7 @@ function renderShort(){
  };
  el("case-insight").textContent=descriptions[c.id];
  el("case-insight").className="insight"+(ok?"":" warn");
+ renderSystem(c,row);
  const p=c.parameters,params=[["定子电阻",p.motor.stator_resistance_ohm+" Ω"],["d / q 轴电感",(p.motor.d_inductance_h*1000)+" / "+(p.motor.q_inductance_h*1000)+" mH"],["减速比",p.joint.ratio],["传动刚度",p.joint.stiffness_nm_per_rad+" N·m/rad"],["负载惯量",p.joint.load_inertia_kg_m2+" kg·m²"],["环境温度",p.thermal.ambient_c+" °C"]];
  el("parameter-table").replaceChildren();params.forEach(([name,value])=>{const tr=document.createElement("tr");[name,String(value),"合成研究参数"].forEach(text=>{const td=document.createElement("td");td.textContent=text;tr.append(td)});el("parameter-table").append(tr)});
 }
@@ -118,7 +193,7 @@ function init(){
  cells.forEach((text,i)=>{const td=document.createElement("td");td.textContent=text;if(i>=4)td.className="status"+((i===4?c.numeric_passed:c.tracking_goal_passed)?"":" warn");tr.append(td)});el("comparison-table").append(tr)});
  const proofs=[["机械能与耗散",D.references.mechanical_energy_error_j.toExponential(2)+" J"],["三节点热网络",D.references.thermal_expm_error_k.toExponential(2)+" K"],["步长减半差异",D.scenarios.step_halving_max_state_difference.toExponential(2)],["FMI 互操作",D.fmi.passed?"解析 / 重置 / 非法写入通过":"未通过"]];
  proofs.forEach(([title,value])=>{const p=document.createElement("div");p.className="proof-item";const a=document.createElement("span");a.textContent=title;const b=document.createElement("strong");b.textContent=value;p.append(a,b);el("proofs").append(p)});
- renderShort();renderThermal();
+ initSystem();renderShort();renderThermal();
 }
 el("case-select").addEventListener("change",event=>{selected=Number(event.target.value);renderShort()});
 el("time-cursor").addEventListener("input",renderShort);el("compare").addEventListener("change",renderShort);

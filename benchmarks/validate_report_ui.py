@@ -25,10 +25,27 @@ def main():
         assert "验收通过" in page.locator("#gate").inner_text()
         assert page.locator("#comparison-table tr").count() == 6
         assert page.locator("#current-chart polyline").count() == 2
+
+        assert page.locator("#system-map .module").count() == 8
+        assert page.locator("#system-map .flow").count() == 11
+        assert page.locator("#system-states button").count() == 8
+        page.locator('#system-map [data-module="thermal"]').click()
+        assert "温差与热阻" in page.locator("#system-detail").inner_text()
+        page.locator('#system-map [data-module="delay"]').focus()
+        page.locator('#system-map [data-module="delay"]').press("Enter")
+        assert "保持命令和 PI 内部量未在 CSV 导出" in page.locator("#system-detail").inner_text()
         page.screenshot(path=str(REPORT / "ui-desktop.png"), full_page=True)
+        page.locator("#system-model").screenshot(path=str(REPORT / "ui-system-model.png"))
+
         page.locator("#case-select").select_option("4")
         assert "未达" in page.locator("#case-status").inner_text()
+
         assert "4 V" in page.locator("#case-insight").inner_text()
+        assert "整段目标：未达" in page.locator("#system-goal").inner_text()
+        assert "低母线" in page.locator("#system-time").inner_text()
+        page.locator('#system-states [data-module="inverter"]').click()
+        assert "实时母线 4.00 V" in page.locator("#system-detail").inner_text()
+
         page.locator("#compare").check()
         assert page.locator("#current-chart polyline").count() == 3
         page.locator("#time-cursor").focus()
@@ -36,7 +53,21 @@ def main():
         assert page.locator("#cursor-time").inner_text() == "0.00 ms"
         page.locator("#time-cursor").press("End")
         assert "80.00 ms" in page.locator("#cursor-time").inner_text()
+
+        page.locator("#case-select").select_option("5")
+        assert "已锁存" in page.locator('#system-states [data-module="stop"]').inner_text()
+        assert "零平均电压命令" in page.locator('#system-states [data-module="inverter"]').inner_text()
+        page.locator('#system-states [data-module="stop"]').click()
+        assert "CSV tripped = 1" in page.locator("#system-detail").inner_text()
+        page.locator("#case-select").select_option("0")
+        page.locator("#time-cursor").focus()
+        page.locator("#time-cursor").press("Home")
+        assert "等待目标阶跃" in page.locator('#system-states [data-module="control"]').inner_text()
+        assert "0.00 ms" in page.locator("#system-time").inner_text()
+        assert "未触发" in page.locator('#system-states [data-module="stop"]').inner_text()
+        page.locator("#time-cursor").press("End")
         page.locator("#thermal-select").select_option("stress")
+
         assert "高负荷" in page.locator("#thermal-insight").inner_text()
         page.locator("#theme").click()
         assert page.locator("html").get_attribute("data-theme") == "dark"
@@ -60,6 +91,13 @@ def main():
         page.locator("#explorer details summary").click()
         parameter_text = page.locator("#parameter-table").inner_text()
         assert "40 N·m/rad" in parameter_text, repr(parameter_text)
+
+        page.locator('#system-states [data-module="joint"]').click()
+        assert "外部负载 2.0 N·m" in page.locator("#system-detail").inner_text()
+        assert "刚度 40 N·m/rad" in page.locator("#system-detail").inner_text()
+        assert page.locator("#system-map").evaluate(
+            "svg => svg.scrollWidth > svg.parentElement.clientWidth"
+        )
         page.locator("#time-cursor").focus()
         page.locator("#time-cursor").press("ArrowLeft")
         assert page.locator("#time-cursor").input_value() == "999"
@@ -73,7 +111,7 @@ def main():
     assert not network, network
     assert (REPORT / "report.pdf").read_bytes().startswith(b"%PDF")
     pngs = list((REPORT / "plots").glob("*.png"))
-    assert len(pngs) == 4
+    assert len(pngs) == 5
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
         "passed": True, "browser": "system Chrome via Playwright",
@@ -82,10 +120,13 @@ def main():
             "offline data and six scenarios", "failure state displayed", "baseline overlay",
             "keyboard time cursor", "thermal scenario", "dark theme", "CSV/JSON export",
             "390px mobile viewport without horizontal overflow", "control labels",
-            "PDF and four PNG figures",
+            "PDF and five PNG figures",
+            "eight system modules and eleven typed connections",
+            "system state replay, boundary, trip and pre-step status",
+            "module keyboard selection and mobile state cards",
         ],
         "page_errors": errors, "external_network_requests": network,
-        "screenshots": ["ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png"],
+        "screenshots": ["ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png"],
     }
     (REPORT / "ui-validation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
     print("report-ui.json: " + json.dumps(report, ensure_ascii=False))

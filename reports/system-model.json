@@ -1,0 +1,187 @@
+{
+  "nodes": [
+    {
+      "id": "control",
+      "title": "电流控制器",
+      "subtitle": "参考 → PI / 解耦 / 限幅",
+      "x": 20,
+      "y": 90,
+      "mechanism": "输入：d/q 电流目标、理想反馈电流和转子角/速度。输出：限幅后的 d/q 电压，经逆 Park 转为 αβ 命令。电流参考先作径向限制，PI 使用回算抗饱和，解耦前馈使用标称电机参数；没有速度或位置外环。",
+      "equation": "e = i* − i；u = PI(e) + 解耦前馈",
+      "limits": "PI 积分器为内部状态，现有 CSV 未记录积分器及限幅前电压，不能从输出电压断言 PI 饱和。"
+    },
+    {
+      "id": "delay",
+      "title": "采样与命令保持",
+      "subtitle": "控制周期 / 延迟 / αβ 保持",
+      "x": 300,
+      "y": 90,
+      "mechanism": "每个控制 tick 读取当前状态、检查停机、计算命令。delay_samples=1 时当前周期使用上周期 αβ 命令，首周期为零；周期内静止坐标电压保持，积分时随转角重新映射到 dq。",
+      "equation": "u_hold[k] = u_pending[k−delay]",
+      "limits": "控制 tick 与报告游标采样分辨率不同；游标不能显示每个内部积分子步。"
+    },
+    {
+      "id": "inverter",
+      "title": "平均逆变器",
+      "subtitle": "母线纹波 / 死区压降代理",
+      "x": 580,
+      "y": 90,
+      "mechanism": "母线按正弦纹波变化。αβ 命令还原为三相后，按电流方向用 tanh 平滑扣除死区与器件压降，再回到 αβ，并限制在实时母线电压圆内。",
+      "equation": "Vbus(t)=Vdc·(1+r·sin(2πft))；|u|≤Vbus/√3",
+      "limits": "使用平均电压模型，未模拟 PWM 开关波形。电压利用率来自实际输出幅值，不是未导出的控制器饱和标志。"
+    },
+    {
+      "id": "motor",
+      "title": "PMSM 电气与转子",
+      "subtitle": "电流 ↔ 反电势 / 电磁转矩",
+      "x": 860,
+      "y": 90,
+      "mechanism": "dq 电压驱动两轴电流。机械转速产生交叉耦合和反电势；电流产生电磁转矩，绕组温度改变实际铜阻。转子角用于坐标变换。",
+      "equation": "Ld·id′=vd−R(T)id+ωeLqiq；Te=1.5p[ψiq+(Ld−Lq)idiq]",
+      "limits": "9 个连续状态中的 id、iq；转子角和速度由机械模块积分。参数为合成研究值。"
+    },
+    {
+      "id": "joint",
+      "title": "柔性关节与负载",
+      "subtitle": "双惯量 / 弹性 / 摩擦",
+      "x": 860,
+      "y": 340,
+      "mechanism": "电磁转矩驱动电机惯量，经减速比和周期传动误差耦合到弹簧阻尼，再驱动负载惯量。外部负载与平滑库仑/黏性摩擦共同作用；传动反力返回电机。",
+      "equation": "δ=θm/n−θl−εsinθm；τs=kδ+cδ′",
+      "limits": "连续状态 θm、ωm、θl、ωl；没有齿隙接触。CSV 的 shaft_torque_nm 是负载侧弹性传动转矩。"
+    },
+    {
+      "id": "losses",
+      "title": "损耗与热源",
+      "subtitle": "铜耗 / 板损代理 / 机械耗散",
+      "x": 580,
+      "y": 340,
+      "mechanism": "电流和绕组温度决定铜耗；板损由导通损耗和与电流幅值相关的开关损耗代理组成。电机/负载摩擦及传动阻尼耗散全部计入壳体热源。",
+      "equation": "Pcu=1.5R(T)(id²+iq²)；Pboard=1.5Rds|i|²+Esw·fsw·|i|",
+      "limits": "CSV 记录铜耗、板损；机械耗散参与热方程，但 CSV 未单独记录。板损不是器件级测量。"
+    },
+    {
+      "id": "thermal",
+      "title": "三节点热网络",
+      "subtitle": "绕组 / 壳体 / 功率板 ↔ 环境",
+      "x": 300,
+      "y": 340,
+      "mechanism": "铜耗注入绕组，板损注入功率板，机械耗散注入壳体。绕组↔壳体、板↔壳体、壳体↔环境、板↔环境按温差与热阻导热；温度同时反馈到铜阻与停机判断。",
+      "equation": "Cw·Tw′=Pcu−(Tw−Tc)/Rwc；R(T)=R25[1+α(Tw−25)]",
+      "limits": "连续状态 Tw、Tc、Tb。这里联动 0.08 s 全耦合场景；报告中的 120 s 热包络是独立的指定电流实验。"
+    },
+    {
+      "id": "stop",
+      "title": "热阈值与停机锁存",
+      "subtitle": "每 tick 判定 / 零电压命令",
+      "x": 20,
+      "y": 340,
+      "mechanism": "tick 开始判断绕组或板温达到示例阈值。触发后锁存到本次运行结束，清空 PI，并直接覆盖延迟命令为零平均电压；冷却不会自动恢复。机械和热状态继续积分。",
+      "equation": "trip[k]=trip[k−1] ∨ Tw≥Tw_stop ∨ Tb≥Tb_stop",
+      "limits": "这是零平均电压指令语义；电流可继续演化、转子可继续运动，不表示断电或开路。阈值不是器件额定值。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "control",
+      "to": "delay",
+      "kind": "signal",
+      "label": "αβ 电压命令",
+      "mechanism": "逆 Park 后的命令写入延迟队列。",
+      "path": "M240 145H300"
+    },
+    {
+      "from": "delay",
+      "to": "inverter",
+      "kind": "signal",
+      "label": "保持电压",
+      "mechanism": "一个控制周期内保持静止坐标 αβ 命令。",
+      "path": "M520 145H580"
+    },
+    {
+      "from": "inverter",
+      "to": "motor",
+      "kind": "energy",
+      "label": "实际电压",
+      "mechanism": "平均实际 dq 电压驱动电流微分方程。",
+      "path": "M800 145H860"
+    },
+    {
+      "from": "motor",
+      "to": "control",
+      "kind": "feedback",
+      "label": "id / iq / θm / ωm 反馈",
+      "mechanism": "理想状态反馈回控制器；没有传感器动态或测量噪声。",
+      "path": "M970 90V35H130V90"
+    },
+    {
+      "from": "motor",
+      "to": "joint",
+      "kind": "energy",
+      "label": "电磁转矩 / 运动反馈",
+      "mechanism": "电流产生电磁转矩；机械角速度决定反电势与电角度。",
+      "path": "M970 205V340"
+    },
+    {
+      "from": "motor",
+      "to": "losses",
+      "kind": "energy",
+      "label": "电流 / 铜阻",
+      "mechanism": "dq 电流和温度计算铜耗、板损代理。",
+      "path": "M920 205V270H690V340"
+    },
+    {
+      "from": "joint",
+      "to": "losses",
+      "kind": "energy",
+      "label": "机械耗散",
+      "mechanism": "摩擦和阻尼功率进入壳体热源。",
+      "path": "M860 397H800"
+    },
+    {
+      "from": "losses",
+      "to": "thermal",
+      "kind": "energy",
+      "label": "热源 W",
+      "mechanism": "铜耗→绕组；板损→板；机械耗散→壳体。",
+      "path": "M580 397H520"
+    },
+    {
+      "from": "thermal",
+      "to": "stop",
+      "kind": "feedback",
+      "label": "绕组 / 板温",
+      "mechanism": "每个控制 tick 使用当前温度判定阈值。",
+      "path": "M300 397H240"
+    },
+    {
+      "from": "stop",
+      "to": "control",
+      "kind": "feedback",
+      "label": "锁存停机 / PI 复位",
+      "mechanism": "触发后覆盖当前及延迟命令，不经过正常控制输出。",
+      "path": "M130 340V205"
+    },
+    {
+      "from": "thermal",
+      "to": "motor",
+      "kind": "feedback",
+      "label": "温度 → 铜阻",
+      "mechanism": "热反馈改变电气方程与铜耗；PI 解耦仍使用标称参数。",
+      "path": "M410 455V520H1090V240H1040V205"
+    }
+  ],
+  "continuous_states": [
+    "id",
+    "iq",
+    "θm",
+    "ωm",
+    "θl",
+    "ωl",
+    "Tw",
+    "Tc",
+    "Tb"
+  ],
+  "timing": "控制 tick：阈值锁存 → 采样 / PI / 解耦 → 延迟选择 → αβ 保持 → RK4 子步更新 9 状态 → 下一 tick。报告每 4 个控制样本保留 1 个，游标按最近保留样本取值。",
+  "scope": "此视图是已实现模型的运行机制与仿真状态回放，不是在线遥测。短时全耦合、120 s 指定电流热包络和单节点 FMI RC 是三个独立实验。"
+}

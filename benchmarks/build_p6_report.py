@@ -4,6 +4,8 @@ import json
 import os
 import platform
 import resource
+import re
+import textwrap
 import shutil
 import subprocess
 import sys
@@ -15,6 +17,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+from matplotlib.path import Path as PlotPath
 from matplotlib.font_manager import FontProperties, fontManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +55,7 @@ def main():
     data = {
         "generated_date": generated, "run": run, "references": refs, "calibration": fit,
         "scenarios": scenarios, "fmi": fmi, "gate": gate,
+        "system_model": json.loads((ROOT / "reports/system-model.json").read_text()),
         "scope": {
             "parameters": "synthetic_research", "hardware": "user-owned, not required",
             "short_simulation": "9-state full coupling, 20 kHz control, 0.08 s",
@@ -150,11 +155,70 @@ def main():
         ax.text(ratio * 1.2, index, f"{ratio:.2e}", va="center", fontsize=9)
     figures.append(("validation", fig))
 
+
+    # The same module/connection specification drives HTML, PDF and source data.
+    spec = data["system_model"]
+    fig, ax = plt.subplots(figsize=(11.69, 8.27), layout="constrained")
+    ax.set(xlim=(-10, 1140), ylim=(660, -10))
+    ax.axis("off")
+    ax.set_title("系统模型 · 控制、电气、机械与热反馈", fontsize=18, pad=16)
+    edge_colors = {"signal": palette[1], "energy": palette[0], "feedback": palette[2]}
+    for edge in spec["edges"]:
+        tokens = re.findall(r"[MLHV]|-?\d+(?:\.\d+)?", edge["path"])
+        vertices, codes, pos = [], [], [0.0, 0.0]
+        i = 0
+        while i < len(tokens):
+            command = tokens[i]
+            i += 1
+            if command in ("M", "L"):
+                pos = [float(tokens[i]), float(tokens[i + 1])]
+                i += 2
+            elif command == "H":
+                pos = [float(tokens[i]), pos[1]]
+                i += 1
+            elif command == "V":
+                pos = [pos[0], float(tokens[i])]
+                i += 1
+            vertices.append(tuple(pos))
+            codes.append(PlotPath.MOVETO if command == "M" else PlotPath.LINETO)
+        ax.add_patch(FancyArrowPatch(
+            path=PlotPath(vertices, codes), arrowstyle="-|>", mutation_scale=11,
+            color=edge_colors[edge["kind"]], linewidth=1.3,
+            linestyle="--" if edge["kind"] == "feedback" else "-",
+        ))
+    for node in spec["nodes"]:
+        x, y = node["x"], node["y"]
+        ax.add_patch(FancyBboxPatch(
+            (x, y), 220, 115, boxstyle="round,pad=0,rounding_size=12",
+            facecolor="#f3f6fb", edgecolor="#c5d3e4",
+        ))
+        ax.text(x + 12, y + 32, node["title"], fontsize=11, weight="bold")
+        ax.text(x + 12, y + 62, node["subtitle"], fontsize=8)
+    ax.text(285, 22, "电流 / 角度 / 转速反馈", color=palette[2], fontsize=9)
+    ax.text(550, 546, "绕组温度 → 实际铜阻", color=palette[2], fontsize=9)
+    ax.text(5, 582, "蓝色实线：控制信号    青色实线：能量耦合    紫色虚线：反馈 / 停机", fontsize=10)
+    ax.text(5, 616, "20 kHz：阈值锁存 → PI / 解耦 → 延迟选择 → 电压保持 → RK4 子步 → 下一 tick", fontsize=9)
+    ax.text(5, 644, "状态回放与详细连接见 index.html；参数和连接定义同时保留于 data.json。", fontsize=9)
+    figures.append(("system-model", fig))
+
+    mechanism_fig = plt.figure(figsize=(11.69, 8.27))
+    mechanism_fig.text(0.06, 0.94, "各模块的必要运行机制", fontsize=19, weight="bold")
+    y = 0.88
+    for node in spec["nodes"]:
+        mechanism_fig.text(0.06, y, node["title"], fontsize=11, weight="bold")
+        lines = textwrap.wrap(node["mechanism"], width=70)
+        mechanism_fig.text(0.06, y - 0.024, "\n".join(lines), fontsize=9,
+                           va="top", linespacing=1.5)
+        y -= 0.032 + len(lines) * 0.022
+    mechanism_fig.text(0.06, 0.04, "仿真状态回放；无速度/位置外环。零电压停机仍保留电磁、机械与热动态。", fontsize=9)
+
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
             fig.savefig(plots / (name + ".png"), dpi=180)
             fig.savefig(plots / (name + ".svg"))
             pdf.savefig(fig)
+        pdf.savefig(mechanism_fig)
+        plt.close(mechanism_fig)
         fig = plt.figure(figsize=(11.69, 8.27))
         fig.text(0.08, 0.91, "P6 · 结论、方法与适用边界", fontsize=22, weight="bold")
         lines = [
@@ -197,6 +261,13 @@ def main():
             f"{'达成' if case['tracking_goal_passed'] else '未达/停机'} | "
             f"{'通过' if case['numeric_passed'] else '失败'} |"
         )
+    report_lines += ["", "## 系统运行机制", spec["timing"], spec["scope"]]
+    for node in spec["nodes"]:
+        report_lines += ["", "### " + node["title"], node["mechanism"],
+                         node["equation"], node["limits"]]
+    report_lines += ["", "## 模块连接"]
+    for edge in spec["edges"]:
+        report_lines.append(f"- {edge['from']} → {edge['to']}：{edge['label']}。{edge['mechanism']}")
     report_lines += ["", "## 范围和复现", json.dumps(data["scope"], ensure_ascii=False, indent=2),
                      "", "所有参数与标定数据为合成研究值；不代表真机测量或硬件保护认证。",
                      "尚未实现完整关节 FMU/OpenModelica、开关级与齿隙接触。",

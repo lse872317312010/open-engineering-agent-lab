@@ -13,7 +13,7 @@ from oeal.experiments import run_experiment
 from oeal.foc import FOCConfig, simulate_foc
 from oeal.ir import document_hash, validate_document
 from oeal.models import MotorParameters
-from oeal.studies import MOTOR, FOC_FIELDS, resolve_assets, resolved_settings
+from oeal.studies import FOC_FIELDS, MOTOR, resolve_assets, resolved_settings
 from oeal.study_tools import StudyTools
 
 ROOT = Path(__file__).resolve().parents[1]

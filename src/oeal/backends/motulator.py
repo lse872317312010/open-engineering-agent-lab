@@ -60,7 +60,8 @@ class DriveController:
         measured = np.asarray(self.sensor(phase))
         theta_measured = theta
         if c.get("sensors", False):
-            measured = np.round(np.clip(measured, -20, 20) / (40 / 4096)) * (40 / 4096)
+            codes = np.clip(np.round(measured / (40 / 4096)), -2048, 2047)
+            measured = codes * (40 / 4096)
             theta_measured = round(theta / (2 * math.pi / 16384)) * (2 * math.pi / 16384)
         measured_i = abc2complex(measured) * np.exp(-1j * p.n_p * theta_measured)
         iq_ref = c.get("iq_reference_a", 5.0) if self.t >= c["step_time_s"] else 0.0
@@ -172,12 +173,12 @@ def make_drive(config, magnetic_map=None, robot=None):
         delay=2 if config.get("delay", True) else 0, single_update=True,
     )
     drive.oeal_pwm_records = []
-    upstream_pwm = drive.pwm
+    upstream_modulate = drive.modulate
     elapsed = 0.0
 
-    def record_pwm(period, duties):
+    def record_modulation(period, duties):
         nonlocal elapsed
-        intervals, gates, blanking = upstream_pwm(period, duties)
+        intervals, gates, blanking = upstream_modulate(period, duties)
         for duration, q, b in zip(intervals, gates, blanking, strict=True):
             if duration > 0:
                 drive.oeal_pwm_records.append([
@@ -187,7 +188,7 @@ def make_drive(config, magnetic_map=None, robot=None):
             elapsed += float(duration)
         return intervals, gates, blanking
 
-    drive.pwm = record_pwm
+    drive.modulate = record_modulation
     controller = DriveController(nominal, config, robot)
     controller.drive = drive
     return drive, controller

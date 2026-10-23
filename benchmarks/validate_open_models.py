@@ -293,9 +293,11 @@ def robot_cases(path):
         robot_model, data, xml = load_robot(
             path, config["macro_step_s"], fixture=config.get("fixture", False)
         )
-        ET.ElementTree(xml).write(
-            MODELS / (config["id"] + ".xml"), encoding="unicode", xml_declaration=True
-        )
+        # Preserve the exact actuator change and portable asset paths in the export.
+        xml.find("compiler").set("meshdir", "ur5e/assets")
+        exported = MODELS / (config["id"] + ".xml")
+        ET.ElementTree(xml).write(exported, encoding="unicode", xml_declaration=True)
+        mujoco.MjModel.from_xml_path(str(exported))
         robot = RobotLoad(robot_model, data, config)
         _, controller = run_drive(config, robot=robot)
         rows = np.asarray(robot.rows)
@@ -391,6 +393,7 @@ def main():
             "one robot joint electrical co-simulation; other axes use upstream holding servos",
             "ideal switch events with dead time; no semiconductor parasitics, recovery or EMI",
             "short switching-coupled thermal feedback; long thermal plot is heat replay",
+            "sampled thermal heat rates; extra device heat has no matching DC loss branch",
             "fixed macro-step torque exchange; report convergence and interface approximation",
         ],
         "command": "python benchmarks/validate_open_models.py",

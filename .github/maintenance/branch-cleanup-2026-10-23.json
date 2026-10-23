@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-23",
+  "main_before": "0d08eb8ec8017fcaa0113b76a8362fc366e07b26",
+  "maintenance_branch": "codex/architecture-and-branch-cleanup",
+  "branches": [
+    {
+      "name": "codex/arm-qemu-pil",
+      "sha": "08fdf767e52717e2ae4c5450e24f111c58eb2635",
+      "pr": 6,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/dq-current-pi",
+      "sha": "3749d84f9708dd821ad62cc85f8fdc64e9b46b5b",
+      "pr": 2,
+      "mode": "superseded",
+      "archive": "archive/2026-10-23/dq-current-pi"
+    },
+    {
+      "name": "codex/foc-transform-foundations",
+      "sha": "22f4b6d564c72b28c2328e886bdb7925c0db609b",
+      "pr": 1,
+      "mode": "superseded",
+      "archive": "archive/2026-10-23/foc-transform-foundations"
+    },
+    {
+      "name": "codex/open-model-refinement",
+      "sha": "560adc23bfc746a435322113e8d852929d648517",
+      "pr": 9,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/p6-multiphysics-report",
+      "sha": "c4020d70e1a1ed00086febd43abfdde6dfb083cb",
+      "pr": 7,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/report-system-model",
+      "sha": "9d52767fc747c30831962f1ecf6024a10a96797f",
+      "pr": 8,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/roadmap-p1-p5",
+      "sha": "f8b57ff618dbfd161353db6130f741a443037c27",
+      "pr": 3,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/simulation-only-acceptance",
+      "sha": "cb77db9ace3e1206129e1fde2930588be9e83f3f",
+      "pr": 5,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/stm32-f32-pi",
+      "sha": "f3d6df19db3786ac177329f8916ac8298ff480b5",
+      "pr": 4,
+      "mode": "merged"
+    },
+    {
+      "name": "codex/unified-studies-and-design",
+      "sha": "b7f94e7bafc81496040a717ecdf582bc9948fac3",
+      "pr": 10,
+      "mode": "merged"
+    }
+  ],
+  "superseded_covered_paths": [
+    "docs/current-controller.md",
+    "docs/transforms.md",
+    "src/oeal/__main__.py",
+    "src/oeal/current_control.py",
+    "src/oeal/models/__init__.py",
+    "src/oeal/transforms.py",
+    "tests/test_current_control.py",
+    "tests/test_transforms.py"
+  ]
+}

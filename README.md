@@ -3,6 +3,8 @@
 面向 PMSM / FOC / 机器人关节研究的 Python + Agent 工程实验仓库。
 参数和工况使用开放 JSON，仿真输出 CSV/JSON，验收与提议策略分离。
 
+项目总图、运行机制与源码映射：[项目架构](docs/architecture.md)（[SVG 总图](docs/architecture.svg)）。
+
 ## 验收约束
 
 按用户 2026-10-23 的要求：仿真环境中完成并通过固定指标即可交付，真机由用户负责。

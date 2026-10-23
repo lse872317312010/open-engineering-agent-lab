@@ -1,0 +1,15 @@
+flowchart LR
+  Q["位置参考 q*"] --> PD["位置 PD + 模型偏置补偿"]
+  PD --> IQ["q 轴电流参考"]
+  IQ --> FOC["FOC / PI<br/>50 μs 更新"]
+  FOC --> INV["PWM / 死区 / 压降 / 母线"]
+  INV --> PMSM["PMSM 电磁与转子积分"]
+  PMSM --> SHAFT["50:1 传动<br/>弹性 / 阻尼 / 可选齿隙"]
+  SHAFT --> BODY["MuJoCo UR5e 连杆"]
+  BODY -->|"关节位置 / 速度"| PD
+  PMSM -->|"电流 / 角度 / 速度"| FOC
+  BODY -->|"反作用轴转矩；200 μs 宏步保持"| SHAFT
+  SHAFT -->|"负载转矩"| PMSM
+  PMSM -->|"铜损 / 铁损估计"| HEAT["六节点热网络"]
+  INV -->|"器件热估计"| HEAT
+  HEAT -->|"绕组温度修正铜阻"| PMSM

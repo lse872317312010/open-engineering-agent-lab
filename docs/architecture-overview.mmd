@@ -1,0 +1,33 @@
+flowchart TB
+  USER["用户 / 工程目标 / JSON 工况"] --> ENTRY["CLI 与 Python API<br/>cli.py / experiments.run_experiment"]
+  subgraph DESIGN["受保护的离线设计循环"]
+    ANALYSIS["python-control 线性筛选<br/>SALib 降阶敏感度"] --> OPT["Optuna 有界提议"]
+    OPT --> TOOLS["ExperimentTools / StudyTools<br/>仅允许指定增益；冻结目标、模型、时钟与预算"]
+  end
+  TOOLS --> ENTRY
+  ENTRY --> IR["IR 验证与版本分派<br/>0.1 兼容；0.2 单位 / 能力 / 时钟 / 预算"]
+  IR --> REG["固定模型注册与资产哈希校验<br/>studies.py / asset-lock.json"]
+  REG --> NATIVE["原生后端<br/>PMSM RK4 / 20 kHz FOC / 九状态关节"]
+  REG --> MOTOR["motulator 后端<br/>PWM / 死区 / 母线 / 磁图 / 传感器"]
+  MOTOR <-->|"轴转矩交换与保持"| ROBOT["MuJoCo + Menagerie UR5e<br/>一个电驱关节；其余位置保持"]
+  MOTOR <-->|"损耗热源 / 铜阻反馈"| THERMAL["六节点热网络"]
+  IR --> LEGACY["IR 0.1 旧适配<br/>native / PathSim 开环"]
+  NATIVE --> STREAM["SimulationResult<br/>带单位信号流 / 时间语义 / 输入和原始数据哈希"]
+  MOTOR --> STREAM
+  ROBOT --> STREAM
+  LEGACY --> STREAM
+  STREAM --> VERIFY["独立重算验收<br/>不信任自报 metrics / passed"]
+  VERIFY -->|未达标反馈| OPT
+  STREAM --> LEDGER["内容寻址实验账本<br/>保留原始轨迹、失败与来源"]
+  VERIFY --> LEDGER
+  LEDGER --> REPORT["离线交互 HTML / PDF / PNG / SVG / CSV<br/>系统机制、组件状态、优化与留出对比"]
+  subgraph VALIDATION["并列验证与交付链"]
+    REF["解析参考 / DOP853 / 步长减半<br/>FMPy：单节点 RC FMI"]
+    SIL["共享向量 → C PI double / float32<br/>主机 SIL → ARM 交叉编译 / QEMU"]
+    CI["GitHub Actions<br/>数值回归 / Chrome UI / manifest / artifacts"]
+    REF --> CI
+    SIL --> CI
+  end
+  STREAM -.模型与数值验证.-> REF
+  NATIVE -.PI 参考与测试向量.-> SIL
+  REPORT --> CI

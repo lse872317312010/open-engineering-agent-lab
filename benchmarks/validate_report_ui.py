@@ -93,7 +93,7 @@ def main():
         assert "40 N·m/rad" in parameter_text, repr(parameter_text)
 
         page.locator('#system-states [data-module="joint"]').click()
-        assert "外部负载 2.0 N·m" in page.locator("#system-detail").inner_text()
+        assert "外部负载 2 N·m" in page.locator("#system-detail").inner_text()
         assert "刚度 40 N·m/rad" in page.locator("#system-detail").inner_text()
         assert page.locator("#system-map").evaluate(
             "svg => svg.scrollWidth > svg.parentElement.clientWidth"

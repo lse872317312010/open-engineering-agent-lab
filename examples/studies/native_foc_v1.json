@@ -1,0 +1,37 @@
+{
+  "kind": "ExperimentSpec",
+  "version": "0.2",
+  "id": "native_foc_v1",
+  "model": {
+    "kind": "ModelSpec",
+    "version": "0.2",
+    "profile": "native_foc_v1",
+    "parameters": {}
+  },
+  "backend": "native",
+  "settings": {
+    "duration_s": {
+      "value": 0.02,
+      "unit": "s"
+    },
+    "bandwidth_per_s": {
+      "value": 1000,
+      "unit": "1/s"
+    },
+    "tracking_rate_per_s": {
+      "value": 1000,
+      "unit": "1/s"
+    }
+  },
+  "seed": 20261023,
+  "budget": {
+    "control_ticks": 20000,
+    "solver_evaluations": 2000000
+  },
+  "acceptance": {
+    "current_tail_error_a": {
+      "value": 0.1,
+      "unit": "A"
+    }
+  }
+}

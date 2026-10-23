@@ -14,6 +14,7 @@ from motulator.common.utils import abc2complex, complex2abc
 from motulator.drive import model, utils
 
 from oeal.current_control import CurrentPIParameters, CurrentPIState, current_control_step
+from oeal.models import MotorParameters
 from oeal.refined_thermal import ThermalNetwork
 
 CONTROL_COLUMNS = [
@@ -74,7 +75,8 @@ class DriveController:
         parameters = CurrentPIParameters(
             p.L_d * bandwidth, p.R_s * bandwidth,
             p.L_q * bandwidth, p.R_s * bandwidth,
-            bus / math.sqrt(3), c.get("current_limit_a", 15.0), bandwidth,
+            bus / math.sqrt(3), c.get("current_limit_a", 15.0),
+            c.get("tracking_rate_per_s", bandwidth),
         )
         we = p.n_p * speed
         output = current_control_step(
@@ -125,8 +127,16 @@ class DriveController:
 def make_drive(config, magnetic_map=None, robot=None):
     """Construct real upstream electrical, mechanical, converter and DC-bus models."""
     if magnetic_map is None:
+        physical = MotorParameters(**config.get("motor_parameters", {
+            "stator_resistance_ohm": 0.3, "d_inductance_h": 0.0008,
+            "q_inductance_h": 0.0008, "flux_linkage_wb": 0.03, "pole_pairs": 7,
+            "inertia_kg_m2": 5e-5 if robot is not None else 0.002,
+            "viscous_friction_nms": 1e-5,
+        }))
         nominal = model.SynchronousMachinePars(
-            n_p=7, R_s=0.3, L_d=0.0008, L_q=0.0008, psi_f=0.03
+            n_p=physical.pole_pairs, R_s=physical.stator_resistance_ohm,
+            L_d=physical.d_inductance_h, L_q=physical.q_inductance_h,
+            psi_f=physical.flux_linkage_wb,
         )
         plant = model.SynchronousMachinePars(
             n_p=nominal.n_p, R_s=nominal.R_s, L_d=nominal.L_d,
@@ -142,13 +152,19 @@ def make_drive(config, magnetic_map=None, robot=None):
         )
     machine = model.SynchronousMachine(plant)
     if robot is not None:
-        mechanics = model.MechanicalSystem(J=5e-5, B_L=1e-5)
+        mechanics = model.MechanicalSystem(
+            J=physical.inertia_kg_m2, B_L=physical.viscous_friction_nms
+        )
     elif config.get("two_mass", False):
         mechanics = model.TwoMassMechanicalSystem(
             J_M=0.002, J_L=0.02 / 100, K_S=80 / 100, C_S=0.15 / 100, B_L=0.0002
         )
     else:
-        mechanics = model.MechanicalSystem(J=config.get("inertia_kg_m2", 0.002), B_L=1e-5)
+        mechanics = model.MechanicalSystem(
+            J=(config.get("motor_parameters", {}).get("inertia_kg_m2",
+               config.get("inertia_kg_m2", 0.002))),
+            B_L=config.get("motor_parameters", {}).get("viscous_friction_nms", 1e-5),
+        )
     mechanics.set_external_load_torque(
         lambda t: config.get("load_nm", 0.0)
         + (config.get("load_step_nm", 0.0) if t >= 0.015 else 0.0)
@@ -196,6 +212,16 @@ def make_drive(config, magnetic_map=None, robot=None):
 
 def run_drive(config, magnetic_map=None, robot=None):
     drive, controller = make_drive(config, magnetic_map, robot)
+    upstream_rhs = drive.rhs
+    drive.oeal_solver_calls = 0
+
+    def budget_rhs(t, state):
+        drive.oeal_solver_calls += 1
+        if drive.oeal_solver_calls > config.get("max_solver_evaluations", 20_000_000):
+            raise ValueError("solver evaluation budget exceeded")
+        return upstream_rhs(t, state)
+
+    drive.rhs = budget_rhs
     sim = model.Simulation(
         drive, controller, show_progress=False,
         cfg=SolverCfg(

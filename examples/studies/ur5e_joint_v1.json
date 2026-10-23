@@ -1,0 +1,62 @@
+{
+  "kind": "ExperimentSpec",
+  "version": "0.2",
+  "id": "ur5e_joint_v1",
+  "model": {
+    "kind": "ModelSpec",
+    "version": "0.2",
+    "profile": "ur5e_joint_v1",
+    "parameters": {}
+  },
+  "backend": "mujoco_motulator",
+  "settings": {
+    "duration_s": {
+      "value": 0.25,
+      "unit": "s"
+    },
+    "bandwidth_per_s": {
+      "value": 1000,
+      "unit": "1/s"
+    },
+    "tracking_rate_per_s": {
+      "value": 1000,
+      "unit": "1/s"
+    },
+    "outer_kp_nm_per_rad": {
+      "value": 150,
+      "unit": "N*m/rad"
+    },
+    "outer_kd_nms_per_rad": {
+      "value": 20,
+      "unit": "N*m*s/rad"
+    },
+    "deadtime_s": {
+      "value": 0.000001,
+      "unit": "s"
+    },
+    "device_drop_v": {
+      "value": 0.4,
+      "unit": "V"
+    },
+    "pwm": true
+  },
+  "seed": 20261023,
+  "budget": {
+    "control_ticks": 20000,
+    "solver_evaluations": 2000000
+  },
+  "acceptance": {
+    "position_tail_error_rad": {
+      "value": 0.03,
+      "unit": "rad"
+    },
+    "current_peak_a": {
+      "value": 20,
+      "unit": "A"
+    },
+    "shaft_torque_peak_nm": {
+      "value": 100,
+      "unit": "N*m"
+    }
+  }
+}

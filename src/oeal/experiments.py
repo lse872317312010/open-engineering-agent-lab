@@ -9,7 +9,11 @@ from oeal.metrics import current_step_metrics
 from oeal.models import PMSMInput, PMSMState, simulate, state_derivative
 
 
-def run_experiment(document):
+def run_experiment(document, assets_root=None):
+    if document.get("version") == "0.2":
+        from oeal.studies import run_study
+
+        return run_study(document, assets_root)
     validate_document(document)
     if document["kind"] != "ExperimentSpec":
         raise ValueError("ExperimentSpec required")

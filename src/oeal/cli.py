@@ -95,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
     experiment = commands.add_parser("run-experiment", help="run a validated IR experiment")
     experiment.add_argument("config", type=Path)
     experiment.add_argument("--output", type=Path, required=True)
+    experiment.add_argument("--assets-root", type=Path, default=None)
+    commands.add_parser("list-models", help="list registered IR 0.2 models and capabilities")
     validation = commands.add_parser("validate-spec", help="validate an IR document")
     validation.add_argument("config", type=Path)
     joint = commands.add_parser("simulate-joint", help="run a P6 coupled joint study")
@@ -102,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
     joint.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 
+    if args.command == "list-models":
+        from oeal.studies import catalog
+
+        print(json.dumps(catalog(), indent=2, ensure_ascii=False))
+        return 0
     if args.command == "simulate":
         trace_path, summary_path = run_simulation(args.config, args.output)
         print(f"trace: {trace_path}")
@@ -117,7 +124,9 @@ def main(argv: list[str] | None = None) -> int:
         print("valid")
         return 0
     if args.command == "run-experiment":
-        result = run_experiment(json.loads(args.config.read_text(encoding="utf-8")))
+        result = run_experiment(
+            json.loads(args.config.read_text(encoding="utf-8")), args.assets_root
+        )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
         return 0

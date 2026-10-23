@@ -37,8 +37,10 @@ def prepare_ur5e(source, output):
     return destination / "ur5e.xml"
 
 
-def load_robot(path, macro_step_s=0.0002, fixture=False):
+def load_robot(path, macro_step_s=0.0002, fixture=False, payload_kg=0.0):
     """Keep upstream link parameters; replace only one actuator with a torque port."""
+    if not math.isfinite(payload_kg) or payload_kg < 0:
+        raise ValueError("payload must be finite and nonnegative")
     path = Path(path)
     root = ET.parse(path).getroot()
     root.find("option").set("timestep", str(macro_step_s))
@@ -53,7 +55,13 @@ def load_robot(path, macro_step_s=0.0002, fixture=False):
         wrist, "geom", name="oeal_pad", type="sphere", size="0.03",
         pos="0 0.1 0", rgba="0.1 0.65 0.55 1", mass="0",
     )
-    # All upstream bodies have explicit inertials, so this massless pad changes no inertia.
+    if payload_kg:
+        payload = ET.SubElement(wrist, "body", name="oeal_payload", pos="0 0.1 0")
+        ET.SubElement(
+            payload, "geom", type="sphere", size="0.03", mass=str(payload_kg),
+            contype="0", conaffinity="0", rgba="0.6 0.4 0.2 1",
+        )
+    # The optional payload is a separate body; upstream link inertials stay intact.
     model = mujoco.MjModel.from_xml_string(ET.tostring(root, encoding="unicode"))
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, 0)
@@ -109,7 +117,9 @@ class RobotLoad:
             delta = controller.theta_continuous / self.ratio - (q - self.initial_angle)
             relative_speed = float(drive.mechanics.out.w_M) / self.ratio - velocity
             self.torque, energy, damping = transmission(
-                delta, relative_speed, backlash=self.config.get("backlash_rad", 0.0)
+                delta, relative_speed,
+                stiffness=self.config.get("shaft_stiffness_nm_per_rad", 500.0),
+                backlash=self.config.get("backlash_rad", 0.0)
             )
             drive.mechanics.set_external_load_torque(self.torque / self.ratio)
             contacts, force = 0, 0.0
@@ -130,12 +140,19 @@ class RobotLoad:
         velocity = float(self.data.qvel[self.index])
         target = self.reference(controller.t)
         # Synthetic outer-loop PD plus model bias feedforward, not a UR controller.
-        required = 150 * (target - q) - 20 * velocity + self.data.qfrc_bias[self.index]
+        required = (
+            self.config.get("outer_kp_nm_per_rad", 150) * (target - q)
+            - self.config.get("outer_kd_nms_per_rad", 20) * velocity
+            + self.config.get("gravity_feedforward_gain", 1) * self.data.qfrc_bias[self.index]
+        )
         kt = 1.5 * controller.nominal.n_p * controller.nominal.psi_f
         return float(required / (self.ratio * kt))
 
     def reference(self, t):
-        return self.initial_angle + 0.08 * min(max((t - 0.02) / 0.12, 0), 1)
+        amplitude = self.config.get("position_step_rad", 0.08)
+        start = self.config.get("position_start_s", 0.02)
+        ramp = self.config.get("position_ramp_s", 0.12)
+        return self.initial_angle + amplitude * min(max((t - start) / ramp, 0), 1)
 
 
 def robot_reference_checks(path):

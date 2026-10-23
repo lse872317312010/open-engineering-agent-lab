@@ -141,7 +141,7 @@ def thermal_experiment(current_a, ambient_c=25.0, resistance_factor=1.0):
         if tick == 2400:
             break
         state = rk4(
-            lambda time, s: thermal_rhs(s, p, *losses(MOTOR, p, s[0], 0, current)[1:]),
+            lambda time, s, held=current: thermal_rhs(s, p, *losses(MOTOR, p, s[0], 0, held)[1:]),
             t, state, dt,
         )
     return np.asarray(rows)

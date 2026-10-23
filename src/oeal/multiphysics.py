@@ -2,6 +2,7 @@
 
 import math
 from dataclasses import asdict, dataclass
+from functools import partial
 
 import numpy as np
 
@@ -284,9 +285,10 @@ def run_joint(
         active_inverter = InverterParameters() if tripped else inverter
         for substep in range(substeps):
             x = rk4(
-                lambda time, values: coupled_rhs(
-                    time, values, motor, joint, thermal, c, active_inverter,
-                    alpha, beta, load_nm,
+                partial(
+                    coupled_rhs, motor=motor, joint=joint, thermal=thermal,
+                    control=c, inverter=active_inverter, alpha=alpha, beta=beta,
+                    load_nm=load_nm,
                 ), t + substep * dt, x, dt,
             )
     return {

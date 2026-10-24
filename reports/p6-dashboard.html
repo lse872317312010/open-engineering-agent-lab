@@ -70,7 +70,7 @@
 <div class="panel-head"><div><h2 id="coupling-title">减少宏步交换造成的能量误差</h2><p class="caption">相同积分器、模型、控制器与轨迹，比较 Jacobi 保持和中点转矩预测；原积分器另列。</p></div><span class="pill" id="coupling-gate">本次未运行耦合对照</span></div>
 <p id="coupling-unavailable">运行 Midpoint coupling evidence and report 工作流，可生成公平对照与预测器状态。</p>
 <div id="coupling-content" hidden>
-<p class="insight">预测器因果使用已完成窗口的真实电磁转矩均值、MuJoCo 完整质量矩阵与现有传动力律，预测下一宏步；跨零和裁剪段分别积分原力与耗散。两侧保持同一转矩，热量由物理力律计算，弹性储能仍使用实际端点。它不是全系统非线性隐式求解器。</p>
+<p class="insight">预测器因果使用已完成窗口的转矩积分和时间矩，按位移权重预测，并结合 MuJoCo 完整质量矩阵与现有传动力律，预测下一宏步；跨零和裁剪段分别积分原力与耗散。两侧保持同一转矩，热量由物理力律计算，弹性储能仍使用实际端点。它不是全系统非线性隐式求解器。</p>
 <div class="toolbar"><label class="control">公平对照 <select id="coupling-pair"></select></label><button id="coupling-csv">导出当前曲线原始 CSV</button></div>
 <div class="refined-metrics" id="coupling-metrics"></div><div class="legend" id="coupling-legend"></div>
 <svg class="chart" id="coupling-residual-chart" viewBox="0 0 900 240" role="img" aria-label="基准与预测方式的实际接口余额"></svg>

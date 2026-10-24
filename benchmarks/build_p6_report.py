@@ -474,8 +474,9 @@ def main():
         axes[0, 0].set(xlabel="起始宏步时间 ms", ylabel="挠度 rad",
                        title="预测不是实际储能状态")
         for name, label in (("instant_motor_torque_nm", "瞬时 PWM 取样"),
-                            ("previous_mean_motor_torque_nm", "已完成窗口均值"),
-                            ("forecast_motor_torque_nm", "因果预测均值")):
+                            ("previous_mean_motor_torque_nm", "普通窗口均值"),
+                            ("previous_weighted_motor_torque_nm", "位移加权均值"),
+                            ("forecast_motor_torque_nm", "因果加权预测")):
             axes[0, 1].plot(time, rows[:, columns.index(name)], label=label)
         axes[0, 1].set(xlabel="起始宏步时间 ms", ylabel="电磁转矩 N·m",
                        title="使用真实转矩积分，减少采样相位偏差")

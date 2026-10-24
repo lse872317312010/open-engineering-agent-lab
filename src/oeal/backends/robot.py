@@ -10,7 +10,7 @@ import numpy as np
 
 from oeal.coupling import (
     Exchange,
-    TorqueHistory,
+    WeightedTorqueHistory,
     path_average,
     path_midpoint_exchange,
     transmission,
@@ -34,7 +34,9 @@ COUPLING_COLUMNS = [
     "free_relative_accel_rad_s2", "robot_effective_inertia_kg_m2",
     "predicted_delta_rad", "predicted_relative_speed_rad_s",
     "predicted_damping_power_w", "law_residual_nm", "motor_torque_impulse_nms",
-    "instant_motor_torque_nm", "previous_mean_motor_torque_nm", "forecast_motor_torque_nm",
+    "motor_torque_time_moment_nms2",
+    "instant_motor_torque_nm", "previous_mean_motor_torque_nm",
+    "previous_weighted_motor_torque_nm", "forecast_motor_torque_nm",
     "torque_history_windows", "resolved_transition", "predictor_fallback",
 ]
 
@@ -121,7 +123,7 @@ class RobotLoad:
         ):
             raise ValueError("midpoint predictor requires energy mode, RK4, no gap/fixture")
         self.coupling_rows = []
-        self.torque_history = TorqueHistory()
+        self.torque_history = WeightedTorqueHistory()
         self.ratio = 50.0
         self.torque = 0.0
         self.rows = []
@@ -220,7 +222,11 @@ class RobotLoad:
         instant = float(drive.machine.out.tau_M)
         impulse = (float(drive.oeal_energy.state.motor_torque_impulse_nms.real)
                    if controller.t > 0 else 0.0)
-        mean, forecast, windows = self.torque_history.observe(controller.t, impulse, instant)
+        moment = (float(drive.oeal_energy.state.motor_torque_time_moment_nms2.real)
+                  if controller.t > 0 else 0.0)
+        mean, weighted, forecast, windows = self.torque_history.observe(
+            controller.t, impulse, moment, instant
+        )
         motor_free = (forecast - damping * speed) / (
             mechanics.J * self.ratio
         )
@@ -244,7 +250,8 @@ class RobotLoad:
         self.coupling_rows.append([
             controller.t, exchange.torque_nm, delta, relative_speed, free, 1 / gain,
             exchange.delta_mid_rad, exchange.speed_mid_rad_s, exchange.damping_power_w,
-            exchange.law_residual_nm, impulse, instant, mean, forecast, float(windows),
+            exchange.law_residual_nm, impulse, moment, instant, mean, weighted,
+            forecast, float(windows),
             float(exchange.transition_resolved), float(exchange.fallback),
         ])
         return exchange
@@ -259,7 +266,7 @@ class RobotLoad:
             "shaft_damping_nms_per_rad": 1.0,
             "fallback_count": int(sum(row[-1] for row in self.coupling_rows)),
             "resolved_transition_count": int(sum(row[-2] for row in self.coupling_rows)),
-            "motor_torque_predictor": "causal extrapolation of actual completed-window means",
+            "motor_torque_predictor": "causal displacement-weighted means from actual I/M integrals",
             "force_and_heat": "original law integrated on piecewise predicted paths",
             "prediction_scope": "frozen free acceleration, not a nonlinear implicit solve",
             "stored_spring_energy": "actual endpoint deflection; never midpoint storage",

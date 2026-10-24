@@ -44,6 +44,7 @@ class EnergySubsystem(Subsystem):
         })
         if config.get("coupling_method") == "midpoint_predictor":
             self.state.motor_torque_impulse_nms = 0.0
+            self.state.motor_torque_time_moment_nms2 = 0.0
         self.initial_storage = self.storage()
 
     @property
@@ -110,7 +111,8 @@ class EnergySubsystem(Subsystem):
         thermal = self.network.rates(self.temperatures, heat)
         derivatives = [*thermal, *[rates[name] for name in INTEGRALS]]
         if hasattr(self.state, "motor_torque_impulse_nms"):
-            derivatives.append(float(self.drive.machine.out.tau_M))
+            torque = float(self.drive.machine.out.tau_M)
+            derivatives.extend([torque, t * torque])
         return derivatives
 
     def snapshot(self, t):
@@ -153,6 +155,7 @@ class EnergySubsystem(Subsystem):
             else "Vbus * external feed current; feed resistor outside boundary",
             "thermal_semantics": "continuous states in the upstream electrical solver",
             "torque_impulse_semantics": "integral of actual torque; predictor-only, N*m*s",
+            "torque_moment_semantics": "integral of solver-time * torque; N*m*s^2",
         }
 
     def create_time_series(self, t):

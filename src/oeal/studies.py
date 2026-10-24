@@ -214,7 +214,7 @@ def signal_unit(name):
         return "1"
     for suffix, unit in (
         ("_rad_s2", "rad/s^2"), ("_kg_m2", "kg*m^2"), ("_rad_s", "rad/s"),
-        ("_nms", "N*m*s"), ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
+        ("_nms2", "N*m*s^2"), ("_nms", "N*m*s"), ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
         ("_n", "N"), ("_a", "A"), ("_v", "V"), ("_c", "degC"), ("_w", "W"), ("_j", "J"),
     ):
         if name.endswith(suffix):

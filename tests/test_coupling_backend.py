@@ -87,3 +87,20 @@ class CouplingInertiaTests(unittest.TestCase):
         self.assertAlmostEqual(robot.energy_rows[-1][5], actual)
         predicted = 0.5 * 500 * robot.coupling_rows[-1][6] ** 2
         self.assertNotAlmostEqual(predicted, actual, places=10)
+
+    @unittest.skipUnless(importlib.util.find_spec("motulator"), "optional motulator")
+    def test_actual_torque_and_time_moment_rhs_use_solver_time(self):
+        from oeal.backends.motulator import make_drive
+
+        drive, _ = make_drive({
+            "energy_consistent": True, "coupling_method": "midpoint_predictor",
+            "period_s": 50e-6, "bus_v": 48, "dc_bus": "capacitor",
+            "duration_s": 0.02, "step_time_s": 0.005, "pwm": False,
+        })
+        drive.machine.state.psi_s_dq = 0.03 + 0.0008 * 2j
+        drive.set_outputs(0.1)
+        # 1.5 * 7 pole pairs * .03 Wb * 2 A = .63 N*m.
+        # At solver time .1 s, the time-moment derivative is .063 N*m*s.
+        rates = drive.oeal_energy.rhs(0.1)
+        self.assertAlmostEqual(rates[-2], 0.63)
+        self.assertAlmostEqual(rates[-1], 0.063)

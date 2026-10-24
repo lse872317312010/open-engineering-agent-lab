@@ -167,3 +167,35 @@ class TorqueHistory:
         forecast = mean if self.last_mean is None else 2 * mean - self.last_mean
         self.last_time, self.last_impulse, self.last_mean = time_s, impulse_nms, mean
         return mean, forecast, windows
+
+
+class WeightedTorqueHistory:
+    """Causal displacement-weighted torque prediction from completed I/M windows."""
+
+    def __init__(self):
+        self.last_time = self.last_impulse = self.last_moment = self.last_weighted = None
+
+    def observe(self, time_s, impulse_nms, moment_nms2, instantaneous_nm):
+        if not all(math.isfinite(x) for x in (
+            time_s, impulse_nms, moment_nms2, instantaneous_nm
+        )):
+            raise ValueError("finite torque integrals and time required")
+        if self.last_time is None:
+            self.last_time, self.last_impulse, self.last_moment = (
+                time_s, impulse_nms, moment_nms2
+            )
+            return instantaneous_nm, instantaneous_nm, instantaneous_nm, 0
+        dt = time_s - self.last_time
+        if dt <= 0:
+            raise ValueError("weighted-history time must strictly increase")
+        impulse = impulse_nms - self.last_impulse
+        moment = moment_nms2 - self.last_moment
+        mean = impulse / dt
+        weighted = 2 * (time_s * impulse - moment) / dt ** 2
+        windows = 1 if self.last_weighted is None else 2
+        forecast = (weighted if self.last_weighted is None
+                    else 2 * weighted - self.last_weighted)
+        self.last_time, self.last_impulse, self.last_moment, self.last_weighted = (
+            time_s, impulse_nms, moment_nms2, weighted
+        )
+        return mean, weighted, forecast, windows

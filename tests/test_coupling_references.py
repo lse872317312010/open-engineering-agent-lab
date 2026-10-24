@@ -1,12 +1,14 @@
 """Hand vectors and independent linear two-mass references precede model changes."""
 
 import importlib.util
+import math
 import unittest
 
 import numpy as np
 
 from oeal.coupling import (
     TorqueHistory,
+    WeightedTorqueHistory,
     midpoint_exchange,
     path_average,
     path_midpoint_exchange,
@@ -138,3 +140,30 @@ class CouplingReferenceTests(unittest.TestCase):
         self.assertTrue(all(3.8 < a / b < 4.2 for a, b in zip(
             errors[:-1], errors[1:], strict=True
         )))
+
+    def test_weighted_history_recovers_fixed_pwm_phase_displacement(self):
+        period, h = 0.001, 0.004
+        history = WeightedTorqueHistory()
+        history.observe(0, 0, 0, 1)
+        expected = 1 + period / (math.pi * h)
+        for n in (1, 2):
+            end = n * h
+            moment = end ** 2 / 2 - end * period / (2 * math.pi)
+            mean, weighted, forecast, windows = history.observe(end, end, moment, 999)
+            self.assertAlmostEqual(mean, 1)
+            self.assertAlmostEqual(weighted, expected)
+            self.assertAlmostEqual(forecast, expected)
+            self.assertEqual(windows, n)
+        self.assertNotAlmostEqual(forecast, 1)
+
+    def test_weighted_history_matches_linear_trend_without_future_samples(self):
+        history = WeightedTorqueHistory()
+        history.observe(0, 0, 0, 3)
+        for end in (0.01, 0.02):
+            impulse = end ** 2 + 3 * end
+            moment = 2 * end ** 3 / 3 + 1.5 * end ** 2
+            mean, weighted, forecast, windows = history.observe(end, impulse, moment, -999)
+        self.assertAlmostEqual(mean, 3.03)
+        self.assertAlmostEqual(weighted, 3 + 2 * (0.01 + 0.01 / 3))
+        self.assertAlmostEqual(forecast, 3 + 2 * (0.02 + 0.01 / 3))
+        self.assertEqual(windows, 2)

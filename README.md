@@ -78,6 +78,24 @@ SALib 做降阶 Morris 敏感度。平均逆变器训练后，在 PWM / 死区�
 报告增加搜索记录、原始/优化响应叠加、验证工况切换、组件状态回放及分析边界。
 这仍是受保护的离线设计工具，不是已验收的在线通用 LLM 工程师。
 
+## 能量端口与连续热模式
+
+IR 0.2 新增可选 `energy_consistent=true`。它在同一求解器中积分六节点温度和
+实际端口功率；额外器件热匹配直流并联耗能支路，转子摩擦进入机壳热端口。
+默认旧模式保持兼容，首版能量模式限定线性 PMSM、恒压/电容母线及无夹具单关节。
+
+```bash
+oeal run-experiment examples/studies/energy-capacitor.json \
+  --output outputs/energy-example.json --csv-dir outputs/energy-example
+python benchmarks/validate_energy_accounting.py
+```
+
+完整环境与资产准备见
+[能量工作流](.github/workflows/energy-evidence.yml)；
+[固定方程、边界和验收](docs/energy-accounting-contract.md)解释局部余额与机器人接口误差。
+新增 `energy` / `co_sim_energy` 结果流及交互报告，保留回馈的负功率和故障注入负例。
+局部电驱—热通过不代表整个机器人已能量闭合。
+
 ## 快速运行
 
 Python >=3.10；外部项目评测环境需 Python 3.12。

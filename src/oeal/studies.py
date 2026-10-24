@@ -31,7 +31,7 @@ DEFAULT = dict(
 FOC_FIELDS = frozenset(DEFAULT)
 EXTERNAL = frozenset({
     "pwm", "sensors", "thermal_feedback", "dc_bus", "deadtime_s", "device_drop_v",
-    "core_conductance_s",
+    "core_conductance_s", "energy_consistent",
 })
 ROBOT_FIELDS = frozenset({
     "macro_step_s", "backlash_rad", "fixture", "outer_kp_nm_per_rad",
@@ -140,6 +140,15 @@ def validate_study(document):
     if set(document["settings"]) - entry["fields"]:
         raise ValueError("unsupported settings for this registered model")
     s = resolved_settings(document)
+    if s.get("energy_consistent", False) and (
+        profile not in {"motulator_pmsm_v1", "ur5e_joint_v1"}
+        or s.get("core_conductance_s", 0) != 0 or s.get("dc_bus") == "diode"
+        or s.get("fixture", False)
+    ):
+        raise ValueError("energy mode requires linear machine, no core loss/fixture/diode bus")
+    if ("energy_balance_abs_j" in document["acceptance"]
+            and not s.get("energy_consistent", False)):
+        raise ValueError("energy acceptance requires the explicit energy mode")
     FOCConfig(**{key: s[key] for key in FOC_FIELDS})
     ticks = round(s["duration_s"] / s["control_period_s"]) + 1
     if ticks > document["budget"]["control_ticks"]:
@@ -286,6 +295,29 @@ def _external(document, s, assets, motor):
     )
     if robot is not None:
         streams["joint"] = stream(ROBOT_COLUMNS, robot.rows, "macro_ticks_and_endpoint")
+    if s.get("energy_consistent", False):
+        from oeal.energy import ENERGY_COLUMNS
+
+        streams["energy"] = stream(
+            ENERGY_COLUMNS, controller.energy_rows, "control_ticks_and_endpoint"
+        )
+        if robot is not None:
+            from oeal.backends.robot import ROBOT_ENERGY_COLUMNS
+
+            audit = np.asarray(robot.energy_rows)
+            energy = np.asarray(controller.energy_rows)
+            index = np.round(audit[:, 0] / s["control_period_s"]).astype(int)
+            motor_work = energy[index, ENERGY_COLUMNS.index("load_work_j")]
+            imported = energy[index, ENERGY_COLUMNS.index("shaft_heat_import_j")]
+            interface = motor_work - imported - audit[:, 2] - (audit[:, 5] - audit[0, 5])
+            local = energy[index, ENERGY_COLUMNS.index("local_residual_j")]
+            extended = local + interface - audit[:, 6]
+            streams["co_sim_energy"] = stream(
+                [*ROBOT_ENERGY_COLUMNS, "motor_port_work_j", "shaft_heat_j",
+                 "interface_residual_j", "extended_residual_j"],
+                np.column_stack((audit, motor_work, imported, interface, extended)),
+                "macro_ticks_and_endpoint",
+            )
     domain = True
     if profile == "baldor_map_v1":
         points, _ = current.get_input_output()
@@ -296,10 +328,13 @@ def _external(document, s, assets, motor):
             and np.all(psi.imag >= points.imag.min() - 1e-10)
             and np.all(psi.imag <= points.imag.max() + 1e-10)
         )
-    return streams, {
+    context = {
         "nominal_machine": vars(controller.nominal), "magnetic_domain_passed": domain,
         "solver_evaluations": controller.drive.oeal_solver_calls,
     }
+    if s.get("energy_consistent", False):
+        context["energy_parameters"] = controller.drive.oeal_energy.describe()
+    return streams, context
 
 
 def recompute(document, result):
@@ -352,6 +387,28 @@ def recompute(document, result):
         metrics["current_tail_error_a"] = float(abs(iq[tail].mean() - s["iq_reference_a"]))
     numeric = all(np.all(np.isfinite(np.asarray(v["samples"]))) for v in signals.values())
     numeric = bool(numeric and result["context"].get("magnetic_domain_passed", True))
+    if s.get("energy_consistent", False):
+        from oeal.energy import ENERGY_COLUMNS, recompute_balances
+
+        energy = signals["energy"]
+        energy_data = np.asarray(energy["samples"])
+        if energy["columns"] != ENERGY_COLUMNS:
+            raise ValueError("energy stream differs from registered energy quantities")
+        if len(energy_data) != len(control_times) or not np.allclose(
+            energy_data[:, 0], control_times, atol=1e-12, rtol=0
+        ):
+            raise ValueError("energy stream does not cover the protected clock")
+        _, _, energy_metrics = recompute_balances(energy["columns"], energy["samples"])
+        metrics.update(energy_metrics)
+        numeric = bool(
+            numeric and metrics["energy_balance_abs_j"] <= metrics["energy_balance_limit_j"]
+            and metrics["thermal_balance_abs_j"] <= metrics["energy_balance_limit_j"]
+        )
+        if "co_sim_energy" in signals:
+            audit = signals["co_sim_energy"]
+            rows = np.asarray(audit["samples"])
+            for name in ("interface_residual_j", "extended_residual_j"):
+                metrics[name] = float(np.max(np.abs(rows[:, audit["columns"].index(name)])))
     goals = values(document["acceptance"])
     passed = numeric and all(metrics.get(name, math.inf) <= limit for name, limit in goals.items())
     return metrics, numeric, bool(passed)

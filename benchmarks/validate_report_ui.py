@@ -135,6 +135,32 @@ def main():
             assert file.read_text().startswith("time_s,baseline_angle_rad")
             page.locator("#design").screenshot(path=str(REPORT / "ui-design.png"))
 
+        energy = json.loads((REPORT / "data.json").read_text()).get("energy", {})
+        if energy.get("passed"):
+            assert page.locator("#energy-case option").count() == 9
+            assert page.locator("#energy-results tr").count() == 9
+            assert page.locator("#energy-robot-results tr").count() == 3
+            assert page.locator("#energy-flow-chart polyline").count() == 2
+            page.locator("#energy-case").select_option("8")
+            assert "应失败" in page.locator("#energy-case-status").inner_text()
+            assert "故障注入" in page.locator("#energy-insight").inner_text()
+            page.locator("#energy-case").select_option("4")
+            page.locator("#energy-cursor").focus()
+            page.locator("#energy-cursor").press("Home")
+            assert page.locator("#energy-time").inner_text() == "0.00 ms"
+            page.locator("#energy-cursor").press("End")
+            assert page.locator("#energy-time").inner_text() == "60.00 ms"
+            page.locator("#energy-case").select_option("5")
+            assert not page.locator("#energy-robot-content").is_hidden()
+            assert "全系统守恒证明" in page.locator("#energy-insight").inner_text()
+            assert page.locator("#energy-interface-chart polyline").count() == 3
+            with page.expect_download() as info:
+                page.locator("#energy-csv").click()
+            file = REPORT / "energy-export-check.csv"
+            info.value.save_as(str(file))
+            assert file.read_text().startswith("time_s,source_j,source_abs_j")
+            page.locator("#energy").screenshot(path=str(REPORT / "ui-energy.png"))
+
         page.set_viewport_size({"width": 390, "height": 844})
         page.reload(wait_until="load")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
@@ -162,6 +188,10 @@ def main():
             page.locator("#design-case").select_option("1")
             assert "齿隙" in page.locator("#design-insight").inner_text()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+        if energy.get("passed"):
+            page.locator("#energy-case").select_option("8")
+            assert "应失败" in page.locator("#energy-case-status").inner_text()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         page.screenshot(path=str(REPORT / "ui-mobile.png"), full_page=True)
 
         missing_labels = page.locator("input,select,button").evaluate_all("""nodes => nodes.filter(
@@ -173,7 +203,8 @@ def main():
     assert not network, network
     assert (REPORT / "report.pdf").read_bytes().startswith(b"%PDF")
     pngs = list((REPORT / "plots").glob("*.png"))
-    assert len(pngs) == (10 if design.get("validations") else 8 if refined.get("passed") else 5)
+    assert len(pngs) == ((10 if design.get("validations") else 8 if refined.get("passed") else 5)
+                         + (2 if energy.get("passed") else 0))
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
         "passed": True, "browser": "system Chrome via Playwright",
@@ -190,6 +221,14 @@ def main():
         "page_errors": errors, "external_network_requests": network,
         "open_models_available": bool(refined.get("passed")),
         "design_available": bool(design.get("validations")),
+        "energy_available": bool(energy.get("passed")),
+        "energy_checks": ([
+            "eight measured cases and one explicit fault-injection copy",
+            "missing device branch shown as a failed balance",
+            "0/60 ms keyboard endpoints and signed regeneration data",
+            "robot interface diagnosis separated from the local gate",
+            "CSV export and 390px layout",
+        ] if energy.get("passed") else ["not run in this report"]),
         "open_model_checks": ([
             "12 electrical and four robot experiments", "negative physical goal retained",
             "blocked gates state replay", "robot timeline real endpoints",
@@ -197,6 +236,7 @@ def main():
         ] if refined.get("passed") else ["not run in this baseline-only report"]),
         "screenshots": [
             "ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png",
+            *(["ui-energy.png"] if energy.get("passed") else []),
         ],
     }
     (REPORT / "ui-validation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))

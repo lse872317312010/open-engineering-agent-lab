@@ -655,6 +655,9 @@
                 "capacitor",
                 "diode"
               ]
+            },
+            "energy_consistent": {
+              "type": "boolean"
             }
           },
           "required": [],
@@ -748,6 +751,23 @@
                 },
                 "unit": {
                   "const": "N*m"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "energy_balance_abs_j": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "const": "J"
                 }
               },
               "required": [
@@ -868,7 +888,9 @@
               "control",
               "joint",
               "waveforms",
-              "gates"
+              "gates",
+              "energy",
+              "co_sim_energy"
             ]
           },
           "additionalProperties": {

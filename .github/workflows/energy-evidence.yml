@@ -1,0 +1,87 @@
+name: Energy-port evidence and report
+on:
+  push:
+    branches: [main, codex/energy-accounting]
+    paths-ignore: ["docs/**", "**/*.md"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  energy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MPLBACKEND: Agg
+      MUJOCO_GL: osmesa
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/mujoco_menagerie
+          ref: cda5236f98383f6fbaa4820c6b18dba892cd087f
+          path: vendor/menagerie
+          sparse-checkout: universal_robots_ur5e
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install fixed open-model environment
+        run: |
+          python -m pip install -r benchmarks/refined-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libosmesa6 fonts-noto-cjk
+      - name: Analytic limits and regression
+        run: |
+          ruff check . --exclude vendor
+          python -m pytest
+      - name: Measure actual energy ports and co-simulation defects
+        run: python benchmarks/validate_energy_accounting.py
+      - name: Build energy report with baseline evidence
+        run: |
+          python benchmarks/validate_p6.py
+          python benchmarks/validate_fmi_thermal.py
+          python benchmarks/build_p6_report.py
+          python benchmarks/validate_report_ui.py
+          python benchmarks/evidence_manifest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: energy-report-and-evidence
+          path: outputs/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: energy-report
+          path: outputs/report/
+          if-no-files-found: error
+  tidy_merged_branch:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged energy work branch
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/energy-accounting"
+          result = subprocess.check_output(
+              ["git", "ls-remote", "--heads", "origin", ref], text=True
+          ).strip()
+          if result:
+              sha = result.split()[0]
+              subprocess.run(
+                  ["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True
+              )
+              subprocess.run(
+                  ["git", "push", "--force-with-lease=" + ref + ":" + sha,
+                   "origin", ":" + ref], check=True
+              )
+          PY

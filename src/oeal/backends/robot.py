@@ -8,6 +8,14 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
+from oeal.coupling import (
+    Exchange,
+    WeightedTorqueHistory,
+    path_average,
+    path_midpoint_exchange,
+    transmission,
+)
+
 ROBOT_COLUMNS = [
     "time_s", "joint_angle_rad", "joint_speed_rad_s", "reference_rad",
     "motor_output_angle_rad", "twist_rad", "shaft_torque_nm", "gravity_nm",
@@ -21,19 +29,16 @@ ROBOT_ENERGY_COLUMNS = [
 ]
 
 
-def transmission(delta, relative_speed, stiffness=500.0, damping=1.0, backlash=0.0):
-    """Unilateral Kelvin-Voigt contact on either side of a symmetric backlash gap."""
-    penetration = max(abs(delta) - backlash, 0.0)
-    if penetration == 0:
-        return 0.0, 0.0, 0.0
-    side = math.copysign(1.0, delta)
-    elastic = stiffness * penetration
-    magnitude = max(elastic + side * damping * relative_speed, 0.0)
-    torque = side * magnitude
-    energy = 0.5 * stiffness * penetration ** 2
-    # Includes unloading dissipation when the unilateral force clips to zero.
-    dissipated = (torque - side * elastic) * relative_speed
-    return torque, energy, max(float(dissipated), 0.0)
+COUPLING_COLUMNS = [
+    "time_s", "held_torque_nm", "actual_delta_rad", "actual_relative_speed_rad_s",
+    "free_relative_accel_rad_s2", "robot_effective_inertia_kg_m2",
+    "predicted_delta_rad", "predicted_relative_speed_rad_s",
+    "predicted_damping_power_w", "law_residual_nm", "motor_torque_impulse_nms",
+    "motor_torque_time_moment_nms2",
+    "instant_motor_torque_nm", "previous_mean_motor_torque_nm",
+    "previous_weighted_motor_torque_nm", "forecast_motor_torque_nm",
+    "torque_history_windows", "resolved_transition", "predictor_fallback",
+]
 
 
 def prepare_ur5e(source, output):
@@ -43,7 +48,7 @@ def prepare_ur5e(source, output):
     return destination / "ur5e.xml"
 
 
-def load_robot(path, macro_step_s=0.0002, fixture=False, payload_kg=0.0):
+def load_robot(path, macro_step_s=0.0002, fixture=False, payload_kg=0.0, integrator=None):
     """Keep upstream link parameters; replace only one actuator with a torque port."""
     if not math.isfinite(payload_kg) or payload_kg < 0:
         raise ValueError("payload must be finite and nonnegative")
@@ -51,6 +56,10 @@ def load_robot(path, macro_step_s=0.0002, fixture=False, payload_kg=0.0):
     root = ET.parse(path).getroot()
     root.find("option").set("timestep", str(macro_step_s))
     root.find("option").set("gravity", "0 0 -9.81")
+    if integrator is not None:
+        if integrator not in {"implicitfast", "rk4"}:
+            raise ValueError("unsupported robot integrator")
+        root.find("option").set("integrator", "RK4" if integrator == "rk4" else "implicitfast")
     selected_actuator = root.find("./actuator/general[@name='shoulder_lift']")
     selected_actuator.set("gainprm", "0")
     selected_actuator.set("biasprm", "0 0 0")
@@ -104,6 +113,17 @@ class RobotLoad:
             self.ticks_per_macro * config["period_s"], self.period, abs_tol=1e-12
         ):
             raise ValueError("macro step must be an integer number of controller ticks")
+        self.method = config.get("coupling_method", "jacobi")
+        if self.method not in {"jacobi", "midpoint_predictor"}:
+            raise ValueError("unsupported coupling method")
+        if self.method == "midpoint_predictor" and (
+            not config.get("energy_consistent", False)
+            or model.opt.integrator != mujoco.mjtIntegrator.mjINT_RK4
+            or config.get("backlash_rad", 0) != 0 or config.get("fixture", False)
+        ):
+            raise ValueError("midpoint predictor requires energy mode, RK4, no gap/fixture")
+        self.coupling_rows = []
+        self.torque_history = WeightedTorqueHistory()
         self.ratio = 50.0
         self.torque = 0.0
         self.rows = []
@@ -148,6 +168,10 @@ class RobotLoad:
                 stiffness=self.config.get("shaft_stiffness_nm_per_rad", 500.0),
                 backlash=self.config.get("backlash_rad", 0.0)
             )
+            if self.method == "midpoint_predictor":
+                exchange = self.predict_exchange(controller, drive, delta, relative_speed)
+                self.torque, damping = exchange.torque_nm, exchange.damping_power_w
+                # 'energy' deliberately remains the actual endpoint spring energy.
             if audit:
                 self.thermal_power_w = damping
                 storage_delta = self.mechanical_energy() - self.initial_energy_j
@@ -183,6 +207,70 @@ class RobotLoad:
         )
         kt = 1.5 * controller.nominal.n_p * controller.nominal.psi_f
         return float(required / (self.ratio * kt))
+
+    def predict_exchange(self, controller, drive, delta, relative_speed):
+        mass = np.zeros((self.model.nv, self.model.nv))
+        mujoco.mj_fullM(self.model, mass, self.data.qM)
+        basis = np.zeros(self.model.nv)
+        basis[self.index] = 1
+        gain = float(np.linalg.solve(mass, basis)[self.index])
+        if not math.isfinite(gain) or gain <= 0:
+            raise ValueError("robot effective inverse inertia is not positive")
+        mechanics = drive.mechanics
+        speed = float(mechanics.out.w_M)
+        damping = mechanics.B_L(speed) if callable(mechanics.B_L) else mechanics.B_L
+        instant = float(drive.machine.out.tau_M)
+        impulse = (float(drive.oeal_energy.state.motor_torque_impulse_nms.real)
+                   if controller.t > 0 else 0.0)
+        moment = (float(drive.oeal_energy.state.motor_torque_time_moment_nms2.real)
+                  if controller.t > 0 else 0.0)
+        mean, weighted, forecast, windows = self.torque_history.observe(
+            controller.t, impulse, moment, instant
+        )
+        motor_free = (forecast - damping * speed) / (
+            mechanics.J * self.ratio
+        )
+        robot_free = float(self.data.qacc[self.index]) - gain * float(
+            self.data.qfrc_applied[self.index]
+        )
+        free = motor_free - robot_free
+        inverse = 1 / (mechanics.J * self.ratio ** 2) + gain
+        stiffness = self.config.get("shaft_stiffness_nm_per_rad", 500.0)
+        exchange = path_midpoint_exchange(
+            delta, relative_speed, free, inverse, self.period, stiffness=stiffness
+        )
+        if self.data.nefc:
+            torque, _, heat = transmission(delta, relative_speed, stiffness=stiffness)
+            v_mid = relative_speed + self.period / 2 * (free - inverse * torque)
+            d_mid = delta + self.period / 2 * v_mid
+            residual = torque - path_average(
+                delta, v_mid, self.period, stiffness=stiffness
+            )[0]
+            exchange = Exchange(torque, d_mid, v_mid, heat, residual, True)
+        self.coupling_rows.append([
+            controller.t, exchange.torque_nm, delta, relative_speed, free, 1 / gain,
+            exchange.delta_mid_rad, exchange.speed_mid_rad_s, exchange.damping_power_w,
+            exchange.law_residual_nm, impulse, moment, instant, mean, weighted,
+            forecast, float(windows),
+            float(exchange.transition_resolved), float(exchange.fallback),
+        ])
+        return exchange
+
+    def coupling_parameters(self):
+        return {
+            "coupling_method": self.method,
+            "robot_integrator": "rk4" if self.model.opt.integrator
+            == mujoco.mjtIntegrator.mjINT_RK4 else "implicitfast",
+            "macro_step_s": self.period, "gear_ratio": self.ratio,
+            "shaft_stiffness_nm_per_rad": self.config.get("shaft_stiffness_nm_per_rad", 500),
+            "shaft_damping_nms_per_rad": 1.0,
+            "fallback_count": int(sum(row[-1] for row in self.coupling_rows)),
+            "resolved_transition_count": int(sum(row[-2] for row in self.coupling_rows)),
+            "motor_torque_predictor": "causal displacement weights from actual I/M integrals",
+            "force_and_heat": "original law integrated on piecewise predicted paths",
+            "prediction_scope": "frozen free acceleration, not a nonlinear implicit solve",
+            "stored_spring_energy": "actual endpoint deflection; never midpoint storage",
+        }
 
     def mechanical_energy(self):
         mujoco.mj_energyPos(self.model, self.data)

@@ -161,6 +161,32 @@ def main():
             assert file.read_text().startswith("time_s,source_j,source_abs_j")
             page.locator("#energy").screenshot(path=str(REPORT / "ui-energy.png"))
 
+        coupling = json.loads((REPORT / "data.json").read_text()).get("coupling", {})
+        if coupling.get("passed"):
+            assert page.locator("#coupling-pair option").count() == 6
+            assert page.locator("#coupling-results tr").count() == 11
+            assert page.locator("#coupling-comparisons tr").count() == 3
+            assert page.locator("#coupling-residual-chart polyline").count() == 2
+            page.locator("#coupling-pair").select_option("4")
+            assert "Kp / Kd" in page.locator("#coupling-insight").inner_text()
+            page.locator("#coupling-cursor").focus()
+            page.locator("#coupling-cursor").press("Home")
+            assert page.locator("#coupling-time").inner_text() == "0.00 ms"
+            page.locator("#coupling-cursor").press("End")
+            assert page.locator("#coupling-time").inner_text() == "250.00 ms"
+            page.locator("#coupling-pair").select_option("5")
+            assert "只改变积分器" in page.locator("#coupling-insight").inner_text()
+            assert "未启用预测器" in page.locator("#coupling-law-note").inner_text()
+            page.locator("#coupling-pair").select_option("0")
+            assert page.locator("#coupling-states .refined-state").count() == 4
+            assert page.locator("#coupling-law-chart polyline").count() == 3
+            with page.expect_download() as info:
+                page.locator("#coupling-csv").click()
+            file = REPORT / "coupling-export-check.csv"
+            info.value.save_as(str(file))
+            assert file.read_text().startswith("time_s,held_torque_nm,actual_delta_rad")
+            page.locator("#coupling").screenshot(path=str(REPORT / "ui-coupling.png"))
+
         page.set_viewport_size({"width": 390, "height": 844})
         page.reload(wait_until="load")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
@@ -192,6 +218,10 @@ def main():
             page.locator("#energy-case").select_option("8")
             assert "应失败" in page.locator("#energy-case-status").inner_text()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+        if coupling.get("passed"):
+            page.locator("#coupling-pair").select_option("3")
+            assert "0.5 kg" in page.locator("#coupling-insight").inner_text()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         page.screenshot(path=str(REPORT / "ui-mobile.png"), full_page=True)
 
         missing_labels = page.locator("input,select,button").evaluate_all("""nodes => nodes.filter(
@@ -204,7 +234,8 @@ def main():
     assert (REPORT / "report.pdf").read_bytes().startswith(b"%PDF")
     pngs = list((REPORT / "plots").glob("*.png"))
     assert len(pngs) == ((10 if design.get("validations") else 8 if refined.get("passed") else 5)
-                         + (2 if energy.get("passed") else 0))
+                         + (2 if energy.get("passed") else 0)
+                         + (2 if coupling.get("passed") else 0))
     assert all(p.read_bytes().startswith(b"\x89PNG") for p in pngs)
     report = {
         "passed": True, "browser": "system Chrome via Playwright",
@@ -222,6 +253,7 @@ def main():
         "open_models_available": bool(refined.get("passed")),
         "design_available": bool(design.get("validations")),
         "energy_available": bool(energy.get("passed")),
+        "coupling_available": bool(coupling.get("passed")),
         "energy_checks": ([
             "eight measured cases and one explicit fault-injection copy",
             "missing device branch shown as a failed balance",
@@ -237,6 +269,7 @@ def main():
         "screenshots": [
             "ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png",
             *(["ui-energy.png"] if energy.get("passed") else []),
+            *(["ui-coupling.png"] if coupling.get("passed") else []),
         ],
     }
     (REPORT / "ui-validation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))

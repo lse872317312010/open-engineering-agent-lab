@@ -658,6 +658,18 @@
             },
             "energy_consistent": {
               "type": "boolean"
+            },
+            "coupling_method": {
+              "enum": [
+                "jacobi",
+                "midpoint_predictor"
+              ]
+            },
+            "robot_integrator": {
+              "enum": [
+                "implicitfast",
+                "rk4"
+              ]
             }
           },
           "required": [],
@@ -890,7 +902,8 @@
               "waveforms",
               "gates",
               "energy",
-              "co_sim_energy"
+              "co_sim_energy",
+              "coupling"
             ]
           },
           "additionalProperties": {

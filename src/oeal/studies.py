@@ -37,6 +37,7 @@ ROBOT_FIELDS = frozenset({
     "macro_step_s", "backlash_rad", "fixture", "outer_kp_nm_per_rad",
     "outer_kd_nms_per_rad", "gravity_feedforward_gain", "position_step_rad",
     "position_start_s", "position_ramp_s", "payload_kg", "shaft_stiffness_nm_per_rad",
+    "coupling_method", "robot_integrator",
 })
 REGISTRY = {
     "native_foc_v1": dict(backend="native", fields=FOC_FIELDS | {"load_nm"},
@@ -86,6 +87,7 @@ def resolved_settings(document):
             "gravity_feedforward_gain": 1.0, "position_step_rad": 0.08,
             "position_start_s": 0.02, "position_ramp_s": 0.12, "payload_kg": 0.0,
             "shaft_stiffness_nm_per_rad": 500.0,
+            "coupling_method": "jacobi", "robot_integrator": "implicitfast",
         } | values(document["settings"])
     elif profile == "baldor_map_v1":
         settings = settings | {"vdc_v": 540.0, "iq_reference_a": 10.0,
@@ -157,6 +159,11 @@ def validate_study(document):
     if minimum > document["budget"]["solver_evaluations"]:
         raise ValueError("solver evaluation budget too small")
     if profile == "ur5e_joint_v1":
+        if s["coupling_method"] == "midpoint_predictor" and (
+            not s.get("energy_consistent", False) or s["robot_integrator"] != "rk4"
+            or s["backlash_rad"] != 0 or s["fixture"]
+        ):
+            raise ValueError("midpoint predictor requires energy mode, RK4, no gap/fixture")
         ratio = s["macro_step_s"] / s["control_period_s"]
         if not math.isclose(ratio, round(ratio), rel_tol=0, abs_tol=1e-9):
             raise ValueError("macro step must be an integer number of controller ticks")
@@ -201,11 +208,13 @@ def resolve_assets(profile, root):
 def signal_unit(name):
     if name.startswith("duty_") or name in {
         "voltage_limited", "current_limited", "enabled", "tripped", "contacts",
-        "qa", "qb", "qc", "blank_a", "blank_b", "blank_c",
+        "qa", "qb", "qc", "blank_a", "blank_b", "blank_c", "predictor_fallback",
+        "resolved_transition", "torque_history_windows",
     }:
         return "1"
     for suffix, unit in (
-        ("_rad_s", "rad/s"), ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
+        ("_rad_s2", "rad/s^2"), ("_kg_m2", "kg*m^2"), ("_rad_s", "rad/s"),
+        ("_nms2", "N*m*s^2"), ("_nms", "N*m*s"), ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
         ("_n", "N"), ("_a", "A"), ("_v", "V"), ("_c", "degC"), ("_w", "W"), ("_j", "J"),
     ):
         if name.endswith(suffix):
@@ -266,7 +275,8 @@ def _external(document, s, assets, motor):
         from oeal.backends.robot import ROBOT_COLUMNS, RobotLoad, load_robot
 
         mdl, data, _ = load_robot(
-            assets["ur5e/ur5e.xml"], s["macro_step_s"], s["fixture"], s["payload_kg"]
+            assets["ur5e/ur5e.xml"], s["macro_step_s"], s["fixture"], s["payload_kg"],
+            integrator=s["robot_integrator"],
         )
         robot = RobotLoad(mdl, data, config)
     result, controller = run_drive(config, magnetic_map=magnetic, robot=robot)
@@ -295,6 +305,12 @@ def _external(document, s, assets, motor):
     )
     if robot is not None:
         streams["joint"] = stream(ROBOT_COLUMNS, robot.rows, "macro_ticks_and_endpoint")
+        if robot.coupling_rows:
+            from oeal.backends.robot import COUPLING_COLUMNS
+
+            streams["coupling"] = stream(
+                COUPLING_COLUMNS, robot.coupling_rows, "macro_ticks_and_endpoint"
+            )
     if s.get("energy_consistent", False):
         from oeal.energy import ENERGY_COLUMNS
 
@@ -332,6 +348,8 @@ def _external(document, s, assets, motor):
         "nominal_machine": vars(controller.nominal), "magnetic_domain_passed": domain,
         "solver_evaluations": controller.drive.oeal_solver_calls,
     }
+    if robot is not None:
+        context["coupling_parameters"] = robot.coupling_parameters()
     if s.get("energy_consistent", False):
         context["energy_parameters"] = controller.drive.oeal_energy.describe()
     return streams, context
@@ -409,6 +427,21 @@ def recompute(document, result):
             rows = np.asarray(audit["samples"])
             for name in ("interface_residual_j", "extended_residual_j"):
                 metrics[name] = float(np.max(np.abs(rows[:, audit["columns"].index(name)])))
+    if s.get("coupling_method") == "midpoint_predictor":
+        trace = signals["coupling"]
+        values_ = np.asarray(trace["samples"])
+        if len(values_) != len(expected) or not np.allclose(
+            values_[:, 0], expected, atol=1e-12, rtol=0
+        ):
+            raise ValueError("coupling stream does not cover the protected macro clock")
+        fallbacks = values_[:, trace["columns"].index("predictor_fallback")]
+        residual = values_[:, trace["columns"].index("law_residual_nm")]
+        transitions = values_[:, trace["columns"].index("resolved_transition")]
+        metrics["resolved_transition_count"] = float(np.sum(transitions))
+        metrics["predictor_fallback_count"] = float(np.sum(fallbacks))
+        metrics["torque_law_residual_nm"] = float(np.max(np.abs(residual)))
+        numeric = bool(numeric and np.all(fallbacks == 0)
+                       and metrics["torque_law_residual_nm"] <= 1e-8)
     goals = values(document["acceptance"])
     passed = numeric and all(metrics.get(name, math.inf) <= limit for name, limit in goals.items())
     return metrics, numeric, bool(passed)

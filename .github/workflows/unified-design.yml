@@ -44,6 +44,8 @@ jobs:
         run: python benchmarks/validate_design_iteration.py
       - name: Verify physical energy ports and robot interface audit
         run: python benchmarks/validate_energy_accounting.py
+      - name: Compare midpoint coupling and frozen holdouts
+        run: python benchmarks/validate_coupling.py
       - name: Build extended report
         run: |
           python benchmarks/validate_p6.py

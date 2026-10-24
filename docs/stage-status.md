@@ -137,7 +137,7 @@ Chrome / Playwright 检查离线运行、390 px 布局、键盘游标与导出�
 - `energy_consistent` 默认关闭；新模式的线性电驱局部门槛不覆盖非线性磁图、
   铁损支路、整流前端、夹具接触或完整机器人能量守恒。
 
-完整控制/Agent 设计环境将另行运行全部可选测试；硬件继续由用户负责。
+完整控制/Agent 设计环境的全部可选测试见下方最终记录；硬件继续由用户负责。
 
 新增能量交互首轮浏览器验收：
 [run 40055429768](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40055429768)，
@@ -148,3 +148,22 @@ Chrome / Playwright 检查离线运行、390 px 布局、键盘游标与导出�
 
 能量端口实验的机器人轨迹为 40 ms / +0.008 rad；
 原有控制设计的 250 ms / +0.08 rad、0.03 rad 目标与限值保持独立回归。
+
+### 最终完整验证
+
+[run 40056246982](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40056246982)，
+实现代码 a80aba8ccc543d5903b7036a85b6230c09be99b3；**66 项测试全部通过，无跳过**。
+原控制优化保持 89.37% 基准误差改善，三组开关模型验证通过；
+新增八组局部能量与故障注入检测通过，原开源模型和五配置统一入口回归通过。
+
+完整报告为 **12 组 PNG/SVG + PDF + 离线交互 HTML**；
+[报告包](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40056246982/artifacts/12544699780)
+与
+[全部证据](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40056246982/artifacts/12544999265)
+分开交付。Chrome 检查全部新旧交互、失败状态、时间首末点、CSV、
+390 px 布局与参数展示通过，无页面错误或外部请求。
+每组能量结果含实际热容/导热矩阵、转子惯量、母线电容与损耗参数。
+
+实现与审计见 [PR #12](https://github.com/lse872317312010/open-engineering-agent-lab/pull/12)。
+后续仍需改进机器人联合仿真的接口余额，并扩展长时多工况及完整关节 FMI；
+局部数值余额不是用户设备参数误差或真机精度结论。

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from scipy.linalg import expm
 
-from oeal.coupling import midpoint_exchange
+from oeal.coupling import path_midpoint_exchange
 from oeal.experiments import run_experiment
 from oeal.studies import export_streams
 
@@ -56,7 +56,7 @@ def references():
         x, heat = initial.copy(), 0.0
         for _ in range(round(0.01 / h)):
             q, v, ql, vl = x
-            exchange = midpoint_exchange(q - ql, v - vl, 0, 8.5, h)
+            exchange = path_midpoint_exchange(q - ql, v - vl, 0, 8.5, h)
             if exchange.fallback:
                 raise AssertionError("reference unexpectedly crossed an excluded branch")
             torque = exchange.torque_nm
@@ -85,7 +85,17 @@ def compact(document, result):
     observed = rows[:, joint["columns"].index("elastic_energy_j")]
     if not np.allclose(actual, observed, rtol=0, atol=1e-12):
         raise AssertionError("reported spring energy is not the actual endpoint storage")
+    audit = streams["co_sim_energy"]
+    values = np.asarray(audit["samples"])
+    peak = int(np.argmax(np.abs(values[:, audit["columns"].index("interface_residual_j")])))
+    diagnostic = {"interface_peak_time_s": float(values[peak, 0])}
+    if "coupling" in streams:
+        prediction = streams["coupling"]
+        diagnostic["predictor_at_interface_peak"] = dict(zip(
+            prediction["columns"], prediction["samples"][peak], strict=True
+        ))
     return {
+        "diagnostic": diagnostic,
         "id": document["id"], "input": document,
         "raw_sha256": result["raw_sha256"], "input_sha256": result["experiment_sha256"],
         "metrics": result["metrics"], "numeric_passed": result["numeric_passed"],
@@ -136,6 +146,7 @@ def main():
         print("coupling-case.json: " + json.dumps({
             "id": item["id"], "numeric_passed": item["numeric_passed"],
             "goal_passed": item["goal_passed"], "metrics": item["metrics"],
+            "diagnostic": item["diagnostic"],
         }), flush=True)
         if not result["numeric_passed"] or not result["goal_passed"]:
             raise AssertionError("fixed coupling, energy or tracking goal failed")
@@ -165,10 +176,10 @@ def main():
         "predictor_interface_peak_j": errors,
         "observed_halving_orders": [math.log2(r) for r in ratios],
         "fixed_gate": "same-RK4 interface and extended peak reductions >=75%; fine/coarse <=0.4",
-        "scope": "frozen-acceleration torque prediction, no nonlinear implicit solve",
+        "scope": "causal torque means and path-averaged prediction; no implicit system solve",
         "limits": [
             "no backlash, fixture or active constraints in the certified predictor cases",
-            "fallbacks are recorded and cause the predictor certification gate to fail",
+            "unresolved fallbacks fail certification; resolved law transitions are recorded",
             "spring storage always uses actual endpoint deflection",
             "robot actuator-work quadrature and interface residuals remain explicit",
             "same-RK4 comparisons separate the integrator contribution",

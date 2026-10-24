@@ -209,11 +209,12 @@ def signal_unit(name):
     if name.startswith("duty_") or name in {
         "voltage_limited", "current_limited", "enabled", "tripped", "contacts",
         "qa", "qb", "qc", "blank_a", "blank_b", "blank_c", "predictor_fallback",
+        "resolved_transition", "torque_history_windows",
     }:
         return "1"
     for suffix, unit in (
         ("_rad_s2", "rad/s^2"), ("_kg_m2", "kg*m^2"), ("_rad_s", "rad/s"),
-        ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
+        ("_nms", "N*m*s"), ("_nm", "N*m"), ("_rad", "rad"), ("_s", "s"),
         ("_n", "N"), ("_a", "A"), ("_v", "V"), ("_c", "degC"), ("_w", "W"), ("_j", "J"),
     ):
         if name.endswith(suffix):
@@ -435,6 +436,8 @@ def recompute(document, result):
             raise ValueError("coupling stream does not cover the protected macro clock")
         fallbacks = values_[:, trace["columns"].index("predictor_fallback")]
         residual = values_[:, trace["columns"].index("law_residual_nm")]
+        transitions = values_[:, trace["columns"].index("resolved_transition")]
+        metrics["resolved_transition_count"] = float(np.sum(transitions))
         metrics["predictor_fallback_count"] = float(np.sum(fallbacks))
         metrics["torque_law_residual_nm"] = float(np.max(np.abs(residual)))
         numeric = bool(numeric and np.all(fallbacks == 0)

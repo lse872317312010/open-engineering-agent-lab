@@ -473,9 +473,13 @@ def main():
             axes[0, 0].plot(time, rows[:, columns.index(name)], label=label)
         axes[0, 0].set(xlabel="起始宏步时间 ms", ylabel="挠度 rad",
                        title="预测不是实际储能状态")
-        axes[0, 1].plot(time, rows[:, columns.index("held_torque_nm")])
-        axes[0, 1].set(xlabel="起始宏步时间 ms", ylabel="保持转矩 N·m",
-                       title="两侧使用同一宏步转矩")
+        for name, label in (("instant_motor_torque_nm", "瞬时 PWM 取样"),
+                            ("previous_mean_motor_torque_nm", "已完成窗口均值"),
+                            ("forecast_motor_torque_nm", "因果预测均值")):
+            axes[0, 1].plot(time, rows[:, columns.index(name)], label=label)
+        axes[0, 1].set(xlabel="起始宏步时间 ms", ylabel="电磁转矩 N·m",
+                       title="使用真实转矩积分，减少采样相位偏差")
+        axes[0, 1].legend(fontsize=8)
         axes[1, 0].plot(time, rows[:, columns.index("robot_effective_inertia_kg_m2")])
         axes[1, 0].set(xlabel="时间 ms", ylabel="有效惯量 kg·m²",
                        title="1 / (M⁻¹)[j,j]，包含其余自由度")

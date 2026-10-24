@@ -8,7 +8,13 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-from oeal.coupling import Exchange, midpoint_exchange, transmission
+from oeal.coupling import (
+    Exchange,
+    TorqueHistory,
+    path_average,
+    path_midpoint_exchange,
+    transmission,
+)
 
 ROBOT_COLUMNS = [
     "time_s", "joint_angle_rad", "joint_speed_rad_s", "reference_rad",
@@ -27,7 +33,9 @@ COUPLING_COLUMNS = [
     "time_s", "held_torque_nm", "actual_delta_rad", "actual_relative_speed_rad_s",
     "free_relative_accel_rad_s2", "robot_effective_inertia_kg_m2",
     "predicted_delta_rad", "predicted_relative_speed_rad_s",
-    "predicted_damping_power_w", "law_residual_nm", "predictor_fallback",
+    "predicted_damping_power_w", "law_residual_nm", "motor_torque_impulse_nms",
+    "instant_motor_torque_nm", "previous_mean_motor_torque_nm", "forecast_motor_torque_nm",
+    "torque_history_windows", "resolved_transition", "predictor_fallback",
 ]
 
 
@@ -113,6 +121,7 @@ class RobotLoad:
         ):
             raise ValueError("midpoint predictor requires energy mode, RK4, no gap/fixture")
         self.coupling_rows = []
+        self.torque_history = TorqueHistory()
         self.ratio = 50.0
         self.torque = 0.0
         self.rows = []
@@ -208,7 +217,11 @@ class RobotLoad:
         mechanics = drive.mechanics
         speed = float(mechanics.out.w_M)
         damping = mechanics.B_L(speed) if callable(mechanics.B_L) else mechanics.B_L
-        motor_free = (float(drive.machine.out.tau_M) - damping * speed) / (
+        instant = float(drive.machine.out.tau_M)
+        impulse = (float(drive.oeal_energy.state.motor_torque_impulse_nms.real)
+                   if controller.t > 0 else 0.0)
+        mean, forecast, windows = self.torque_history.observe(controller.t, impulse, instant)
+        motor_free = (forecast - damping * speed) / (
             mechanics.J * self.ratio
         )
         robot_free = float(self.data.qacc[self.index]) - gain * float(
@@ -217,19 +230,22 @@ class RobotLoad:
         free = motor_free - robot_free
         inverse = 1 / (mechanics.J * self.ratio ** 2) + gain
         stiffness = self.config.get("shaft_stiffness_nm_per_rad", 500.0)
-        exchange = midpoint_exchange(
+        exchange = path_midpoint_exchange(
             delta, relative_speed, free, inverse, self.period, stiffness=stiffness
         )
         if self.data.nefc:
             torque, _, heat = transmission(delta, relative_speed, stiffness=stiffness)
             v_mid = relative_speed + self.period / 2 * (free - inverse * torque)
             d_mid = delta + self.period / 2 * v_mid
-            residual = torque - transmission(d_mid, v_mid, stiffness=stiffness)[0]
+            residual = torque - path_average(
+                delta, v_mid, self.period, stiffness=stiffness
+            )[0]
             exchange = Exchange(torque, d_mid, v_mid, heat, residual, True)
         self.coupling_rows.append([
             controller.t, exchange.torque_nm, delta, relative_speed, free, 1 / gain,
             exchange.delta_mid_rad, exchange.speed_mid_rad_s, exchange.damping_power_w,
-            exchange.law_residual_nm, float(exchange.fallback),
+            exchange.law_residual_nm, impulse, instant, mean, forecast, float(windows),
+            float(exchange.transition_resolved), float(exchange.fallback),
         ])
         return exchange
 
@@ -242,6 +258,9 @@ class RobotLoad:
             "shaft_stiffness_nm_per_rad": self.config.get("shaft_stiffness_nm_per_rad", 500),
             "shaft_damping_nms_per_rad": 1.0,
             "fallback_count": int(sum(row[-1] for row in self.coupling_rows)),
+            "resolved_transition_count": int(sum(row[-2] for row in self.coupling_rows)),
+            "motor_torque_predictor": "causal extrapolation of actual completed-window means",
+            "force_and_heat": "original law integrated on piecewise predicted paths",
             "prediction_scope": "frozen free acceleration, not a nonlinear implicit solve",
             "stored_spring_energy": "actual endpoint deflection; never midpoint storage",
         }

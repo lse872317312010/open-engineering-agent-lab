@@ -36,6 +36,7 @@ class CouplingInertiaTests(unittest.TestCase):
         import mujoco
 
         xml = """<mujoco><option gravity="0 0 0" integrator="RK4"/>
+        <default><joint armature=".1"/></default>
         <worldbody><body><joint name="shoulder_lift_joint" axis="0 0 1"/>
         <geom type="capsule" fromto="0 0 0 1 0 0" size=".05" mass="2"
               contype="0" conaffinity="0"/>

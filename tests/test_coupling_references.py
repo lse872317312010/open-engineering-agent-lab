@@ -5,12 +5,18 @@ import unittest
 
 import numpy as np
 
-from oeal.coupling import midpoint_exchange, transmission
+from oeal.coupling import (
+    TorqueHistory,
+    midpoint_exchange,
+    path_average,
+    path_midpoint_exchange,
+    transmission,
+)
 
 
-def step(state, period):
+def step(state, period, exchange_function=midpoint_exchange):
     qm, vm, ql, vl = state
-    exchange = midpoint_exchange(qm - ql, vm - vl, 0, 1 / 0.125 + 1 / 2, period)
+    exchange = exchange_function(qm - ql, vm - vl, 0, 1 / 0.125 + 1 / 2, period)
     torque = exchange.torque_nm
     result = np.array([
         qm + period * vm - 0.5 * period ** 2 * torque / 0.125,
@@ -76,3 +82,59 @@ class CouplingReferenceTests(unittest.TestCase):
         for ratio in (errors[0] / errors[1], errors[1] / errors[2]):
             self.assertGreater(ratio, 3.8)
             self.assertLess(ratio, 4.2)
+
+    def test_path_midpoint_resolves_crossing_and_conserves_physical_work(self):
+        state = np.array([-0.001, 1.0, 0, 0])
+        initial = energy(state)
+        after, exchange = step(state, 0.002, path_midpoint_exchange)
+        self.assertTrue(exchange.transition_resolved)
+        self.assertFalse(exchange.fallback)
+        self.assertGreater(exchange.damping_power_w, 0)
+        self.assertLess(abs(energy(after) + 0.002 * exchange.damping_power_w - initial),
+                        1e-10)
+
+    def test_torque_history_is_causal_and_exact_for_a_linear_mean_trend(self):
+        history = TorqueHistory()
+        self.assertEqual(history.observe(0, 0, 3), (3, 3, 0))
+        mean, forecast, windows = history.observe(0.01, 0.0301, 3.02)
+        self.assertAlmostEqual(mean, 3.01)
+        self.assertAlmostEqual(forecast, 3.01)
+        self.assertEqual(windows, 1)
+        mean, forecast, windows = history.observe(0.02, 0.0604, 3.04)
+        self.assertAlmostEqual(mean, 3.03)
+        self.assertAlmostEqual(forecast, 3.05)
+        self.assertEqual(windows, 2)
+        with self.assertRaises(ValueError):
+            history.observe(0.02, 0.0604, 3.04)
+
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "optional SciPy")
+    def test_piecewise_force_and_heat_match_independent_adaptive_quadrature(self):
+        from scipy.integrate import quad
+
+        force, heat, resolved = path_average(-0.01, 2, 0.02, backlash=0.003)
+        self.assertTrue(resolved)
+        for index, actual in ((0, force), (2, heat)):
+            expected = quad(
+                lambda x: transmission(-0.01 + 0.04 * x, 2, backlash=0.003)[index],
+                0, 1, points=[0.075, 0.175, 0.325], epsabs=1e-12,
+            )[0]
+            self.assertLess(abs(actual - expected), 1e-10)
+
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "optional SciPy")
+    def test_path_reference_retains_second_order_in_smooth_linear_limit(self):
+        from scipy.linalg import expm
+
+        initial = np.array([0.02, 0.1, 0, 0])
+        matrix = np.array([[0, 1, 0, 0], [-4000, -8, 4000, 8],
+                           [0, 0, 0, 1], [250, 0.5, -250, -0.5]])
+        exact = expm(matrix * 0.01) @ initial
+        errors = []
+        for h in (0.001, 0.0005, 0.00025):
+            state = initial.copy()
+            for _ in range(round(0.01 / h)):
+                state, exchange = step(state, h, path_midpoint_exchange)
+                self.assertFalse(exchange.fallback)
+            errors.append(float(np.linalg.norm(state - exact)))
+        self.assertTrue(all(3.8 < a / b < 4.2 for a, b in zip(
+            errors[:-1], errors[1:], strict=True
+        )))

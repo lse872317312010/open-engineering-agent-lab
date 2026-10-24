@@ -28,6 +28,7 @@ class Exchange:
     damping_power_w: float
     law_residual_nm: float
     fallback: bool
+    transition_resolved: bool = False
 
 
 def midpoint_exchange(delta, speed, free_acceleration, inverse_inertia, period_s,
@@ -73,3 +74,96 @@ def midpoint_exchange(delta, speed, free_acceleration, inverse_inertia, period_s
     d_mid, v_mid = prediction(torque)
     residual = torque - transmission(d_mid, v_mid, stiffness, damping, backlash)[0]
     return Exchange(torque, d_mid, v_mid, heat, residual, True)
+
+
+def path_average(delta, speed, period_s, stiffness=500.0, damping=1.0, backlash=0.0):
+    """Integrate the original force and heat laws on a predicted straight path."""
+    displacement = period_s * speed
+    if abs(displacement) < 1e-16:
+        force, _, heat = transmission(delta, speed, stiffness, damping, backlash)
+        return force, heat, False
+    boundaries = [-backlash, backlash]
+    if speed < 0:
+        boundaries.append(backlash - damping * speed / stiffness)
+    elif speed > 0:
+        boundaries.append(-backlash - damping * speed / stiffness)
+    points = [0.0, 1.0]
+    for boundary in boundaries:
+        fraction = (boundary - delta) / displacement
+        if 0 < fraction < 1:
+            points.append(fraction)
+    points = sorted(set(points))
+    force = heat = 0.0
+    for left, right in zip(points[:-1], points[1:], strict=True):
+        center, radius = (left + right) / 2, (right - left) / 2
+        for node in (center - radius / math.sqrt(3), center + radius / math.sqrt(3)):
+            value, _, power = transmission(
+                delta + node * displacement, speed, stiffness, damping, backlash
+            )
+            force += radius * value
+            heat += radius * power
+    return force, heat, len(points) > 2
+
+
+def path_midpoint_exchange(delta, speed, free_acceleration, inverse_inertia, period_s,
+                           stiffness=500.0, damping=1.0, backlash=0.0):
+    """Resolve force-law transitions without assigning an energy residual to heat."""
+    point = midpoint_exchange(delta, speed, free_acceleration, inverse_inertia, period_s,
+                              stiffness, damping, backlash)
+
+    def evaluate(torque):
+        v_mid = speed + period_s / 2 * (free_acceleration - inverse_inertia * torque)
+        d_mid = delta + period_s / 2 * v_mid
+        force, heat, resolved = path_average(
+            delta, v_mid, period_s, stiffness, damping, backlash
+        )
+        return Exchange(torque, d_mid, v_mid, heat, torque - force, False, resolved)
+
+    for candidate in (point.torque_nm, 0.0):
+        value = evaluate(candidate)
+        if abs(value.law_residual_nm) <= 1e-12 * (1 + abs(candidate)):
+            return value
+    bound = max(1.0, abs(point.torque_nm), stiffness * abs(delta)
+                + damping * (abs(speed) + abs(period_s * free_acceleration)))
+    for _ in range(40):
+        left, right = evaluate(-bound), evaluate(bound)
+        if left.law_residual_nm <= 0 <= right.law_residual_nm:
+            break
+        bound *= 2
+    else:
+        left = right = None
+    if left is not None and right is not None:
+        for _ in range(80):
+            value = evaluate((left.torque_nm + right.torque_nm) / 2)
+            if abs(value.law_residual_nm) <= 1e-12 * (1 + abs(value.torque_nm)):
+                return value
+            if value.law_residual_nm < 0:
+                left = value
+            else:
+                right = value
+    torque, _, heat = transmission(delta, speed, stiffness, damping, backlash)
+    predicted = evaluate(torque)
+    return Exchange(torque, predicted.delta_mid_rad, predicted.speed_mid_rad_s,
+                    heat, predicted.law_residual_nm, True, False)
+
+
+class TorqueHistory:
+    """Causal extrapolation of completed-window electromagnetic torque means."""
+
+    def __init__(self):
+        self.last_time = self.last_impulse = self.last_mean = None
+
+    def observe(self, time_s, impulse_nms, instantaneous_nm):
+        if not all(math.isfinite(x) for x in (time_s, impulse_nms, instantaneous_nm)):
+            raise ValueError("finite torque history required")
+        if self.last_time is None:
+            self.last_time, self.last_impulse = time_s, impulse_nms
+            return instantaneous_nm, instantaneous_nm, 0
+        dt = time_s - self.last_time
+        if dt <= 0:
+            raise ValueError("torque-history time must strictly increase")
+        mean = (impulse_nms - self.last_impulse) / dt
+        windows = 1 if self.last_mean is None else 2
+        forecast = mean if self.last_mean is None else 2 * mean - self.last_mean
+        self.last_time, self.last_impulse, self.last_mean = time_s, impulse_nms, mean
+        return mean, forecast, windows

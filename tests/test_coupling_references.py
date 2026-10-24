@@ -115,7 +115,7 @@ class CouplingReferenceTests(unittest.TestCase):
         self.assertTrue(resolved)
         for index, actual in ((0, force), (2, heat)):
             expected = quad(
-                lambda x: transmission(-0.01 + 0.04 * x, 2, backlash=0.003)[index],
+                lambda x, index=index: transmission(-0.01 + 0.04 * x, 2, backlash=0.003)[index],
                 0, 1, points=[0.075, 0.175, 0.325], epsabs=1e-12,
             )[0]
             self.assertLess(abs(actual - expected), 1e-10)

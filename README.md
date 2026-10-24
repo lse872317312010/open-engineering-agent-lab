@@ -99,7 +99,8 @@ python benchmarks/validate_energy_accounting.py
 ## 可选中点转矩预测
 
 UR5e 能量模式新增 `coupling_method=midpoint_predictor` 与
-`robot_integrator=rk4`。它用完整质量矩阵的有效逆惯量预测宏步转矩，
+`robot_integrator=rk4`。它用完整质量矩阵的有效逆惯量、原力律的路径分段积分，
+以及已完成宏步的真实转矩积分/时间矩做因果位移加权预测，
 热量仍来自物理力律，弹性储能来自实际端点。默认 Jacobi / implicitfast 保持兼容。
 
 ```bash

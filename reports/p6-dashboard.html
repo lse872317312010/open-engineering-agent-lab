@@ -29,7 +29,7 @@
 @media(max-width:720px){.refined-layout{grid-template-columns:1fr}.refined-metrics,.refined-states{grid-template-columns:1fr 1fr}}
 </style></head>
 <body><a class="skip" href="#main">跳到报告内容</a>
-<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#energy">能量核算</a><a href="#design">控制设计</a><a href="#refined">开源模型深化</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
+<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#coupling">耦合改进</a><a href="#energy">能量核算</a><a href="#design">控制设计</a><a href="#refined">开源模型深化</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
 <main class="main" id="main"><header class="top"><div class="muted">研究工作台 / P6 多物理域实验</div><div class="top-actions"><span class="pill"><span class="dot"></span> 合成研究场景</span><button id="theme" type="button" aria-label="切换深浅主题">深色模式</button></div></header>
 <section id="overview"><div class="hero"><div><div class="eyebrow">P6 · MULTIPHYSICS STUDY</div><h1>看见耦合，理解边界。</h1><p>把电流、柔性关节与热演化放在同一份研究报告中。探索不同工况，再用独立数学参考判断哪些结论已成立、哪些目标还不可达。</p><div class="tags"><span class="pill" id="gate">正在读取验收结果</span><span class="muted" style="font-size:12px">离线交互 · 无需账号 · 数据内嵌</span></div></div><div class="actions"><a class="action primary" href="report.pdf" download>下载 PDF 报告</a><button id="export-json">导出完整数据</button></div></div>
 <div class="progress" aria-label="阶段交付范围"><div class="stage">P1 · 基准</div><div class="stage">P2 · 模型 IR</div><div class="stage">P3 · 受控闭环</div><div class="stage">P4 · SIL</div><div class="stage">P5 · ARM 仿真</div><div class="stage current">P6 · 多物理</div></div>
@@ -64,6 +64,24 @@
 <section class="panel wide"><div class="panel-head"><div><h2>所有结果，一起看</h2><p class="caption">数值检查与电流目标分开判断。不可达案例是边界证据，也会完整列出。</p></div><a class="action" href="plots/scenario-comparison.png" download>导出对比图 PNG</a></div><div class="table-wrap"><table><thead><tr><th>研究工况</th><th>尾段 q 误差</th><th>绕组峰温</th><th>转矩峰值</th><th>数值检查</th><th>电流目标</th></tr></thead><tbody id="comparison-table"></tbody></table></div></section>
 
 
+
+
+<section class="panel wide" id="coupling" aria-labelledby="coupling-title">
+<div class="panel-head"><div><h2 id="coupling-title">减少宏步交换造成的能量误差</h2><p class="caption">相同积分器、模型、控制器与轨迹，比较 Jacobi 保持和中点转矩预测；原积分器另列。</p></div><span class="pill" id="coupling-gate">本次未运行耦合对照</span></div>
+<p id="coupling-unavailable">运行 Midpoint coupling evidence and report 工作流，可生成公平对照与预测器状态。</p>
+<div id="coupling-content" hidden>
+<p class="insight">预测器使用电机自由加速度、MuJoCo 完整质量矩阵的有效惯量与现有传动力律，预测下一宏步的中点转矩。两侧保持同一转矩，热量由物理力律计算，弹性储能仍使用实际端点。它不是全系统非线性隐式求解器。</p>
+<div class="toolbar"><label class="control">公平对照 <select id="coupling-pair"></select></label><button id="coupling-csv">导出当前曲线原始 CSV</button></div>
+<div class="refined-metrics" id="coupling-metrics"></div><div class="legend" id="coupling-legend"></div>
+<svg class="chart" id="coupling-residual-chart" viewBox="0 0 900 240" role="img" aria-label="基准与预测方式的实际接口余额"></svg>
+<svg class="chart" id="coupling-position-chart" viewBox="0 0 900 220" role="img" aria-label="固定轨迹下两种耦合方式的关节响应"></svg>
+<div class="cursor-controls"><label for="coupling-cursor">预测器状态回放</label><input id="coupling-cursor" type="range" min="0" max="1000" step="1" value="1000"><output id="coupling-time" for="coupling-cursor"></output></div>
+<div class="refined-states" id="coupling-states" aria-live="polite"></div><p class="insight" id="coupling-insight"></p>
+<div class="refined-layout rowgap"><div><h3>步长与接口余额</h3><p class="caption">横坐标为宏步 μs，纵坐标为 log₁₀(接口峰值/J)。青：预测 / RK4；蓝：Jacobi / RK4。</p><svg class="chart" id="coupling-convergence-chart" viewBox="0 0 680 250" role="img" aria-label="相同积分器下的步长收敛对照"></svg><p class="caption" id="coupling-order"></p></div><div><h3>力律一致性与回退</h3><p class="caption">预测跨零、遇到约束或找不到一致分支时会回退并记录，本实验集要求零回退。虚线为力律残差固定界限。</p><svg class="chart" id="coupling-law-chart" viewBox="0 0 680 250" role="img" aria-label="预测转矩与原传动力律的残差"></svg><p class="caption" id="coupling-law-note"></p></div></div>
+<div class="table-wrap"><table><thead><tr><th>固定验证</th><th>接口峰值降低</th><th>扩展峰值降低</th><th>至少 75%</th></tr></thead><tbody id="coupling-comparisons"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>实验</th><th>积分器 / 耦合</th><th>接口峰值 J</th><th>扩展峰值 J</th><th>位置 / 电流 / 转矩</th></tr></thead><tbody id="coupling-results"></tbody></table></div>
+<details><summary>模式边界、独立参考与完整参数</summary><pre class="meta" id="coupling-metadata"></pre></details>
+</div></section>
 
 <section class="panel wide" id="energy" aria-labelledby="energy-title">
 <div class="panel-head"><div><h2 id="energy-title">能量从哪里来，又去了哪里</h2><p class="caption">直接积分实际端口功率，区分储能、对外做功、环境散热与未平衡能量。</p></div><span class="pill" id="energy-gate">本次未运行能量实验</span></div>
@@ -399,6 +417,68 @@ function initEnergy(){
  renderEnergy();
 }
 
+
+let couplingPairs=[],couplingById={};
+function couplingPair(){return couplingPairs[Number(el("coupling-pair").value)]}
+function couplingCase(key){return couplingById[key]}
+function couplingSignal(item,stream,row,name){return row[item.streams[stream].columns.indexOf(name)]}
+function renderCoupling(){
+ const pair=couplingPair(),a=couplingCase(pair.a),b=couplingCase(pair.b),stream=b.streams.co_sim_energy,rows=stream.samples;
+ const row=rows[Math.round(Number(el("coupling-cursor").value)/1000*(rows.length-1))],time=row[0]*1000;
+ const e=v=>Number(v).toExponential(3),get=(item,s,r,n)=>couplingSignal(item,s,r,n);
+ const predictor=b.streams.coupling,trace=predictor?.samples[Math.round(Number(el("coupling-cursor").value)/1000*(predictor.samples.length-1))];
+ el("coupling-metrics").replaceChildren();
+ const improvement=1-b.metrics.interface_residual_j/a.metrics.interface_residual_j;
+ [["接口峰值",e(b.metrics.interface_residual_j)+" J"],["扩展余额峰值",e(b.metrics.extended_residual_j)+" J"],["接口降低",format(improvement*100,2)+"%"],["比较方式",pair.integrator?"只改变积分器":"同 RK4 / 只改耦合"]].forEach(([label,value])=>{const d=document.createElement("div"),s=document.createElement("span"),v=document.createElement("strong");s.textContent=label;v.textContent=value;d.append(s,v);el("coupling-metrics").append(d)});
+ el("coupling-legend").replaceChildren();
+ [[a,colors[1]],[b,colors[0]]].forEach(([item,color])=>{const span=document.createElement("span"),key=document.createElement("i");key.className="key";key.style.background=color;span.append(key,document.createTextNode(item.coupling_parameters.coupling_method+" / "+item.coupling_parameters.robot_integrator));el("coupling-legend").append(span)});
+ chart("coupling-residual-chart",[[a,colors[1]],[b,colors[0]]].map(([item,color])=>({data:item.streams.co_sim_energy.samples.map(r=>[r[0]*1000,get(item,"co_sim_energy",r,"interface_residual_j")]),color})),"时间 ms","接口余额 J",time);
+ chart("coupling-position-chart",[
+ ...[[a,colors[1]],[b,colors[0]]].map(([item,color])=>({data:item.streams.joint.samples.map(r=>[r[0]*1000,get(item,"joint",r,"joint_angle_rad")]),color})),
+ {data:b.streams.joint.samples.map(r=>[r[0]*1000,get(b,"joint",r,"reference_rad")]),color:colors[3],dash:true}
+ ],"时间 ms","关节角 rad",time);
+ el("coupling-time").textContent=format(time,2)+" ms";
+ el("coupling-states").replaceChildren();
+ const joint=b.streams.joint,j=joint.samples[Math.round(Number(el("coupling-cursor").value)/1000*(joint.samples.length-1))];
+ const states=[
+ ["实际机械状态","相对挠度 "+format(get(b,"joint",j,"twist_rad"),6)+" rad","保持转矩 "+format(get(b,"joint",j,"shaft_torque_nm"),3)+" N·m"],
+ ["预测中点",trace?"挠度 "+format(get(b,"coupling",trace,"predicted_delta_rad"),6)+" rad":"此曲线未启用预测",trace?"相对速度 "+format(get(b,"coupling",trace,"predicted_relative_speed_rad_s"),4)+" rad/s":"原 Jacobi 保持"],
+ ["余额分别报告","局部峰值 "+e(b.metrics.energy_balance_abs_j)+" J","当前扩展余额 "+e(get(b,"co_sim_energy",row,"extended_residual_j"))+" J"],
+ ["分支一致性",trace?(get(b,"coupling",trace,"predictor_fallback")?"已回退 · 未认证":"中点分支一致"):"未启用预测器",trace?"力律残差 "+e(get(b,"coupling",trace,"law_residual_nm"))+" N·m":"无预测器认证声明"]
+ ];
+ states.forEach(lines=>{const div=document.createElement("div");div.className="refined-state";lines.forEach((text,i)=>{const n=document.createElement(i===0?"strong":"span");n.textContent=text;div.append(n)});el("coupling-states").append(div)});
+ if(predictor){
+ chart("coupling-law-chart",[
+ {data:predictor.samples.map(r=>[r[0]*1000,get(b,"coupling",r,"law_residual_nm")]),color:colors[0]},
+ {data:[[0,1e-8],[rows.at(-1)[0]*1000,1e-8]],color:colors[3],dash:true},
+ {data:[[0,-1e-8],[rows.at(-1)[0]*1000,-1e-8]],color:colors[3],dash:true}
+ ],"时间 ms","力律残差 N·m",time);
+ }else el("coupling-law-chart").replaceChildren();
+ el("coupling-law-note").textContent=predictor?"整段回退次数 "+b.metrics.predictor_fallback_count+"；有效惯量来自完整逆质量矩阵。":"本对照未启用预测器，不能把积分器变化算成预测器贡献。";
+ el("coupling-insight").textContent=pair.integrator?"本组只改变积分器，两条曲线都采用 Jacobi；该结果不计入预测器的固定改善门槛。":pair.long?"250 ms、+0.08 rad 的原轨迹；Kp / Kd 固定为已选值，验收仍为 0.03 rad / 20 A / 100 N·m。局部与扩展余额分别报告。":pair.payload?"额外 0.5 kg 的独立载荷留出。模型、轨迹和控制器固定，仅比较同 RK4 下的耦合方式。":"40 ms、+0.008 rad 的端口研究；两条曲线使用同一 RK4。保持转矩来自预测，弹性储能使用实际端点，剩余误差没有转移成发热。";
+ el("coupling-metadata").textContent=JSON.stringify({scope:D.coupling.scope,fixed_gate:D.coupling.fixed_gate,reference_checks:D.coupling.reference_checks,input:b.input,coupling_parameters:b.coupling_parameters,energy_parameters:b.energy_parameters,raw_sha256:b.raw_sha256,limits:D.coupling.limits},null,2);
+}
+function initCoupling(){
+ const R=D.coupling;if(!R?.passed)return;
+ R.cases.forEach(c=>couplingById[c.id]=c);
+ couplingPairs=[
+ ...[200,100,50].map(h=>({label:"40 ms · "+h+" μs · 同 RK4",a:"jacobi-"+h,b:"midpoint_predictor-"+h})),
+ {label:"0.5 kg 载荷留出 · 同 RK4",a:"payload-jacobi",b:"payload-midpoint",payload:true},
+ {label:"250 ms 原轨迹 · 固定增益",a:"long-jacobi",b:"long-midpoint",long:true},
+ {label:"积分器对照 · 同 Jacobi",a:"legacy-implicitfast",b:"jacobi-200",integrator:true}
+ ];
+ el("coupling-content").hidden=false;el("coupling-unavailable").hidden=true;
+ el("coupling-gate").textContent=R.cases.length+" 个实验 · 固定改善门槛通过";
+ couplingPairs.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.label;el("coupling-pair").append(o)});
+ R.comparisons.forEach(p=>addCells("coupling-comparisons",[p.label,format(p.interface_improvement_fraction*100,2)+"%",format(p.extended_improvement_fraction*100,2)+"%",p.passed?"通过":"失败"]));
+ R.cases.forEach(c=>addCells("coupling-results",[c.id,c.coupling_parameters.robot_integrator+" / "+c.coupling_parameters.coupling_method,c.metrics.interface_residual_j.toExponential(3),c.metrics.extended_residual_j.toExponential(3),c.goal_passed?"达成":"未达"]));
+ chart("coupling-convergence-chart",["midpoint_predictor","jacobi"].map((method,i)=>({data:[50,100,200].map(h=>[h,Math.log10(couplingById[method+"-"+h].metrics.interface_residual_j)]),color:colors[i]})),"宏步 μs","log₁₀ 接口峰值 / J");
+ el("coupling-order").textContent="完整联合模型观测减半阶数："+R.observed_halving_orders.map(v=>format(v,3)).join(" / ")+"。孤立双惯量的独立参考与完整模型误差分开记录。";
+ el("coupling-pair").addEventListener("change",renderCoupling);el("coupling-cursor").addEventListener("input",renderCoupling);
+ el("coupling-csv").addEventListener("click",()=>{const b=couplingCase(couplingPair().b),s=b.streams.coupling||b.streams.co_sim_energy;download(b.id+"-coupling.csv",[s.columns.join(","),...s.samples.map(r=>r.join(","))].join("\n"),"text/csv;charset=utf-8")});
+ renderCoupling();
+}
+
 function init(){
  const cases=D.scenarios.cases;
  cases.forEach((c,i)=>{const option=document.createElement("option");option.value=i;option.textContent=c.title;el("case-select").append(option)});
@@ -418,7 +498,7 @@ function init(){
  cells.forEach((text,i)=>{const td=document.createElement("td");td.textContent=text;if(i>=4)td.className="status"+((i===4?c.numeric_passed:c.tracking_goal_passed)?"":" warn");tr.append(td)});el("comparison-table").append(tr)});
  const proofs=[["机械能与耗散",D.references.mechanical_energy_error_j.toExponential(2)+" J"],["三节点热网络",D.references.thermal_expm_error_k.toExponential(2)+" K"],["步长减半差异",D.scenarios.step_halving_max_state_difference.toExponential(2)],["FMI 互操作",D.fmi.passed?"解析 / 重置 / 非法写入通过":"未通过"]];
  proofs.forEach(([title,value])=>{const p=document.createElement("div");p.className="proof-item";const a=document.createElement("span");a.textContent=title;const b=document.createElement("strong");b.textContent=value;p.append(a,b);el("proofs").append(p)});
- initSystem();renderShort();renderThermal();initRefined();initDesign();initEnergy();
+ initSystem();renderShort();renderThermal();initRefined();initDesign();initEnergy();initCoupling();
 }
 el("case-select").addEventListener("change",event=>{selected=Number(event.target.value);renderShort()});
 el("time-cursor").addEventListener("input",renderShort);el("compare").addEventListener("change",renderShort);

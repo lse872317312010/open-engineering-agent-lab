@@ -150,3 +150,28 @@ flowchart LR
 实际轨迹、余额阈值和未覆盖组合见[能量契约](energy-accounting-contract.md)。
 
 能量审计的短时机器人轨迹为 40 ms / +0.008 rad，原受保护控制优化保留 250 ms / +0.08 rad 的独立实验目标。
+
+
+## 可选耦合预测路径
+
+[纯机械预测器](../src/oeal/coupling.py)保留原传动力律，
+按冻结自由加速度解中点分支。[RobotLoad](../src/oeal/backends/robot.py)
+从 MuJoCo 完整质量矩阵获取 `(M^-1)[j,j]`，而非使用对角质量倒数。
+该标量和电机输出侧惯量共同决定预测转矩；实际 MuJoCo 仍独立推进。
+
+```mermaid
+flowchart LR
+  STATE["实际转子 / 机器人状态"] --> PRED["中点分支预测"]
+  MASS["MuJoCo 完整 M 与实际 qacc"] --> PRED
+  PRED --> TORQUE["两侧保持同一宏步转矩"]
+  PRED --> HEAT["力律阻尼热"]
+  TORQUE --> STEP["上游电气积分 / MuJoCo RK4"]
+  STEP --> END["实际端点状态与弹性储能"]
+  END --> AUDIT["原接口与扩展余额审计"]
+  HEAT --> AUDIT
+```
+
+`coupling_method`、`robot_integrator` 均为固定枚举；预测模式要求能量审计、
+RK4、无齿隙/夹具。默认模式和原实验保持有效。预测、实际状态、有效惯量与回退
+分别导出为带单位 `coupling` 流；独立验收不把预测中点当成实际储能。
+[契约与公平对照](midpoint-coupling-contract.md)列明误差门槛和未覆盖事件。

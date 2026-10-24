@@ -77,6 +77,7 @@ def main():
         ("unified", "outputs/unified/summary.json"),
         ("design", "outputs/design/report-data.json"),
         ("energy", "outputs/energy/report-data.json"),
+        ("coupling", "outputs/coupling/report-data.json"),
     ):
         path = ROOT / relative
         data[key] = json.loads(path.read_text()) if path.exists() else {"available": False}
@@ -419,6 +420,80 @@ def main():
                  fontsize=9)
         figures.append(("energy-interfaces", fig))
 
+    coupling_report = data["coupling"]
+    if coupling_report.get("passed"):
+        items = {c["id"]: c for c in coupling_report["cases"]}
+        fig, axes = plt.subplots(2, 2, figsize=(11.69, 8.27), layout="constrained")
+        fig.suptitle("同积分器公平对照 · 中点转矩预测", fontsize=18)
+        for method, label, color in (
+            ("jacobi", "Jacobi / RK4", palette[1]),
+            ("midpoint_predictor", "中点预测 / RK4", palette[0]),
+        ):
+            for ax, metric in zip(
+                axes.flat[:2], ("interface_residual_j", "extended_residual_j"), strict=True
+            ):
+                axes_values = [items[method + "-" + str(h)]["metrics"][metric]
+                               for h in (50, 100, 200)]
+                ax.loglog([50, 100, 200], axes_values, "o-", label=label, color=color)
+        axes[0, 0].set(xlabel="宏步 μs", ylabel="峰值 J", title="实际端口接口余额")
+        axes[0, 1].set(xlabel="宏步 μs", ylabel="峰值 J", title="扩展能量余额")
+        for key, color in (("long-jacobi", palette[1]), ("long-midpoint", palette[0])):
+            trace = items[key]["streams"]["joint"]
+            rows = np.asarray(trace["samples"])
+            axes[1, 0].plot(rows[:, 0] * 1000,
+                            rows[:, trace["columns"].index("joint_angle_rad")],
+                            label=key, color=color)
+        axes[1, 0].plot(rows[:, 0] * 1000,
+                        rows[:, trace["columns"].index("reference_rad")], "--",
+                        color=palette[3], label="固定参考")
+        axes[1, 0].set(xlabel="时间 ms", ylabel="关节角 rad",
+                       title="250 ms / +0.08 rad · 增益固定")
+        comparisons = coupling_report["comparisons"]
+        axes[1, 1].barh(
+            [p["label"] for p in comparisons],
+            [p["interface_improvement_fraction"] * 100 for p in comparisons],
+            color=palette[0],
+        )
+        axes[1, 1].axvline(75, linestyle="--", color=palette[3], label="固定最低改善 75%")
+        axes[1, 1].set(xlabel="接口峰值降低 %", title="短轨迹 / 载荷留出 / 原长轨迹")
+        for ax in axes.flat:
+            ax.grid(alpha=0.15)
+            ax.legend(fontsize=7)
+        figures.append(("coupling-comparison", fig))
+
+        item = items["midpoint_predictor-200"]
+        trace = item["streams"]["coupling"]
+        rows = np.asarray(trace["samples"])
+        columns = trace["columns"]
+        time = rows[:, 0] * 1000
+        fig, axes = plt.subplots(2, 2, figsize=(11.69, 8.27), layout="constrained")
+        fig.suptitle("预测器状态与仍然保留的能量误差", fontsize=18)
+        for name, label in (("actual_delta_rad", "实际端点挠度"),
+                            ("predicted_delta_rad", "预测中点挠度")):
+            axes[0, 0].plot(time, rows[:, columns.index(name)], label=label)
+        axes[0, 0].set(xlabel="起始宏步时间 ms", ylabel="挠度 rad",
+                       title="预测不是实际储能状态")
+        axes[0, 1].plot(time, rows[:, columns.index("held_torque_nm")])
+        axes[0, 1].set(xlabel="起始宏步时间 ms", ylabel="保持转矩 N·m",
+                       title="两侧使用同一宏步转矩")
+        axes[1, 0].plot(time, rows[:, columns.index("robot_effective_inertia_kg_m2")])
+        axes[1, 0].set(xlabel="时间 ms", ylabel="有效惯量 kg·m²",
+                       title="1 / (M⁻¹)[j,j]，包含其余自由度")
+        audit = item["streams"]["co_sim_energy"]
+        values = np.asarray(audit["samples"])
+        for name, label in (("interface_residual_j", "接口余额"),
+                            ("robot_balance_residual_j", "机器人积分/求积"),
+                            ("extended_residual_j", "扩展余额")):
+            axes[1, 1].plot(values[:, 0] * 1000,
+                            values[:, audit["columns"].index(name)], label=label)
+        axes[1, 1].set(xlabel="时间 ms", ylabel="未平衡能量 J",
+                       title="误差单列，不补成发热")
+        for ax in axes.flat:
+            ax.grid(alpha=0.15)
+        axes[0, 0].legend(fontsize=8)
+        axes[1, 1].legend(fontsize=8)
+        figures.append(("coupling-predictor", fig))
+
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
             fig.savefig(plots / (name + ".png"), dpi=180)
@@ -545,6 +620,27 @@ def main():
             "", "负例为显式账本故障注入，不能冒充物理仿真。",
             json.dumps(energy_report["fault_demo"]["metrics"], ensure_ascii=False),
             "", *energy_report["limits"],
+        ]
+    if coupling_report.get("passed"):
+        report_lines += [
+            "", "## 中点预测与同积分器对照",
+            "物理参数、轨迹和控制器固定；Jacobi 与预测器使用同一 RK4。",
+            "原 implicitfast 单独保留，不把积分器贡献算作预测器贡献。",
+            "固定门槛：" + coupling_report["fixed_gate"],
+            "", "| 对照 | 接口峰值降低 | 扩展余额峰值降低 | 固定门槛 |",
+            "|---|---:|---:|---|",
+        ]
+        for pair in coupling_report["comparisons"]:
+            report_lines.append(
+                f"| {pair['label']} | {pair['interface_improvement_fraction']:.2%} | "
+                f"{pair['extended_improvement_fraction']:.2%} | {pair['passed']} |"
+            )
+        report_lines += [
+            "", "预测器完整模型观测减半阶数：",
+            str(coupling_report["observed_halving_orders"]),
+            "孤立双惯量独立参考：",
+            json.dumps(coupling_report["reference_checks"], ensure_ascii=False),
+            "", *coupling_report["limits"],
         ]
     (OUT / "report.md").write_text("\n".join(report_lines), encoding="utf-8")
     (OUT / "START-HERE.txt").write_text(

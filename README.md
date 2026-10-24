@@ -96,6 +96,25 @@ python benchmarks/validate_energy_accounting.py
 新增 `energy` / `co_sim_energy` 结果流及交互报告，保留回馈的负功率和故障注入负例。
 局部电驱—热通过不代表整个机器人已能量闭合。
 
+## 可选中点转矩预测
+
+UR5e 能量模式新增 `coupling_method=midpoint_predictor` 与
+`robot_integrator=rk4`。它用完整质量矩阵的有效逆惯量预测宏步转矩，
+热量仍来自物理力律，弹性储能来自实际端点。默认 Jacobi / implicitfast 保持兼容。
+
+```bash
+oeal run-experiment examples/studies/ur5e-midpoint.json \
+  --assets-root outputs/open-models --output outputs/midpoint.json \
+  --csv-dir outputs/midpoint-csv
+python benchmarks/validate_coupling.py
+```
+
+资产准备与环境见[耦合工作流](.github/workflows/coupling-evidence.yml)；
+[预测方程与固定验收](docs/midpoint-coupling-contract.md)先于模型改动提交。
+新增 `coupling` 宏步流记录预测、有效惯量、保持转矩、力律残差与回退。
+首版验证无齿隙、无夹具且无激活约束的场景；遇到未覆盖分支会回退并使预测认证失败。
+报告把同积分器耦合对照与积分器自身对照分开，不宣称全系统精确守恒。
+
 ## 快速运行
 
 Python >=3.10；外部项目评测环境需 Python 3.12。

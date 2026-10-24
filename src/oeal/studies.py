@@ -328,10 +328,13 @@ def _external(document, s, assets, motor):
             and np.all(psi.imag >= points.imag.min() - 1e-10)
             and np.all(psi.imag <= points.imag.max() + 1e-10)
         )
-    return streams, {
+    context = {
         "nominal_machine": vars(controller.nominal), "magnetic_domain_passed": domain,
         "solver_evaluations": controller.drive.oeal_solver_calls,
     }
+    if s.get("energy_consistent", False):
+        context["energy_parameters"] = controller.drive.oeal_energy.describe()
+    return streams, context
 
 
 def recompute(document, result):

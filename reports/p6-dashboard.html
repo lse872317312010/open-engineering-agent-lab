@@ -385,7 +385,7 @@ function renderEnergy(){
  ];
  cards.forEach(lines=>{const d=document.createElement("div");d.className="refined-state";lines.forEach((s,i)=>{const n=document.createElement(i===0?"strong":"span");n.textContent=s;d.append(n)});el("energy-states").append(d)});
  el("energy-insight").textContent=fault?"这是明确标注的账本故障注入：从已测源能量中漏记额外器件耗能。局部余额必须失败；原始物理实验与此副本分开保留。":co?"本工况的绿色结果仅对应电机、母线与热网络局部边界。传动接口、其他执行器做功和机器人积分/求积余额另行显示，不构成全系统守恒证明。":"器件阈值损耗使用实际直流桥与交流端口之差；额外器件研究损耗通过真实直流支路供能。内部损耗进入温升后，不再作为外部损耗重复扣除。";
- el("energy-metadata").textContent=JSON.stringify({scope:item.scope,input:item.input,input_sha256:item.input_sha256,raw_sha256:item.raw_sha256,source_raw_sha256:item.source_raw_sha256,metrics:item.metrics,parameters:D.energy.parameters,boundary:D.energy.boundary,local_gate:D.energy.local_gate,limits:D.energy.limits},null,2);
+ el("energy-metadata").textContent=JSON.stringify({scope:item.scope,input:item.input,input_sha256:item.input_sha256,raw_sha256:item.raw_sha256,source_raw_sha256:item.source_raw_sha256,metrics:item.metrics,parameters:item.parameters||D.energy.parameters,boundary:D.energy.boundary,local_gate:D.energy.local_gate,limits:D.energy.limits},null,2);
 }
 function initEnergy(){
  const R=D.energy;if(!R?.passed)return;

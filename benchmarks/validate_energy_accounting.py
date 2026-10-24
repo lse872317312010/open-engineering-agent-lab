@@ -49,6 +49,7 @@ def compact(spec, result, title):
         "input_sha256": result["experiment_sha256"], "raw_sha256": result["raw_sha256"],
         "numeric_passed": result["numeric_passed"], "goal_passed": result["goal_passed"],
         "metrics": result["metrics"], "streams": keep,
+        "parameters": result["context"]["energy_parameters"],
         "scope": "local drive + thermal boundary; robot interface is diagnostic",
     }
 
@@ -123,11 +124,7 @@ def main():
         "boundary": "DC feed port + linear PMSM + rotor + six thermal nodes",
         "local_gate": "max residual <= 2e-5 J + 2e-4 * absolute source work",
         "robot_scope": "200/100/50 us explicit torque exchange; residuals diagnostic",
-        "parameters": {
-            "additional_device_on_resistance_ohm": 0.02,
-            "switching_energy_coefficient_j_per_a": 20e-6,
-            "thermal_ambient_c": 25.0,
-        },
+        "parameters": reports[0]["parameters"],
         "limits": [
             "opt-in mode only; legacy sampled-heat cases retain their old semantics",
             "linear magnetic map, no core-loss or diode-front-end branch in this mode",

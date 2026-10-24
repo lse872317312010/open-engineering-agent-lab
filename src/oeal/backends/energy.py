@@ -18,7 +18,7 @@ from oeal.energy import (
     linear_magnetic_energy,
     thermal_energy,
 )
-from oeal.refined_thermal import AMBIENT_LINKS, ThermalNetwork
+from oeal.refined_thermal import AMBIENT_LINKS, CAPACITIES, NAMES, ThermalNetwork
 
 
 def value(signal, t):
@@ -127,6 +127,27 @@ class EnergySubsystem(Subsystem):
             )), **powers,
         )
         return [float(row[n]) for n in ENERGY_COLUMNS]
+
+    def describe(self):
+        bus = self.drive.dc_bus
+        mechanics = self.drive.mechanics
+        return {
+            "boundary": "DC feed port + linear PMSM + rotor + six thermal nodes",
+            "thermal_nodes": list(NAMES),
+            "capacities_j_per_k": CAPACITIES.tolist(),
+            "conductance_w_per_k": self.network.conductance.tolist(),
+            "ambient_c": self.network.ambient_c,
+            "rotor_inertia_kg_m2": mechanics.J,
+            "rotor_viscous_nms": mechanics.B_L,
+            "capacitor_f": 0.0 if bus is None else bus.C_dc,
+            "resistance_at_25c_ohm": self.resistance_25,
+            "copper_alpha_per_k": 0.00393,
+            "additional_device_on_resistance_ohm": 0.02,
+            "switching_energy_coefficient_j_per_a": 20e-6,
+            "source_port": "fixed DC converter input" if bus is None
+            else "Vbus * external feed current; feed resistor outside boundary",
+            "thermal_semantics": "continuous states in the upstream electrical solver",
+        }
 
     def create_time_series(self, t):
         return "energy", EnergyTimeSeries(self)

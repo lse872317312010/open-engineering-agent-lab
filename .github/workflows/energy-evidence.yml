@@ -57,3 +57,31 @@ jobs:
           name: energy-report
           path: outputs/report/
           if-no-files-found: error
+  tidy_merged_branch:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged energy work branch
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/energy-accounting"
+          result = subprocess.check_output(
+              ["git", "ls-remote", "--heads", "origin", ref], text=True
+          ).strip()
+          if result:
+              sha = result.split()[0]
+              subprocess.run(
+                  ["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True
+              )
+              subprocess.run(
+                  ["git", "push", "--force-with-lease=" + ref + ":" + sha,
+                   "origin", ":" + ref], check=True
+              )
+          PY

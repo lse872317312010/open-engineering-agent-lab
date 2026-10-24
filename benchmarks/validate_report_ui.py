@@ -222,6 +222,13 @@ def main():
         "open_models_available": bool(refined.get("passed")),
         "design_available": bool(design.get("validations")),
         "energy_available": bool(energy.get("passed")),
+        "energy_checks": ([
+            "eight measured cases and one explicit fault-injection copy",
+            "missing device branch shown as a failed balance",
+            "0/60 ms keyboard endpoints and signed regeneration data",
+            "robot interface diagnosis separated from the local gate",
+            "CSV export and 390px layout",
+        ] if energy.get("passed") else ["not run in this report"]),
         "open_model_checks": ([
             "12 electrical and four robot experiments", "negative physical goal retained",
             "blocked gates state replay", "robot timeline real endpoints",
@@ -229,6 +236,7 @@ def main():
         ] if refined.get("passed") else ["not run in this baseline-only report"]),
         "screenshots": [
             "ui-desktop.png", "ui-dark-boundary.png", "ui-mobile.png", "ui-system-model.png",
+            *(["ui-energy.png"] if energy.get("passed") else []),
         ],
     }
     (REPORT / "ui-validation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))

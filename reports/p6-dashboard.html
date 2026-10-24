@@ -79,7 +79,7 @@
 <div class="refined-layout rowgap"><div><h3>余额与固定容差</h3><p class="caption">余额由端口能量与各储能独立重算，不能信任自报通过标志。虚线为固定正负容差。</p><svg class="chart" id="energy-residual-chart" viewBox="0 0 680 250" role="img" aria-label="局部未平衡能量与固定容差"></svg></div><div><h3>实际功率与热源</h3><p class="caption">青：源端口；蓝：铜损；紫：额外器件支路；黄：转子摩擦。回馈工况保留负源功率。</p><svg class="chart" id="energy-power-chart" viewBox="0 0 680 250" role="img" aria-label="源端口功率和各热源随时间变化"></svg></div></div>
 <div id="energy-robot-content" hidden><h3>机器人接口误差单独看</h3><p class="caption">青：传动接口余额；蓝：机器人机械积分与做功求积余额；紫：扩展余额。其他五个位置执行器做功已记录。曲线不是绿色守恒 Gate。</p><svg class="chart" id="energy-interface-chart" viewBox="0 0 900 240" role="img" aria-label="机器人端口与扩展能量余额诊断"></svg></div>
 <div class="table-wrap"><table><thead><tr><th>能量工况</th><th>最大局部余额 J</th><th>固定容差 J</th><th>能量检查</th><th>物理跟踪</th></tr></thead><tbody id="energy-results"></tbody></table></div>
-<h3>宏步误差与可继续改进的部分</h3><p class="caption">200 / 100 / 50 μs 的局部检查和机器人接口余额分别报告；不把接口误差抹掉或当成发热。</p><div class="table-wrap"><table><thead><tr><th>宏步实验</th><th>接口峰值 J</th><th>扩展余额峰值 J</th><th>解释</th></tr></thead><tbody id="energy-robot-results"></tbody></table></div>
+<h3>宏步误差与可继续改进的部分</h3><p class="caption">本节机器人使用 40 ms、+0.008 rad 的能量端口轨迹；200 / 100 / 50 μs 的接口余额分别报告。原 250 ms、+0.08 rad 控制设计在独立章节保留，不把接口误差当成发热。</p><div class="table-wrap"><table><thead><tr><th>宏步实验</th><th>接口峰值 J</th><th>扩展余额峰值 J</th><th>解释</th></tr></thead><tbody id="energy-robot-results"></tbody></table></div>
 <details><summary>边界、工况与原始数据来源</summary><pre class="meta" id="energy-metadata"></pre></details>
 </div></section>
 
@@ -385,7 +385,7 @@ function renderEnergy(){
  ];
  cards.forEach(lines=>{const d=document.createElement("div");d.className="refined-state";lines.forEach((s,i)=>{const n=document.createElement(i===0?"strong":"span");n.textContent=s;d.append(n)});el("energy-states").append(d)});
  el("energy-insight").textContent=fault?"这是明确标注的账本故障注入：从已测源能量中漏记额外器件耗能。局部余额必须失败；原始物理实验与此副本分开保留。":co?"本工况的绿色结果仅对应电机、母线与热网络局部边界。传动接口、其他执行器做功和机器人积分/求积余额另行显示，不构成全系统守恒证明。":"器件阈值损耗使用实际直流桥与交流端口之差；额外器件研究损耗通过真实直流支路供能。内部损耗进入温升后，不再作为外部损耗重复扣除。";
- el("energy-metadata").textContent=JSON.stringify({scope:item.scope,input:item.input,input_sha256:item.input_sha256,raw_sha256:item.raw_sha256,boundary:D.energy.boundary,local_gate:D.energy.local_gate,limits:D.energy.limits},null,2);
+ el("energy-metadata").textContent=JSON.stringify({scope:item.scope,input:item.input,input_sha256:item.input_sha256,raw_sha256:item.raw_sha256,source_raw_sha256:item.source_raw_sha256,metrics:item.metrics,parameters:D.energy.parameters,boundary:D.energy.boundary,local_gate:D.energy.local_gate,limits:D.energy.limits},null,2);
 }
 function initEnergy(){
  const R=D.energy;if(!R?.passed)return;

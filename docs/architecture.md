@@ -148,3 +148,5 @@ flowchart LR
 ```
 
 实际轨迹、余额阈值和未覆盖组合见[能量契约](energy-accounting-contract.md)。
+
+能量审计的短时机器人轨迹为 40 ms / +0.008 rad，原受保护控制优化保留 250 ms / +0.08 rad 的独立实验目标。

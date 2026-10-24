@@ -266,7 +266,7 @@ class RobotLoad:
             "shaft_damping_nms_per_rad": 1.0,
             "fallback_count": int(sum(row[-1] for row in self.coupling_rows)),
             "resolved_transition_count": int(sum(row[-2] for row in self.coupling_rows)),
-            "motor_torque_predictor": "causal displacement-weighted means from actual I/M integrals",
+            "motor_torque_predictor": "causal displacement weights from actual I/M integrals",
             "force_and_heat": "original law integrated on piecewise predicted paths",
             "prediction_scope": "frozen free acceleration, not a nonlinear implicit solve",
             "stored_spring_energy": "actual endpoint deflection; never midpoint storage",

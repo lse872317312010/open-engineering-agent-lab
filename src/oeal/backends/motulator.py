@@ -34,6 +34,7 @@ class DriveController:
         self.tick = 0
         self.pi = CurrentPIState()
         self.rows = []
+        self.energy_rows = []
         self.rng = np.random.default_rng(config.get("seed", 20261023))
         imperfect = config.get("sensors", False)
         self.sensor = Sensor(
@@ -104,10 +105,19 @@ class DriveController:
             + 1.5 * 0.02 * abs(true_i) ** 2
             + 6 * 20e-6 / dt * abs(true_i) * float(enabled)
         )
-        # Device switching heat is a declared research estimate, not transistor physics.
-        temperatures = self.thermal.advance([copper, core, 0, device, 0, 0])
-        if c.get("thermal_feedback", True):
-            mdl.machine.par.R_s = p.R_s * (1 + 0.00393 * (temperatures[0] - 25))
+        # Legacy experiments retain their sampled heat estimate. The opt-in
+        # extension integrates actual port heat and temperatures with the plant.
+        if c.get("energy_consistent", False):
+            energy = mdl.oeal_energy
+            powers, _, _ = energy.powers(self.t)
+            device = powers["conduction_w"] + powers["auxiliary_device_w"]
+            temperatures = energy.temperatures
+            self.thermal.temperatures = temperatures.copy()
+            self.energy_rows.append(energy.snapshot(self.t))
+        else:
+            temperatures = self.thermal.advance([copper, core, 0, device, 0, 0])
+            if c.get("thermal_feedback", True):
+                mdl.machine.par.R_s = p.R_s * (1 + 0.00393 * (temperatures[0] - 25))
         self.rows.append([
             self.t, true_i.real, true_i.imag, measured_i.real, measured_i.imag, iq_ref,
             self.theta_continuous, speed, float(mdl.machine.out.tau_M), bus,
@@ -126,6 +136,11 @@ class DriveController:
 
 def make_drive(config, magnetic_map=None, robot=None):
     """Construct real upstream electrical, mechanical, converter and DC-bus models."""
+    if config.get("energy_consistent", False):
+        if (magnetic_map is not None or config.get("two_mass", False)
+                or config.get("core_conductance_s", 0) != 0
+                or config.get("dc_bus") == "diode" or config.get("fixture", False)):
+            raise ValueError("energy mode supports linear single-inertia, no core loss/fixture")
     if magnetic_map is None:
         physical = MotorParameters(**config.get("motor_parameters", {
             "stator_resistance_ohm": 0.3, "d_inductance_h": 0.0008,
@@ -205,6 +220,10 @@ def make_drive(config, magnetic_map=None, robot=None):
         return intervals, gates, blanking
 
     drive.modulate = record_modulation
+    if config.get("energy_consistent", False):
+        from oeal.backends.energy import attach_energy
+
+        attach_energy(drive, config, robot)
     controller = DriveController(nominal, config, robot)
     controller.drive = drive
     return drive, controller

@@ -15,6 +15,12 @@ ROBOT_COLUMNS = [
 ]
 
 
+ROBOT_ENERGY_COLUMNS = [
+    "time_s", "robot_storage_delta_j", "robot_shaft_work_j",
+    "holding_actuator_work_j", "passive_work_j", "spring_j", "robot_balance_residual_j",
+]
+
+
 def transmission(delta, relative_speed, stiffness=500.0, damping=1.0, backlash=0.0):
     """Unilateral Kelvin-Voigt contact on either side of a symmetric backlash gap."""
     penetration = max(abs(delta) - backlash, 0.0)
@@ -101,17 +107,38 @@ class RobotLoad:
         self.ratio = 50.0
         self.torque = 0.0
         self.rows = []
+        self.energy_rows = []
+        self.thermal_power_w = 0.0
+        self.shaft_work_j = self.actuator_work_j = self.passive_work_j = 0.0
+        self.initial_energy_j = self.mechanical_energy() if config.get(
+            "energy_consistent", False
+        ) else 0.0
         self.fixture_id = mujoco.mj_name2id(
             model, mujoco.mjtObj.mjOBJ_GEOM, "oeal_fixture"
         )
 
     def sample(self, controller, drive):
         if controller.tick % self.ticks_per_macro == 0:
+            audit = self.config.get("energy_consistent", False)
+            if audit:
+                previous_q = self.data.qpos.copy()
+                previous_actuator = self.data.qfrc_actuator.copy()
+                previous_passive = self.data.qfrc_passive.copy()
+                held_torque = self.torque
             if controller.tick > 0:
                 self.data.qfrc_applied[:] = 0
                 self.data.qfrc_applied[self.index] = self.torque
                 mujoco.mj_step(self.model, self.data)
             mujoco.mj_forward(self.model, self.data)
+            if audit and controller.tick > 0:
+                delta_q = self.data.qpos - previous_q
+                self.shaft_work_j += held_torque * delta_q[self.qindex]
+                self.actuator_work_j += float(
+                    0.5 * (previous_actuator + self.data.qfrc_actuator) @ delta_q
+                )
+                self.passive_work_j += float(
+                    0.5 * (previous_passive + self.data.qfrc_passive) @ delta_q
+                )
             q = float(self.data.qpos[self.qindex])
             velocity = float(self.data.qvel[self.index])
             delta = controller.theta_continuous / self.ratio - (q - self.initial_angle)
@@ -121,6 +148,15 @@ class RobotLoad:
                 stiffness=self.config.get("shaft_stiffness_nm_per_rad", 500.0),
                 backlash=self.config.get("backlash_rad", 0.0)
             )
+            if audit:
+                self.thermal_power_w = damping
+                storage_delta = self.mechanical_energy() - self.initial_energy_j
+                balance = (storage_delta - self.shaft_work_j - self.actuator_work_j
+                           - self.passive_work_j)
+                self.energy_rows.append([
+                    controller.t, storage_delta, self.shaft_work_j, self.actuator_work_j,
+                    self.passive_work_j, energy, balance,
+                ])
             drive.mechanics.set_external_load_torque(self.torque / self.ratio)
             contacts, force = 0, 0.0
             for i in range(self.data.ncon):
@@ -147,6 +183,11 @@ class RobotLoad:
         )
         kt = 1.5 * controller.nominal.n_p * controller.nominal.psi_f
         return float(required / (self.ratio * kt))
+
+    def mechanical_energy(self):
+        mujoco.mj_energyPos(self.model, self.data)
+        mujoco.mj_energyVel(self.model, self.data)
+        return float(self.data.energy.sum())
 
     def reference(self, t):
         amplitude = self.config.get("position_step_rad", 0.08)

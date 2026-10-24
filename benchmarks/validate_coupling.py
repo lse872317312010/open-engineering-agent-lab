@@ -173,7 +173,7 @@ def main():
             "robot actuator-work quadrature and interface residuals remain explicit",
             "same-RK4 comparisons separate the integrator contribution",
             "short study 40 ms/+0.008 rad; long study 250 ms/+0.08 rad with frozen gains",
-            "synthetic research parameters; not full-system exact conservation or hardware evidence",
+            "synthetic research parameters; no exact global conservation or hardware evidence",
         ],
     }
     (OUT / "report-data.json").write_text(json.dumps(report, ensure_ascii=False,

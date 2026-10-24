@@ -76,6 +76,7 @@ def main():
     for key, relative in (
         ("unified", "outputs/unified/summary.json"),
         ("design", "outputs/design/report-data.json"),
+        ("energy", "outputs/energy/report-data.json"),
     ):
         path = ROOT / relative
         data[key] = json.loads(path.read_text()) if path.exists() else {"available": False}
@@ -353,6 +354,71 @@ def main():
                  fontsize=9)
         figures.append(("design-analysis", fig))
 
+    energy_report = data["energy"]
+    if energy_report.get("passed"):
+        energy_cases = energy_report["cases"]
+        case = energy_cases[3]
+        values = np.asarray(case["streams"]["energy"]["samples"])
+        columns = case["streams"]["energy"]["columns"]
+
+        def energy_column(name):
+            return values[:, columns.index(name)]
+
+        time = energy_column("time_s") * 1000
+        stored = sum(energy_column(n) - energy_column(n)[0]
+                     for n in ("magnetic_j", "kinetic_j", "bus_j", "thermal_j"))
+        fig, axes = plt.subplots(2, 2, figsize=(11.69, 8.27), layout="constrained")
+        fig.suptitle("能量端口 · 直流、电磁、转子与连续热网络", fontsize=17)
+        axes[0, 0].plot(time, energy_column("source_j"), label="直流馈入")
+        axes[0, 0].plot(time, stored + energy_column("load_work_j")
+                        + energy_column("ambient_j"), "--", label="储能变化 + 对外能量")
+        axes[0, 0].set(xlabel="时间 ms", ylabel="能量 J", title="电容母线边界")
+        axes[0, 1].plot(time, energy_column("local_residual_j"), label="局部余额")
+        limit = case["metrics"]["energy_balance_limit_j"]
+        axes[0, 1].axhline(limit, color=palette[3], linestyle="--")
+        axes[0, 1].axhline(-limit, color=palette[3], linestyle="--")
+        axes[0, 1].set(xlabel="时间 ms", ylabel="未平衡能量 J", title="固定能量门槛")
+        for name, label in (("winding_c", "绕组"), ("junction_c", "等效结"),
+                            ("case_c", "机壳")):
+            axes[1, 0].plot(time, energy_column(name), label=label)
+        axes[1, 0].set(xlabel="时间 ms", ylabel="温度 °C", title="连续积分，热源有实际能量来源")
+        fault = energy_report["fault_demo"]
+        fault_values = np.asarray(fault["streams"]["energy"]["samples"])
+        fault_columns = fault["streams"]["energy"]["columns"]
+        axes[1, 1].plot(
+            fault_values[:, 0] * 1000,
+            fault_values[:, fault_columns.index("local_residual_j")],
+            color=palette[4], label="漏记额外直流耗能",
+        )
+        axes[1, 1].set(xlabel="时间 ms", ylabel="未平衡能量 J",
+                       title="账本故障注入 · 保留明确失败")
+        for ax in axes.flat:
+            ax.grid(alpha=0.15)
+            ax.legend(fontsize=8)
+        figures.append(("energy-balance", fig))
+
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 6.5), layout="constrained")
+        for item in energy_cases:
+            if "co_sim_energy" not in item["streams"]:
+                continue
+            trace = item["streams"]["co_sim_energy"]
+            rows = np.asarray(trace["samples"])
+            col = trace["columns"]
+            for ax, name in zip(
+                axes, ("interface_residual_j", "robot_balance_residual_j"), strict=True
+            ):
+                ax.plot(rows[:, 0] * 1000, rows[:, col.index(name)], label=item["title"])
+        axes[0].set(title="电机—弹性传动—机器人接口余额",
+                    xlabel="时间 ms", ylabel="未平衡能量 J")
+        axes[1].set(title="机器人机械积分 / 做功求积余额",
+                    xlabel="时间 ms", ylabel="未平衡能量 J")
+        for ax in axes:
+            ax.grid(alpha=0.15)
+            ax.legend(fontsize=8)
+        fig.text(0.08, 0.01, "宏步 200 / 100 / 50 μs；诊断曲线不等于全系统能量闭合证明。",
+                 fontsize=9)
+        figures.append(("energy-interfaces", fig))
+
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
             fig.savefig(plots / (name + ".png"), dpi=180)
@@ -458,6 +524,28 @@ def main():
                 f"{new['metrics']['position_tail_error_rad']:.6g} | {new['passed']} |"
             )
         report_lines += ["", "分析边界：", *design["limits"]]
+    if energy_report.get("passed"):
+        report_lines += [
+            "", "## 电驱与连续热网络能量核算",
+            "局部边界：" + energy_report["boundary"],
+            "固定门槛：" + energy_report["local_gate"],
+            "内部损耗进入热储能，源功率从实际直流端口积分，不从守恒式反算。",
+            "机器人接口与机械积分/做功求积误差单列，不用局部通过代表全局闭合。",
+            "", "| 工况 | 局部最大余额 J | 固定容差 J | 数值/能量门槛 | 物理跟踪目标 |",
+            "|---|---:|---:|---|---|",
+        ]
+        for item in energy_report["cases"]:
+            metrics = item["metrics"]
+            report_lines.append(
+                f"| {item['title']} | {metrics['energy_balance_abs_j']:.6g} | "
+                f"{metrics['energy_balance_limit_j']:.6g} | {item['numeric_passed']} | "
+                f"{item['goal_passed']} |"
+            )
+        report_lines += [
+            "", "负例为显式账本故障注入，不能冒充物理仿真。",
+            json.dumps(energy_report["fault_demo"]["metrics"], ensure_ascii=False),
+            "", *energy_report["limits"],
+        ]
     (OUT / "report.md").write_text("\n".join(report_lines), encoding="utf-8")
     (OUT / "START-HERE.txt").write_text(
         "打开 index.html 浏览中文交互报告；无需服务器或联网。\n"

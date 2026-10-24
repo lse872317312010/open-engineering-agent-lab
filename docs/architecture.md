@@ -115,9 +115,36 @@ IR 0.2 固定注册五种配置：
 - 目前是受限的离线优化与工具闭环，未验收在线通用 LLM 自主工程规划。
 - 线性筛选和 Morris 基于降阶模型，不是全非线性系统稳定性证明或实测置信区间。
 - FMI 当前仅为原始单节点 RC 热模型；没有完整关节 FMU / OpenModelica 集成。
-- 部分器件热估计尚未回写直流损耗，机械耗散未完整进入热网络，全系统能量尚未闭合。
+- 默认旧模式仍采用采样热估计。可选能量模式已将额外器件热与实际直流支路匹配，
+  转子摩擦和传动阻尼热有显式热端口；线性电驱局部与机器人全局分别审计。
+  显式宏步的接口误差仍保留，不能宣称整个机器人系统已闭合。
 - C / SIL / QEMU 覆盖 PI 内核，未覆盖完整嵌入式 FOC、ADC / ISR 或硬件实测。
 - 按用户约束，仿真验收即可交付；真机部署、上电和测试由用户负责。
 
 实际门槛、固定指标与运行证据见[阶段状态](stage-status.md)和
 [统一实验与设计契约](unified-studies-design-contract.md)。
+
+
+## 可选能量路径（本轮）
+
+`studies.py` 在固定能力校验后，将 `energy_consistent=true` 传给
+[backends/energy.py](../src/oeal/backends/energy.py)。该扩展添加六节点连续温度、
+实际源/负载/热端口积分与等效器件直流支路，仍使用上游电磁、逆变器与机械方程。
+[energy.py](../src/oeal/energy.py)从原始分账重算局部与热余额，
+不信任自报 residual / passed。机器人另存执行器功、机械能、弹性储能与接口余额。
+
+```mermaid
+flowchart LR
+  DC["直流馈入"] --> BR["上游桥 / 电机 / 转子"]
+  DC --> AUX["额外器件等效直流耗能"]
+  BR -->|"铜损 / 阈值损耗 / 摩擦"| TH["连续六节点热网络"]
+  AUX --> TH
+  TH -->|"绕组温度 → 铜阻"| BR
+  BR -->|"有符号负载功"| SHAFT["传动 / MuJoCo 边界"]
+  SHAFT -->|"显式阻尼热输入"| TH
+  BR --> AUDIT["energy 局部余额"]
+  TH --> AUDIT
+  SHAFT --> CO["co_sim_energy 全局接口诊断"]
+```
+
+实际轨迹、余额阈值和未覆盖组合见[能量契约](energy-accounting-contract.md)。

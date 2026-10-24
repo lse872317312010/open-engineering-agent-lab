@@ -29,7 +29,7 @@
 @media(max-width:720px){.refined-layout{grid-template-columns:1fr}.refined-metrics,.refined-states{grid-template-columns:1fr 1fr}}
 </style></head>
 <body><a class="skip" href="#main">跳到报告内容</a>
-<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#design">控制设计</a><a href="#refined">开源模型深化</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
+<div class="shell"><aside class="rail" aria-label="报告导航"><div class="brand"><span class="mark">∿</span> OEAL</div><div class="brand-sub">ENGINEERING · RESEARCH</div><nav><a class="active" href="#overview">概览与结论</a><a href="#explorer">探索仿真工况</a><a href="#system-model">系统运行机制</a><a href="#energy">能量核算</a><a href="#design">控制设计</a><a href="#refined">开源模型深化</a><a href="#thermal">热与不确定性</a><a href="#validation">标定与独立验证</a><a href="#evidence">证据与导出</a></nav><small>研究资产保持开放<br>仿真完成 · 证据可复现</small></aside>
 <main class="main" id="main"><header class="top"><div class="muted">研究工作台 / P6 多物理域实验</div><div class="top-actions"><span class="pill"><span class="dot"></span> 合成研究场景</span><button id="theme" type="button" aria-label="切换深浅主题">深色模式</button></div></header>
 <section id="overview"><div class="hero"><div><div class="eyebrow">P6 · MULTIPHYSICS STUDY</div><h1>看见耦合，理解边界。</h1><p>把电流、柔性关节与热演化放在同一份研究报告中。探索不同工况，再用独立数学参考判断哪些结论已成立、哪些目标还不可达。</p><div class="tags"><span class="pill" id="gate">正在读取验收结果</span><span class="muted" style="font-size:12px">离线交互 · 无需账号 · 数据内嵌</span></div></div><div class="actions"><a class="action primary" href="report.pdf" download>下载 PDF 报告</a><button id="export-json">导出完整数据</button></div></div>
 <div class="progress" aria-label="阶段交付范围"><div class="stage">P1 · 基准</div><div class="stage">P2 · 模型 IR</div><div class="stage">P3 · 受控闭环</div><div class="stage">P4 · SIL</div><div class="stage">P5 · ARM 仿真</div><div class="stage current">P6 · 多物理</div></div>
@@ -63,6 +63,25 @@
 <svg class="chart" id="uncertainty-chart" viewBox="0 0 680 250" role="img" aria-label="不同热阻下绕组温度的研究区间"></svg><div class="insight" id="uncertainty-insight"></div><p class="caption">这是给定参数范围的情景包络，不是统计置信区间。</p></section>
 <section class="panel wide"><div class="panel-head"><div><h2>所有结果，一起看</h2><p class="caption">数值检查与电流目标分开判断。不可达案例是边界证据，也会完整列出。</p></div><a class="action" href="plots/scenario-comparison.png" download>导出对比图 PNG</a></div><div class="table-wrap"><table><thead><tr><th>研究工况</th><th>尾段 q 误差</th><th>绕组峰温</th><th>转矩峰值</th><th>数值检查</th><th>电流目标</th></tr></thead><tbody id="comparison-table"></tbody></table></div></section>
 
+
+
+<section class="panel wide" id="energy" aria-labelledby="energy-title">
+<div class="panel-head"><div><h2 id="energy-title">能量从哪里来，又去了哪里</h2><p class="caption">直接积分实际端口功率，区分储能、对外做功、环境散热与未平衡能量。</p></div><span class="pill" id="energy-gate">本次未运行能量实验</span></div>
+<p id="energy-unavailable">运行 Energy-port evidence and report 工作流，可生成可选能量模式的实验与故障注入证据。</p>
+<div id="energy-content" hidden>
+<p class="insight">局部边界包含直流馈入、电容、线性 PMSM、转子和六节点热网络。额外器件热有对应的实际直流耗能支路，摩擦热进入机壳。机器人传动的阻尼热明确记为边界热输入；机器人全局余额另外审计。旧模式仍保留原来的采样热语义。</p>
+<div class="toolbar"><label class="control">能量工况 <select id="energy-case"></select></label><button id="energy-csv">导出能量 CSV</button><span id="energy-case-status" class="status" role="status" aria-live="polite"></span></div>
+<div class="refined-metrics" id="energy-metrics"></div>
+<div class="legend"><span><i class="key" style="background:var(--teal)"></i>实际源端口输入 + 传动热输入</span><span><i class="key" style="background:var(--blue)"></i>储能变化 + 负载功 + 环境散热</span></div>
+<svg class="chart" id="energy-flow-chart" viewBox="0 0 900 240" role="img" aria-label="实际输入能量与储能和对外能量对照"></svg>
+<div class="cursor-controls"><label for="energy-cursor">能量状态回放</label><input id="energy-cursor" type="range" min="0" max="1000" step="1" value="1000"><output id="energy-time" for="energy-cursor"></output></div>
+<div class="refined-states" id="energy-states" aria-live="polite"></div><p class="insight" id="energy-insight"></p>
+<div class="refined-layout rowgap"><div><h3>余额与固定容差</h3><p class="caption">余额由端口能量与各储能独立重算，不能信任自报通过标志。虚线为固定正负容差。</p><svg class="chart" id="energy-residual-chart" viewBox="0 0 680 250" role="img" aria-label="局部未平衡能量与固定容差"></svg></div><div><h3>实际功率与热源</h3><p class="caption">青：源端口；蓝：铜损；紫：额外器件支路；黄：转子摩擦。回馈工况保留负源功率。</p><svg class="chart" id="energy-power-chart" viewBox="0 0 680 250" role="img" aria-label="源端口功率和各热源随时间变化"></svg></div></div>
+<div id="energy-robot-content" hidden><h3>机器人接口误差单独看</h3><p class="caption">青：传动接口余额；蓝：机器人机械积分与做功求积余额；紫：扩展余额。其他五个位置执行器做功已记录。曲线不是绿色守恒 Gate。</p><svg class="chart" id="energy-interface-chart" viewBox="0 0 900 240" role="img" aria-label="机器人端口与扩展能量余额诊断"></svg></div>
+<div class="table-wrap"><table><thead><tr><th>能量工况</th><th>最大局部余额 J</th><th>固定容差 J</th><th>能量检查</th><th>物理跟踪</th></tr></thead><tbody id="energy-results"></tbody></table></div>
+<h3>宏步误差与可继续改进的部分</h3><p class="caption">200 / 100 / 50 μs 的局部检查和机器人接口余额分别报告；不把接口误差抹掉或当成发热。</p><div class="table-wrap"><table><thead><tr><th>宏步实验</th><th>接口峰值 J</th><th>扩展余额峰值 J</th><th>解释</th></tr></thead><tbody id="energy-robot-results"></tbody></table></div>
+<details><summary>边界、工况与原始数据来源</summary><pre class="meta" id="energy-metadata"></pre></details>
+</div></section>
 
 <section class="panel wide" id="design" aria-labelledby="design-title">
 <div class="panel-head"><div><h2 id="design-title">从实验到控制设计</h2><p class="caption">统一接口运行模型，用固定目标比较参数方案。优化器只调整控制增益，结果由原始轨迹重新计算。</p></div><span class="pill" id="design-gate">本次未运行设计实验</span></div>
@@ -124,7 +143,7 @@ function chart(id,series,xLabel,yLabel,cursor=null){
  if(ymin===ymax){ymin-=1;ymax+=1}const pad=(ymax-ymin)*.12;ymin-=pad;ymax+=pad;
  const X=x=>m.l+(x-xmin)/(xmax-xmin||1)*(w-m.l-m.r),Y=y=>h-m.b-(y-ymin)/(ymax-ymin)*(h-m.t-m.b);
  let html="";
- for(let i=0;i<5;i++){let y=ymin+(ymax-ymin)*i/4;html+='<line class="gridline" x1="'+m.l+'" x2="'+(w-m.r)+'" y1="'+Y(y)+'" y2="'+Y(y)+'"/><text x="'+(m.l-8)+'" y="'+(Y(y)+4)+'" text-anchor="end">'+format(y,Math.abs(y)<2?2:1)+'</text>'}
+ for(let i=0;i<5;i++){let y=ymin+(ymax-ymin)*i/4;html+='<line class="gridline" x1="'+m.l+'" x2="'+(w-m.r)+'" y1="'+Y(y)+'" y2="'+Y(y)+'"/><text x="'+(m.l-8)+'" y="'+(Y(y)+4)+'" text-anchor="end">'+(y!==0&&Math.abs(y)<.001?y.toExponential(1):format(y,Math.abs(y)<2?2:1))+'</text>'}
  for(let i=0;i<5;i++){let x=xmin+(xmax-xmin)*i/4;html+='<text x="'+X(x)+'" y="'+(h-13)+'" text-anchor="middle">'+format(x,xmax<1?3:0)+'</text>'}
  series.forEach((s,i)=>{html+='<polyline data-series="'+i+'" fill="none" stroke="'+(s.color||colors[i%4])+'" stroke-width="2.3" '+(s.dash?'stroke-dasharray="6 4" ':'')+'points="'+s.data.map(p=>X(p[0]).toFixed(2)+","+Y(p[1]).toFixed(2)).join(" ")+'"/>'});
  if(cursor!==null)html+='<line class="cursor" x1="'+X(cursor)+'" x2="'+X(cursor)+'" y1="'+m.t+'" y2="'+(h-m.b)+'"/>';
@@ -324,6 +343,62 @@ function initDesign(){
  renderDesign();
 }
 
+
+let energyItems=[];
+function energyCase(){return energyItems[Number(el("energy-case").value)]}
+function energyValue(item,row,name){return row[item.streams.energy.columns.indexOf(name)]}
+function energyResidual(item,row){
+ const get=n=>energyValue(item,row,n),first=item.streams.energy.samples[0];
+ const delta=["magnetic_j","kinetic_j","bus_j","thermal_j"].reduce((sum,n)=>sum+get(n)-energyValue(item,first,n),0);
+ return get("source_j")+get("shaft_heat_import_j")-get("load_work_j")-delta-get("ambient_j");
+}
+function renderEnergy(){
+ const item=energyCase(),stream=item.streams.energy,rows=stream.samples,first=rows[0];
+ const fraction=Number(el("energy-cursor").value)/1000,row=rows[Math.round(fraction*(rows.length-1))],time=row[0]*1000;
+ const get=(r,n)=>energyValue(item,r,n),limit=item.metrics.energy_balance_limit_j;
+ const e=v=>Number(v).toExponential(3),f=v=>format(v,5);
+ const fault=item.expected_passed===false;
+ el("energy-case-status").textContent=fault?"账本故障注入 · 应失败":item.numeric_passed?"局部能量门槛通过":"局部能量门槛失败";
+ el("energy-case-status").className="status"+(fault||!item.numeric_passed?" warn":"");
+ el("energy-metrics").replaceChildren();
+ [["源端口净能量",f(get(rows.at(-1),"source_j"))+" J"],["最大局部余额",e(item.metrics.energy_balance_abs_j)+" J"],["固定容差",e(limit)+" J"],["证据含义",fault?"故障注入":"局部通过 ≠ 全局闭合"]].forEach(([label,value])=>{const d=document.createElement("div");d.className="refined-metric";const a=document.createElement("span");a.textContent=label;const b=document.createElement("strong");b.textContent=value;d.append(a,b);el("energy-metrics").append(d)});
+ const output=r=>["magnetic_j","kinetic_j","bus_j","thermal_j"].reduce((sum,n)=>sum+get(r,n)-get(first,n),0)+get(r,"load_work_j")+get(r,"ambient_j");
+ chart("energy-flow-chart",[
+ {data:rows.map(r=>[r[0]*1000,get(r,"source_j")+get(r,"shaft_heat_import_j")]),color:colors[0]},
+ {data:rows.map(r=>[r[0]*1000,output(r)]),color:colors[1],dash:true}
+ ],"时间 ms","累计能量 J",time);
+ chart("energy-residual-chart",[
+ {data:rows.map(r=>[r[0]*1000,energyResidual(item,r)]),color:fault?colors[3]:colors[0]},
+ {data:[[first[0]*1000,limit],[rows.at(-1)[0]*1000,limit]],color:colors[3],dash:true},
+ {data:[[first[0]*1000,-limit],[rows.at(-1)[0]*1000,-limit]],color:colors[3],dash:true}
+ ],"时间 ms","未平衡能量 J",time);
+ chart("energy-power-chart",["source_w","copper_w","auxiliary_device_w","rotor_friction_w"].map((name,i)=>({data:rows.map(r=>[r[0]*1000,get(r,name)]),color:colors[i]})),"时间 ms","功率 W",time);
+ el("energy-time").textContent=format(time,2)+" ms";
+ const co=item.streams.co_sim_energy;el("energy-robot-content").hidden=!co;
+ if(co)chart("energy-interface-chart",["interface_residual_j","robot_balance_residual_j","extended_residual_j"].map((n,i)=>({data:co.samples.map(r=>[r[0]*1000,r[co.columns.indexOf(n)]]),color:colors[i]})),"时间 ms","未平衡能量 J",time);
+ el("energy-states").replaceChildren();
+ const cards=[
+ ["实际源端口",f(get(row,"source_j"))+" J","瞬时功率 "+f(get(row,"source_w"))+" W"],
+ ["热积累与环境","热储能 "+f(get(row,"thermal_j")-get(first,"thermal_j"))+" J","环境散热 "+f(get(row,"ambient_j"))+" J"],
+ ["独立重算余额",e(energyResidual(item,row))+" J","固定容差 "+e(limit)+" J"],
+ ["机械边界",f(get(row,"load_work_j"))+" J 负载功","来自传动热输入 "+f(get(row,"shaft_heat_import_j"))+" J"]
+ ];
+ cards.forEach(lines=>{const d=document.createElement("div");d.className="refined-state";lines.forEach((s,i)=>{const n=document.createElement(i===0?"strong":"span");n.textContent=s;d.append(n)});el("energy-states").append(d)});
+ el("energy-insight").textContent=fault?"这是明确标注的账本故障注入：从已测源能量中漏记额外器件耗能。局部余额必须失败；原始物理实验与此副本分开保留。":co?"本工况的绿色结果仅对应电机、母线与热网络局部边界。传动接口、其他执行器做功和机器人积分/求积余额另行显示，不构成全系统守恒证明。":"器件阈值损耗使用实际直流桥与交流端口之差；额外器件研究损耗通过真实直流支路供能。内部损耗进入温升后，不再作为外部损耗重复扣除。";
+ el("energy-metadata").textContent=JSON.stringify({scope:item.scope,input:item.input,input_sha256:item.input_sha256,raw_sha256:item.raw_sha256,boundary:D.energy.boundary,local_gate:D.energy.local_gate,limits:D.energy.limits},null,2);
+}
+function initEnergy(){
+ const R=D.energy;if(!R?.passed)return;
+ energyItems=[...R.cases,R.fault_demo];
+ el("energy-content").hidden=false;el("energy-unavailable").hidden=true;
+ el("energy-gate").textContent=R.cases.length+" 个局部边界实验 · 机器人误差单列";
+ energyItems.forEach((item,i)=>{const option=document.createElement("option");option.value=i;option.textContent=item.title;el("energy-case").append(option);addCells("energy-results",[item.title,item.metrics.energy_balance_abs_j.toExponential(3),item.metrics.energy_balance_limit_j.toExponential(3),item.expected_passed===false?"故障注入 · 未通过":item.numeric_passed?"通过":"失败",item.expected_passed===false?"不适用":item.goal_passed?"达成":"未达"])});
+ R.cases.filter(c=>c.streams.co_sim_energy).forEach(c=>addCells("energy-robot-results",[c.title,c.metrics.interface_residual_j.toExponential(3),c.metrics.extended_residual_j.toExponential(3),"诊断；未声明全局闭合"]));
+ el("energy-case").addEventListener("change",renderEnergy);el("energy-cursor").addEventListener("input",renderEnergy);
+ el("energy-csv").addEventListener("click",()=>{const item=energyCase(),s=item.streams.energy;download(item.id+"-energy.csv",[s.columns.join(","),...s.samples.map(r=>r.join(","))].join("\n"),"text/csv;charset=utf-8")});
+ renderEnergy();
+}
+
 function init(){
  const cases=D.scenarios.cases;
  cases.forEach((c,i)=>{const option=document.createElement("option");option.value=i;option.textContent=c.title;el("case-select").append(option)});
@@ -343,7 +418,7 @@ function init(){
  cells.forEach((text,i)=>{const td=document.createElement("td");td.textContent=text;if(i>=4)td.className="status"+((i===4?c.numeric_passed:c.tracking_goal_passed)?"":" warn");tr.append(td)});el("comparison-table").append(tr)});
  const proofs=[["机械能与耗散",D.references.mechanical_energy_error_j.toExponential(2)+" J"],["三节点热网络",D.references.thermal_expm_error_k.toExponential(2)+" K"],["步长减半差异",D.scenarios.step_halving_max_state_difference.toExponential(2)],["FMI 互操作",D.fmi.passed?"解析 / 重置 / 非法写入通过":"未通过"]];
  proofs.forEach(([title,value])=>{const p=document.createElement("div");p.className="proof-item";const a=document.createElement("span");a.textContent=title;const b=document.createElement("strong");b.textContent=value;p.append(a,b);el("proofs").append(p)});
- initSystem();renderShort();renderThermal();initRefined();initDesign();
+ initSystem();renderShort();renderThermal();initRefined();initDesign();initEnergy();
 }
 el("case-select").addEventListener("change",event=>{selected=Number(event.target.value);renderShort()});
 el("time-cursor").addEventListener("input",renderShort);el("compare").addEventListener("change",renderShort);

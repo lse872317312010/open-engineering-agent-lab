@@ -25,7 +25,8 @@ def main():
         assert page.locator("#position polyline").count() == 2
         assert page.locator("#thermal polyline").count() == 6
         data = json.loads((OUT / "report-data.json").read_text())
-        assert ("通过" in page.locator("#gate").inner_text()) == data["passed"]
+        expected = "固定联合验收通过" if data["passed"] else "存在未通过工况，请查看下表"
+        assert page.locator("#gate").inner_text() == expected
         for name in ("nominal", "combined-holdout", "combined-fine"):
             page.select_option("#case", name)
             page.locator("#time").focus()

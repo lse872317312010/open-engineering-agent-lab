@@ -20,6 +20,8 @@ def main():
         page.goto((OUT / "index.html").as_uri(), wait_until="load")
         assert page.locator("#case option").count() == 7
         assert page.locator("#cases tr").count() == 7
+        assert page.locator("#endurance-cases tr").count() == 9
+        assert page.locator("#endurance polyline").count() == 8
         assert page.locator("#position polyline").count() == 2
         assert page.locator("#thermal polyline").count() == 6
         data = json.loads((OUT / "report-data.json").read_text())
@@ -58,11 +60,11 @@ def main():
     assert not errors, errors
     assert not requests, requests
     assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
-    assert len(list((OUT / "plots").glob("*.png"))) == 5
+    assert len(list((OUT / "plots").glob("*.png"))) == 6
     report = dict(passed=True, browser=version, page_errors=errors, external_requests=requests,
                   checks=["seven cases", "honest verdict", "nominal and two holdout timelines",
                           "real 0/1 s endpoints", "full joint CSV", "JSON provenance",
-                          "five PDF/PNG/SVG figures", "390px layout", "control labels",
+                          "six PDF/PNG/SVG figures", "390px layout", "control labels",
                           "separate prescribed thermal replay"])
     (OUT / "ui-validation.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
     print("joint-ui.json: " + json.dumps(report, ensure_ascii=False))

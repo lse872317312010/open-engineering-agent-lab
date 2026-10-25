@@ -1,0 +1,37 @@
+# The original sequential workflow timed out. The same nine cases now run
+# as independent jobs in joint-robustness.yml, with one shared report/gate.
+name: Robot endurance holdouts (manual sequential replay)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      MUJOCO_GL: osmesa
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/mujoco_menagerie
+          ref: cda5236f98383f6fbaa4820c6b18dba892cd087f
+          path: vendor/menagerie
+          sparse-checkout: universal_robots_ur5e
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install -r benchmarks/refined-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libosmesa6
+          python benchmarks/validate_robot_endurance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: robot-endurance-sequential-replay
+          path: outputs/robot-endurance/

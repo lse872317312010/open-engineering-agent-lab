@@ -25,8 +25,9 @@ def main():
     thermal_root = ROOT / "outputs/thermal-endurance"
     thermal_report = json.loads((thermal_root / "report.json").read_text())
     thermal = np.loadtxt(thermal_root / "ambient-25-step-0.5.csv", delimiter=",", skiprows=1)
+    data["endurance"] = json.loads((ROOT / "outputs/robot-endurance/report.json").read_text())
     data["thermal"] = dict(report=thermal_report, samples=thermal[::12].tolist())
-    data["passed"] = data["passed"] and thermal_report["passed"]
+    data["passed"] = data["passed"] and thermal_report["passed"] and data["endurance"]["passed"]
     text = json.dumps(data, ensure_ascii=False, allow_nan=False)
     (OUT / "report-data.json").write_text(text)
     template = (ROOT / "reports/joint-robustness.html").read_text()
@@ -104,11 +105,20 @@ def main():
                title="3600 s prescribed-loss replay, NOT a coupled motor/robot run")
         ax.legend(ncol=3)
         save(fig, "thermal-replay")
+        fig, ax = plt.subplots(figsize=(11, 6))
+        for case in data["endurance"]["cases"]:
+            if "display" in case:
+                trace = np.asarray(case["display"])
+                ax.plot(trace[:, 0], trace[:, 1] - trace[:, 2], label=case["id"])
+        ax.set(xlabel="Time / s", ylabel="Position error / rad",
+               title="Original nine frozen PWM endurance cases, up to 2 s")
+        ax.legend(ncol=2, fontsize=8)
+        save(fig, "original-endurance-holdouts")
     notes = (
         "# 关节多工况验证报告\n\n"
         + ("固定联合验收通过。" if data["passed"] else "存在未通过工况。")
-        + "\n\n七组 1 s 联合实验，位置 PD 冻结。原始全量证据见对应七个 case artifact；"
-        "本包含完整关节 CSV、显示抽样数据、五组 PNG/SVG、PDF 与离线 HTML。\n\n"
+        + "\n\n七组 1 s 参数实验及原九组 1–2 s PWM 实验，位置 PD 冻结。原始全量证据见对应七个 case artifact；"
+        "本包含完整关节 CSV、显示抽样数据、六组 PNG/SVG、PDF 与离线 HTML。\n\n"
         "电机参数为控制器已知配置，不是未知参数失配鲁棒性证明。"
         "一小时热网络为预设损耗回放，不代表一小时电机/机器人联合运行。"
         "真机由用户负责。\n"

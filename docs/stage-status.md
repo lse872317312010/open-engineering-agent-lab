@@ -225,3 +225,15 @@ Chrome / Playwright 验收通过：8 模块/11 连接系统模型、状态回放
 页面错误与外部请求均为空。CI、ARM QEMU、P5、P1、P6、开源深化、
 能量和耦合专用工作流同一实现头均成功。
 实现见 [PR #13](https://github.com/lse872317312010/open-engineering-agent-lab/pull/13)。
+
+## 一小时热网络与秒级机器人留出
+
+PR #14 已合并至 `90a622c592ee89ac7e62fc659ad7f101728928e6`。
+[热回放 run 40135132087](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40135132087)
+六组固定实验、独立参考、能量账本故障检测与产物上传成功；对应实现头
+`0fafbdd2c8349f027d4c67bd95737b12fa3da45d` 的主 CI、完整设计、能量/耦合报告等回归通过。
+重复触发的一个 P5 运行被取消，同实现头另一个 P5 运行通过。
+
+下一轮按[机器人留出契约](robot-endurance-contract.md)推进九组 1–2 s 实验。
+固定位置/电流/转矩目标与控制增益不变；实际科学结果以专用 CI 为准，
+未完成前不声明秒级联合仿真已通过。

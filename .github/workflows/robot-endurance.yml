@@ -1,0 +1,50 @@
+name: Robot endurance holdouts
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  robot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      MUJOCO_GL: osmesa
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/mujoco_menagerie
+          ref: cda5236f98383f6fbaa4820c6b18dba892cd087f
+          path: vendor/menagerie
+          sparse-checkout: universal_robots_ur5e
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install existing pinned backend environment
+        run: |
+          python -m pip install -r benchmarks/refined-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libosmesa6
+      - name: Lint and protected scenario plan
+        run: |
+          ruff check . --exclude vendor
+          python -m pytest tests/test_robot_endurance_plan.py tests/test_coupling_references.py
+      - name: Prepare fixed assets and run nine held-out studies
+        run: |
+          mkdir -p outputs/robot-endurance
+          python -m pip freeze > outputs/robot-endurance/environment.txt
+          python benchmarks/validate_robot_endurance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: robot-endurance-evidence
+          path: outputs/robot-endurance/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,35 @@
+name: Thermal endurance evidence
+on:
+  pull_request:
+  push:
+    branches: [main, codex/thermal-endurance]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  endurance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install thermal reference environment
+        run: |
+          python -m pip install numpy==2.3.5 scipy==1.17.0
+          python -m pip install -e ".[dev]"
+      - name: Check code and existing thermal regressions
+        run: |
+          ruff check benchmarks/validate_thermal_endurance.py
+          python -m pytest tests/test_refined_thermal.py tests/test_energy_references.py
+      - name: Fixed one-hour heat-soak and cooldown gate
+        run: |
+          python benchmarks/validate_thermal_endurance.py
+          python -m pip freeze > outputs/thermal-endurance/environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: thermal-endurance-evidence
+          path: outputs/thermal-endurance/
+          if-no-files-found: error

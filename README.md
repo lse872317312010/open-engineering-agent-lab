@@ -175,3 +175,10 @@ P4 当前验证 double/float32 PI 内核，未验证完整嵌入式 FOC 或固�
 - [C/SIL 契约](docs/sil-contract.md) / [P5 部署与测量契约](docs/p5-deployment-contract.md)
 
 MIT 许可证。第三方代码只在独立评测环境安装，采用结论和许可记录见 research/reviews。
+
+## 长时热网络回放
+
+`python benchmarks/validate_thermal_endurance.py` 运行一小时热源回放，
+覆盖三种恒定环境与两种步长，并对照独立 ODE 与能量积分。
+范围与固定判据见[验收契约](docs/thermal-endurance-contract.md)。
+这不是一小时电机/机器人联合仿真。

@@ -39,17 +39,19 @@ def main():
             contents = Path(downloaded.path()).read_text()
             assert contents.startswith("time_s,joint_angle_rad,")
             assert len(contents.splitlines()) >= 5002
-            assert contents.splitlines()[-1].startswith("1,") or contents.splitlines()[-1].startswith("1.0,")
+            assert float(contents.splitlines()[-1].split(",")[0]) == 1.0
         assert "PWM" in page.locator("#mode-state").inner_text()
         with page.expect_download() as download:
             page.locator("#json").click()
-        assert json.loads(Path(download.value.path()).read_text())["source_commit"] == data["source_commit"]
+        downloaded_data = json.loads(Path(download.value.path()).read_text())
+        assert downloaded_data["source_commit"] == data["source_commit"]
         page.screenshot(path=str(OUT / "ui-desktop.png"), full_page=True)
         page.set_viewport_size(dict(width=390, height=844))
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         page.screenshot(path=str(OUT / "ui-mobile.png"), full_page=True)
         missing = page.locator("button,input,select").evaluate_all(
-            "nodes => nodes.filter(n => !(n.textContent.trim() || n.labels?.length || n.getAttribute('aria-label'))).length")
+            "nodes => nodes.filter(n => !(n.textContent.trim() || n.labels?.length "
+            "|| n.getAttribute('aria-label'))).length")
         assert missing == 0
         version = browser.version
         browser.close()

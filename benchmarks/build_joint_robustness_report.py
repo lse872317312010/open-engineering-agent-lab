@@ -30,7 +30,8 @@ def main():
     text = json.dumps(data, ensure_ascii=False, allow_nan=False)
     (OUT / "report-data.json").write_text(text)
     template = (ROOT / "reports/joint-robustness.html").read_text()
-    (OUT / "index.html").write_text(template.replace("__CAMPAIGN_DATA__", text.replace("<", "\\u003c")))
+    html = template.replace("__CAMPAIGN_DATA__", text.replace("<", "\\u003c"))
+    (OUT / "index.html").write_text(html)
     csv_dir = OUT / "csv"
     csv_dir.mkdir(exist_ok=True)
     for case in data["cases"]:
@@ -57,7 +58,8 @@ def main():
         ids = [c["id"] for c in data["cases"]]
         ax.bar(ids, [c["metrics"]["hold_max_error_rad"] for c in data["cases"]])
         ax.axhline(.03, color="red", linestyle="--", label="fixed 0.03 rad limit")
-        ax.set(ylabel="Last 0.5 s max absolute error / rad", title="Frozen position PD: seven cases")
+        ax.set(ylabel="Last 0.5 s max absolute error / rad",
+               title="Frozen position PD: seven cases")
         ax.tick_params(axis="x", rotation=25)
         ax.legend()
         save(fig, "tracking-gates")
@@ -68,7 +70,8 @@ def main():
             axes[0].plot(t, column(stream, "joint_angle_rad")
                          - column(stream, "reference_rad"), label=case["id"])
             axes[1].plot(t, column(stream, "shaft_torque_nm"), label=case["id"])
-        axes[0].set(ylabel="Position error / rad", title="Actual one-second electromechanical trajectories")
+        axes[0].set(ylabel="Position error / rad",
+                    title="Actual one-second electromechanical trajectories")
         axes[1].set(xlabel="Time / s", ylabel="Shaft torque / N m")
         axes[0].legend(ncol=2)
         save(fig, "joint-trajectories")

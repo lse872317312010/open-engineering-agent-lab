@@ -1,0 +1,137 @@
+name: Joint robustness evidence and report
+on:
+  pull_request:
+    paths: ['src/**', 'tests/**', 'benchmarks/**', 'reports/**', '.github/workflows/joint-robustness.yml']
+  push:
+    branches: [main, codex/joint-robustness]
+    paths: ['src/**', 'tests/**', 'benchmarks/**', 'reports/**', '.github/workflows/joint-robustness.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MUJOCO_GL: osmesa
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+jobs:
+  campaign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [nominal, reverse, payload, compliant, electrical, combined-holdout, combined-fine]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/mujoco_menagerie
+          ref: cda5236f98383f6fbaa4820c6b18dba892cd087f
+          path: vendor/menagerie
+          sparse-checkout: universal_robots_ur5e
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned open-model environment
+        run: |
+          python -m pip install -r benchmarks/refined-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libosmesa6
+      - name: Independent references and regression
+        run: |
+          ruff check . --exclude vendor
+          python -m pytest
+      - name: Fixed one-second case
+        run: |
+          python benchmarks/validate_joint_robustness.py --case ${{ matrix.case }}
+          python -m pip freeze > outputs/joint-robustness/${{ matrix.case }}/environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-case-${{ matrix.case }}
+          path: outputs/joint-robustness/${{ matrix.case }}/
+          if-no-files-found: error
+  report:
+    needs: campaign
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: joint-case-*
+          path: outputs/campaign-download
+      - name: Assemble cases without mixing runs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          root = Path("outputs/joint-robustness")
+          root.mkdir(parents=True, exist_ok=True)
+          for source in Path("outputs/campaign-download").glob("joint-case-*"):
+              shutil.move(str(source), root / source.name.removeprefix("joint-case-"))
+          PY
+      - name: Install report and reference environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Independently audit all cases and run thermal endurance
+        run: |
+          python benchmarks/validate_joint_robustness.py
+          python benchmarks/validate_thermal_endurance.py
+      - name: Build and exercise offline report
+        run: |
+          python benchmarks/build_joint_robustness_report.py
+          python benchmarks/validate_joint_report_ui.py
+          python -m pip freeze > outputs/joint-robustness/report-environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-robustness-report
+          path: outputs/joint-report/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-robustness-summary
+          path: |
+            outputs/joint-robustness/report-data.json
+            outputs/joint-robustness/source-manifest.json
+            outputs/joint-robustness/report-environment.txt
+            outputs/thermal-endurance/
+          if-no-files-found: error
+      - name: Enforce predeclared scientific gate after retaining reports
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("outputs/joint-robustness/report-data.json").read_text())
+          assert data["passed"], "Fixed joint campaign gate failed; inspect retained evidence"
+          PY
+  tidy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged campaign branch
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/joint-robustness"
+          found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
+          if found:
+              sha = found.split()[0]
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
+              subprocess.run(["git", "push", "--force-with-lease=" + ref + ":" + sha, "origin", ":" + ref], check=True)
+          PY

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OEAL · 关节多工况验证</title>
+<style>
+:root{color-scheme:dark;--bg:#09121e;--card:#142234;--text:#eaf2fb;--muted:#a9bdd2;--accent:#51dbc4;--line:#2d435a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}
+main{max-width:1280px;margin:auto;padding:32px 24px}h1{font-size:clamp(28px,5vw,48px);margin:8px 0}h2{font-size:23px;margin:0 0 12px}p{color:var(--muted)}
+.eyebrow{color:var(--accent);letter-spacing:.13em}.panel,.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;margin:18px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card{margin:0;padding:16px}.card strong{display:block;font-size:23px}.card span{font-size:13px;color:var(--muted)}
+.controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center}select,button{background:#20364d;color:var(--text);border:1px solid #607b96;border-radius:10px;padding:10px;font:inherit;max-width:100%}button{cursor:pointer}input{width:100%;accent-color:var(--accent)}:focus-visible{outline:3px solid #ffc878;outline-offset:3px}
+.good{color:#51dbc4}.bad{color:#ff9ca8}svg{width:100%;display:block;overflow:hidden}svg text{fill:var(--muted);font:12px system-ui}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{padding:10px;text-align:left;border-bottom:1px solid var(--line);font-size:14px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.node{border:1px solid #3b6276;border-radius:12px;padding:10px;flex:1;min-width:130px}.node small{display:block;color:var(--accent)}
+code{overflow-wrap:anywhere}footer{color:var(--muted);font-size:13px}a{color:var(--accent)}.plot{min-width:0}
+@media(max-width:700px){main{padding:18px 12px}.grid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:16px}.controls>*{max-width:100%}}
+</style>
+<main><header><div class="eyebrow">OPEN ENGINEERING AGENT LAB / P6</div><h1>把验证范围看清楚</h1><p>固定位置控制器 · 七组秒级联合工况 · 独立能量审计</p><strong id="gate"></strong></header>
+<section class="panel"><h2>系统怎样运行</h2><div class="flow">
+<div class="node">位置 PD<small>固定 Kp / Kd</small></div><span>→</span>
+<div class="node">电流环与逆变器<small id="mode-state"></small></div><span>→</span>
+<div class="node">PMSM 电磁与转子<small>motulator RK45</small></div><span>⇄</span>
+<div class="node">弹性传动<small>路径积分 / 因果预测</small></div><span>⇄</span>
+<div class="node">UR5e 单关节<small>MuJoCo RK4</small></div>
+</div><p>关节位置与速度回到 PD；电流测量回到电流环。器件、电阻、摩擦和传动耗散进入六节点热网络，温度反馈电阻。两侧共用保持转矩；储能取真实端点，余额独立审计。其余五轴由上游位置伺服保持。</p></section>
+<section class="panel"><div class="controls"><label for="case">选择工况</label><select id="case"></select><button id="csv">导出当前关节 CSV</button><button id="json">导出报告数据 JSON</button></div><p id="scenario"></p><label for="time">时间回放（可用 Home / End 到首末点）</label><input id="time" type="range" min="0" max="1000" value="1000"><output id="time-label"></output>
+<div class="cards" id="states"></div><p id="case-verdict"></p><details><summary>实际输入与验收依据</summary><pre id="parameters" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details></section>
+<section class="grid">
+<div class="panel plot"><h2>实际位置与参考 · rad</h2><svg id="position" viewBox="0 0 600 240" role="img" aria-label="实际位置与参考随时间"></svg></div>
+<div class="panel plot"><h2>实际 dq 电流幅值 · A</h2><svg id="current" viewBox="0 0 600 240" role="img" aria-label="实际电流幅值随时间"></svg></div>
+<div class="panel plot"><h2>接口与扩展余额 · J</h2><svg id="energy" viewBox="0 0 600 240" role="img" aria-label="接口与扩展能量余额"></svg></div>
+<div class="panel plot"><h2>绕组与结温 · °C</h2><svg id="temperature" viewBox="0 0 600 240" role="img" aria-label="联合仿真温度随时间"></svg></div>
+</section>
+<section class="panel"><h2>固定工况验收</h2><p>尾段均值与最后 0.5 s 最大位置误差均 ≤0.03 rad；实际电流 ≤20 A，轴转矩 ≤100 N·m。每组保留原局部能量、零未解决回退及独立联合余额预算。</p>
+<div class="table-wrap"><table><thead><tr><th>工况</th><th>状态</th><th>尾段误差 rad</th><th>保持段最大 rad</th><th>电流 A</th><th>轴转矩 N·m</th><th>接口余额 J</th></tr></thead><tbody id="cases"></tbody></table></div><p id="fine"></p></section>
+<section class="panel"><h2>一小时热网络：预设热源回放</h2><p>这是既有六节点 RC 的 3600 s 分段功率实验，不是一小时电机或机器人运行。环境为 −10 / 25 / 60 °C；1 / 0.5 s 两种热步长。这里显示 25 °C、0.5 s 的六节点轨迹。</p><svg id="thermal" viewBox="0 0 600 240" role="img" aria-label="一小时预设功率热网络回放"></svg><p id="thermal-status"></p></section>
+<section class="panel"><h2>怎样解读这份结果</h2><p>电机参数变体同时供给控制器名义模型，检查的是已知参数配置；不能据此证明未知参数失配鲁棒性。组合留出不参与原 PD 搜索，但仅代表一个固定组合点。图中做了显示抽样，所有门槛均使用完整原始流。</p><p>较细宏步只用于数值敏感性检查，不能当成真实解；接触、齿隙、整机多轴以及物理温度标定仍未覆盖。真机由用户负责。</p></section>
+<footer><p>来源提交 <code id="source"></code> · 证据等级 model_simulated。PDF、PNG/SVG、JSON 与每组原始 CSV 随报告及证据包交付。</p></footer></main>
+<script id="data" type="application/json">__CAMPAIGN_DATA__</script>
+<script>
+"use strict";
+const D=JSON.parse(document.querySelector('#data').textContent), $=s=>document.querySelector(s);
+const labels={nominal:'基准 · 平均模型',reverse:'反向轨迹',payload:'额外 1 kg',compliant:'柔性传动与惯量变化',electrical:'电气变化 · PWM','combined-holdout':'组合留出 · PWM / 传感器','combined-fine':'组合留出 · 100 μs'};
+let current=D.cases[0].id;
+function col(s,n){const i=s.columns.indexOf(n);return s.samples.map(r=>r[i]);}
+function nearest(s,t){return s.samples.reduce((a,r)=>Math.abs(r[0]-t)<Math.abs(a[0]-t)?r:a,s.samples[0]);}
+function number(v){return Number(v).toPrecision(5);}
+function plot(id,t,ys,legend,maxTime=1){
+ const svg=$(id), W=600,H=240,L=62,R=18,T=20,B=42;
+ const all=ys.flatMap(a=>a.values),low=Math.min(...all),high=Math.max(...all),pad=Math.max((high-low)*.08,1e-9),lo=low-pad,hi=high+pad;
+ const x=v=>L+v/maxTime*(W-L-R),y=v=>H-B-(v-lo)/(hi-lo)*(H-T-B);
+ svg.replaceChildren(); const NS='http://www.w3.org/2000/svg';
+ const add=(tag,attrs,txt)=>{const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);if(txt)e.textContent=txt;svg.append(e);return e;};
+ add('path',{d:'M'+L+','+T+'V'+(H-B)+'H'+(W-R),fill:'none',stroke:'#607b96'});
+ for(let i=0;i<3;i++){const v=lo+(hi-lo)*i/2;add('text',{x:4,y:y(v)+4},number(v));}
+ add('text',{x:L,y:H-10},'0 s');add('text',{x:W-70,y:H-10},maxTime+' s');
+ ys.forEach((a,i)=>{add('polyline',{points:t.map((v,j)=>x(v)+','+y(a.values[j])).join(' '),fill:'none',stroke:a.color,'stroke-width':2});add('text',{x:L+i*150,y:14,style:'fill:'+a.color},legend[i]);});
+ if(maxTime===1)add('line',{x1:x(Number($('#time').value)/1000),x2:x(Number($('#time').value)/1000),y1:T,y2:H-B,stroke:'#ffc878','stroke-dasharray':'4 3'});
+}
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+function render(){
+ const c=D.cases.find(c=>c.id===current),s=D.series[current],j=s.joint,u=s.control,e=s.co_sim_energy;
+ const t=Number($('#time').value)/1000,jr=nearest(j,t),ur=nearest(u,t),er=nearest(e,t);
+ const v=(s,r,n)=>r[s.columns.indexOf(n)];
+ $('#time-label').textContent=t.toFixed(3)+' s / 1.000 s';
+ $('#mode-state').textContent=c.context.resolved_settings.pwm?'PWM · 死区 / 器件压降':'平均模型';
+ $('#scenario').textContent=labels[current]+'；以下状态对应所选时间。图表仍显示完整 1 s，竖线标出游标。';
+ const status=[['位置误差 rad',v(j,jr,'joint_angle_rad')-v(j,jr,'reference_rad')],['实际电流 A',Math.hypot(v(u,ur,'id_a'),v(u,ur,'iq_a'))],['接口余额 J',v(e,er,'interface_residual_j')],['绕组温度 °C',v(u,ur,'winding_c')]];
+ $('#states').innerHTML=status.map(([label,value])=>'<div class="card"><span>'+label+'</span><strong>'+number(value)+'</strong></div>').join('');
+ $('#case-verdict').textContent=(c.passed?'工况通过':'工况未通过')+'；未解决回退 '+c.metrics.predictor_fallback_count+'；联合余额预算 '+number(c.coupling_energy_limit_j)+' J'+(c.failure_reasons.length?'；'+c.failure_reasons.join('；'):'');
+ $('#case-verdict').className=c.passed?'good':'bad';
+ $('#parameters').textContent=JSON.stringify({settings:c.context.resolved_settings,motor:c.context.requested_model,metrics:c.metrics,fault_detection:c.fault_detection},null,2);
+ plot('#position',col(j,'time_s'),[{values:col(j,'joint_angle_rad'),color:'#51dbc4'},{values:col(j,'reference_rad'),color:'#ffc878'}],['实际','参考']);
+ plot('#current',col(u,'time_s'),[{values:col(u,'id_a').map((v,i)=>Math.hypot(v,col(u,'iq_a')[i])),color:'#8dbbff'}],['实际 dq 幅值']);
+ plot('#energy',col(e,'time_s'),[{values:col(e,'interface_residual_j'),color:'#51dbc4'},{values:col(e,'extended_residual_j'),color:'#ffc878'}],['接口余额','扩展余额']);
+ plot('#temperature',col(u,'time_s'),[{values:col(u,'winding_c'),color:'#51dbc4'},{values:col(u,'junction_c'),color:'#ff9ca8'}],['绕组','器件结温']);
+}
+$('#case').innerHTML=D.cases.map(c=>'<option value="'+c.id+'">'+labels[c.id]+'</option>').join('');
+$('#case').onchange=e=>{current=e.target.value;render();};$('#time').oninput=render;
+$('#csv').onclick=()=>{const s=D.series[current].joint;download(current+'-joint.csv',[s.columns.join(','),...s.samples.map(r=>r.join(','))].join('\n'),'text/csv;charset=utf-8');};
+$('#json').onclick=()=>download('joint-report-data.json',JSON.stringify(D),'application/json');
+$('#gate').textContent=D.passed?'固定联合验收通过':'存在未通过工况，请查看下表';$('#gate').className=D.passed?'good':'bad';
+$('#source').textContent=D.source_commit;
+$('#cases').innerHTML=D.cases.map(c=>'<tr><td>'+labels[c.id]+'</td><td class="'+(c.passed?'good':'bad')+'">'+(c.passed?'通过':'失败')+'</td>'+['position_tail_error_rad','hold_max_error_rad','current_peak_a','shaft_torque_peak_nm','interface_residual_j'].map(k=>'<td>'+number(c.metrics[k])+'</td>').join('')+'</tr>').join('');
+$('#fine').textContent='组合留出 200 / 100 μs 共同时间点最大位置差：'+number(D.common_time_difference_rad)+' rad；固定预算 0.001 rad。';
+const th=D.thermal;plot('#thermal',th.samples.map(r=>r[0]),['绕组','铁芯','壳体','结温','板','散热器'].map((n,i)=>({values:th.samples.map(r=>r[i+1]),color:['#51dbc4','#8dbbff','#ffc878','#ff9ca8','#c2a6ff','#fafafa'][i]})),['绕组','铁芯','壳体','结温','板','散热器'],3600);
+$('#thermal-status').textContent=(th.report.passed?'六组热网络回放通过':'热网络回放失败')+'；全部原始时序和独立 DOP853 参考见证据。';
+render();
+</script></html>

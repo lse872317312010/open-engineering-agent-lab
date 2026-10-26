@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import shutil
 import subprocess
 import zipfile
@@ -166,6 +167,7 @@ def boundaries(extracted):
     try:
         reject("step before initialization", lambda: model.doStep(0., 5e-5))
         reject("exit before enter", model.exitInitializationMode)
+        reject("invalid stop time", lambda: model.setupExperiment(startTime=1., stopTime=0.))
         initialize(model, stop=.0001)
         reject("repeated initialization", model.enterInitializationMode)
         for label, refs, values in [
@@ -206,6 +208,15 @@ def boundaries(extracted):
         model.doStep(0., .001)
         np.testing.assert_array_equal(model.getReal(list(range(12))), initial())
         checked.append("unforced equilibrium")
+        model.reset()
+        initialize(model)
+        model.setReal([12, 15], [1., 25.])
+        model.doStep(0., 1e-6)
+        point = model.getReal([0, 8])
+        rl_exact = -math.expm1(-.3/.0008*1e-6)/.3
+        assert abs(point[0]-rl_exact) < 1e-12
+        assert abs(point[1]-(25.+1e-6)) < 1e-12
+        checked.extend(["independent RL limit", "pure board heat initial slope"])
     finally:
         model.freeInstance()
         other.freeInstance()

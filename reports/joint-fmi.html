@@ -51,12 +51,12 @@ function render(){
  document.querySelector('#now').textContent=get('time_s').toFixed(5)+' s';
  document.querySelector('#csv').href=c.id+'.csv';
  const status=get('time_s')===0?'已初始化':'仿真运行';
- const cards=[['电气 · '+status,'iq '+get('iq_a').toFixed(3)+' A'],
- ['机械 · '+status,get('load_angle_rad').toFixed(5)+' rad'],
- ['热网络 · '+status,'绕组 '+get('winding_c').toFixed(4)+' °C'],
- ['能量核算 · '+(Math.abs(get('balance_j'))<=2e-6?'范围内':'超阈值'),fmt(get('balance_j'))+' J']];
+ const cards=[['电气 · '+status,'iq '+get('iq_a').toFixed(3)+' A','id '+get('id_a').toFixed(3)+' A'],
+ ['机械 · '+status,get('load_angle_rad').toFixed(5)+' rad','负载速度 '+get('load_speed_rad_s').toFixed(3)+' rad/s；轴转矩 '+(80*(get('motor_angle_rad')/10-get('load_angle_rad'))+.15*(get('motor_speed_rad_s')/10-get('load_speed_rad_s'))).toFixed(3)+' N·m'],
+ ['热网络 · '+status,'绕组 '+get('winding_c').toFixed(4)+' °C','壳体 '+get('case_c').toFixed(4)+' °C；板级 '+get('board_c').toFixed(4)+' °C'],
+ ['能量核算 · '+(Math.abs(get('balance_j'))<=2e-6?'范围内':'超阈值'),fmt(get('balance_j'))+' J','输入 '+get('input_energy_j').toFixed(4)+' J；负载 '+get('load_work_j').toFixed(4)+' J；散热 '+get('ambient_heat_j').toFixed(5)+' J']];
  const container=document.querySelector('#states');container.replaceChildren();
- for(const [label,value] of cards){const el=document.createElement('div');el.className='card';el.textContent=label;const strong=document.createElement('strong');strong.textContent=value;el.append(strong);container.append(el)}
+ for(const [label,value,detail] of cards){const el=document.createElement('div');el.className='card';el.textContent=label;const strong=document.createElement('strong');strong.textContent=value;el.append(strong);const note=document.createElement('p');note.className='small';note.textContent=detail;el.append(note);container.append(el)}
  const vals=rows.flatMap(row=>[get('load_angle_rad',row),get('reference_load_angle_rad',row)]),lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo||1;
  const points=name=>rows.map(row=>(30+get('time_s',row)/.08*840)+','+(210-(get(name,row)-lo)/span*180)).join(' ');
  const svg=document.querySelector('#trace');svg.replaceChildren();

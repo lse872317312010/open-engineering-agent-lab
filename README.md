@@ -182,3 +182,18 @@ MIT 许可证。第三方代码只在独立评测环境安装，采用结论和�
 覆盖三种恒定环境与两种步长，并对照独立 ODE 与能量积分。
 范围与固定判据见[验收契约](docs/thermal-endurance-contract.md)。
 这不是一小时电机/机器人联合仿真。
+
+
+## 秒级关节留出与状态报告
+
+原九组 1–2 s PWM 轨迹/载荷/刚度留出由逐工况矩阵执行，
+并增加七组 1 s 已知参数、平均模型/PWM、传感器与组合留出。
+位置 PD 及原位置/电流/转矩目标冻结，独立审计使用全量原始流。
+运行与报告见[联合工作流](.github/workflows/joint-robustness.yml)；
+[原九组契约](docs/robot-endurance-contract.md) /
+[七组联合契约](docs/joint-robustness-contract.md)。
+实际通过范围与下载链接见[阶段状态](docs/stage-status.md)。
+
+报告包含系统运行机制、时间回放、指标与失败原因、六组 PNG/SVG、PDF、
+完整关节 CSV，以及单列的一小时预设热源回放。
+这不是未知电机参数失配或整机耐久认证，真机由用户负责。

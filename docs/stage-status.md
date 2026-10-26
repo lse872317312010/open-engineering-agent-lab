@@ -225,3 +225,91 @@ Chrome / Playwright 验收通过：8 模块/11 连接系统模型、状态回放
 页面错误与外部请求均为空。CI、ARM QEMU、P5、P1、P6、开源深化、
 能量和耦合专用工作流同一实现头均成功。
 实现见 [PR #13](https://github.com/lse872317312010/open-engineering-agent-lab/pull/13)。
+
+## 一小时热网络与秒级机器人留出
+
+PR #14 已合并至 `90a622c592ee89ac7e62fc659ad7f101728928e6`。
+[热回放 run 40135132087](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40135132087)
+六组固定实验、独立参考、能量账本故障检测与产物上传成功；对应实现头
+`0fafbdd2c8349f027d4c67bd95737b12fa3da45d` 的主 CI、完整设计、能量/耦合报告等回归通过。
+重复触发的一个 P5 运行被取消，同实现头另一个 P5 运行通过。
+
+下一轮按[机器人留出契约](robot-endurance-contract.md)推进九组 1–2 s 实验。
+固定位置/电流/转矩目标与控制增益不变；实际科学结果以专用 CI 为准，
+未完成前不声明秒级联合仿真已通过。
+
+
+## 2026-10-26：秒级关节多工况与报告
+
+原 PR #15 的串行九组作业触及 45 分钟限制后取消，不能当作已通过。
+本轮保留该 PR 的历史、固定输入与阈值，逐组执行；另加七组已知参数/PWM/传感器检查。
+物理实现头为 `16c59870f3b192557c4795cc444344086f1b01e7`，
+[原始物理运行 40220732997](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40220732997)
+的 16 个工况作业全部成功，完整结果、原始单位/时钟及散列分别保存在每组 artifact。
+单驱动 UR5e 关节最长从 0.25 s 扩至 2 s，保持既选位置 PD，不重新搜索控制器。
+
+| 工况 | 时长 s | 尾段平均误差 rad | 实际电流峰值 A | 轴转矩峰值 N*m |
+|---|---:|---:|---:|---:|
+| payload | 1 | 0.00257005 | 3.9515 | 61.7303 |
+| endurance-baseline-fine-2s | 2 | 0.00282843 | 3.8468 | 56.6623 |
+| endurance-reverse-2s | 2 | 0.00269727 | 2.6944 | 47.4259 |
+| combined-holdout | 1 | 0.00304185 | 4.2878 | 68.2464 |
+| compliant | 1 | 0.00739154 | 6.5659 | 87.9387 |
+| endurance-soft-2s | 2 | 0.00435661 | 3.4428 | 51.8600 |
+| combined-fine | 1 | 0.00302639 | 4.2692 | 68.1855 |
+| endurance-baseline-2s | 2 | 0.00282238 | 3.8530 | 56.6335 |
+| endurance-combined-2s | 2 | 0.00306830 | 3.4531 | 53.3219 |
+| endurance-payload-one-2s | 2 | 0.00285185 | 3.9637 | 61.1439 |
+| nominal | 1 | 0.00331753 | 3.7519 | 56.7263 |
+| endurance-payload-half-2s | 2 | 0.00296079 | 3.8092 | 58.4824 |
+| electrical | 1 | 0.00285603 | 2.7009 | 45.9361 |
+| endurance-stiff-2s | 2 | 0.00297727 | 3.9464 | 60.1215 |
+| endurance-baseline-1s | 1 | 0.00299559 | 3.8530 | 56.6335 |
+| reverse | 1 | 0.00303747 | 2.6262 | 47.6022 |
+
+原 0.03 rad / 20 A / 100 N*m 目标不变。
+新增七组的最后 0.5 s 最大绝对位置误差最坏约 0.0198050 rad；
+零未解决回退、局部能量与独立联合余额预算均通过。
+组合留出的 200 / 100 μs 全轨迹最大位置差为 0.000135642 rad，低于固定 0.001 rad。
+缺失终点以及改动后重新散列的账本副本均被独立拒绝。
+原九组与新增七组的固定契约分别见
+[原留出](robot-endurance-contract.md) / [新增联合检查](joint-robustness-contract.md)。
+
+[完整原回归 40220732998](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40220732998)
+**84 项测试通过，无跳过**；原控制优化保持 89.37% 改善，三组开关模型验证通过，
+既有 14 组图表及其系统模型、交互与离线验收通过。
+
+
+### 最终聚合、报告与 ARM 补充
+
+原物理工作流的 15 分钟聚合上限不足，报告作业取消，16 组实验产物仍完整保留。
+[恢复运行 40249278746](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40249278746)
+复用同一批原始产物，重新读取全量结果并沿用原判据，**最终全部通过**。
+恢复流程提交 ed5ea409161ffd426acd835c1fbe05576077b45a，仅涉及 CI；
+其 Actions 合成合并提交为 01b5f1dd9525e01e58d3aa386f9151353a0fa29e。
+常规聚合作业已将上限调整为 45 分钟，并拆分可见步骤；未修改模型、原始数据或科学门槛。
+
+- 新七组共同时间点最大位置差：**0.000135642 rad**。
+- 原九组 2 s 基准的 200 / 100 μs 最大位置差：**0.000552150 rad**。
+- 两组均低于预先固定的 0.001 rad；较细模型是敏感性参考，不是真实解。
+- 中文离线报告、六组 PNG/SVG、PDF、完整七组关节 CSV、参数/状态回放和 JSON 已生成。
+  原九组完整轨迹保存在对应 `robot-case-*` 的 result.json.gz 中。
+- Chrome 155 / Playwright 的七组选项、九组原留出表、0/1 s 首末点、
+  CSV / JSON、390 px 布局与图表检查通过，页面错误和外部请求为空。
+- 一小时六组预设热源回放独立通过；不将它冒充一小时电机/机器人联合运行。
+
+[下载专项报告，约 19 MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40249278746/artifacts/12621256694) /
+[聚合证据与热网络原始数据](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40249278746/artifacts/12620517778)。
+解压报告打开 index.html；每组完整电磁波形及散列仍见原物理运行的 16 个独立 artifact。
+报告包含 recovery-provenance.json，明确区分物理运行与报告恢复来源。
+GitHub artifact 页面用于下载，避免复制临时签名地址。
+
+ARM 最初在 ubuntu-latest 安装工具链时超时。固定 ubuntu-24.04 后，
+[run 40249278658](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40249278658)
+成功，2173 个 ARM/QEMU 向量通过，最大绝对误差约 9.99e-6；
+范围仍为 float32 PI 内核，未声称完整 FOC 固件或真实硬件时序。
+
+实现与证据见 [PR #16](https://github.com/lse872317312010/open-engineering-agent-lab/pull/16)，
+包括原 PR #15 的提交历史与九组设计。
+后续继续循环轨迹、未知电机参数失配和关节 FMI；本轮已知参数同时提供给控制器，
+不能替代未知参数失配或统计覆盖证明。真机由用户负责。

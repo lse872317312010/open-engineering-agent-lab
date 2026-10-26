@@ -117,7 +117,9 @@ class DriveController:
         else:
             temperatures = self.thermal.advance([copper, core, 0, device, 0, 0])
             if c.get("thermal_feedback", True):
-                mdl.machine.par.R_s = p.R_s * (1 + 0.00393 * (temperatures[0] - 25))
+                mdl.machine.par.R_s = mdl.oeal_resistance_25 * (
+                    1 + 0.00393 * (temperatures[0] - 25)
+                )
         self.rows.append([
             self.t, true_i.real, true_i.imag, measured_i.real, measured_i.imag, iq_ref,
             self.theta_continuous, speed, float(mdl.machine.out.tau_M), bus,
@@ -148,16 +150,24 @@ def make_drive(config, magnetic_map=None, robot=None):
             "inertia_kg_m2": 5e-5 if robot is not None else 0.002,
             "viscous_friction_nms": 1e-5,
         }))
+        requested = config.get("controller_parameters", {})
+        if set(requested) - {"stator_resistance_ohm", "d_inductance_h",
+                             "q_inductance_h", "flux_linkage_wb"}:
+            raise ValueError("unsupported nominal controller parameter")
+        estimate = MotorParameters(**(vars(physical) | requested))
         nominal = model.SynchronousMachinePars(
-            n_p=physical.pole_pairs, R_s=physical.stator_resistance_ohm,
-            L_d=physical.d_inductance_h, L_q=physical.q_inductance_h,
-            psi_f=physical.flux_linkage_wb,
+            n_p=estimate.pole_pairs, R_s=estimate.stator_resistance_ohm,
+            L_d=estimate.d_inductance_h, L_q=estimate.q_inductance_h,
+            psi_f=estimate.flux_linkage_wb,
         )
         plant = model.SynchronousMachinePars(
-            n_p=nominal.n_p, R_s=nominal.R_s, L_d=nominal.L_d,
-            L_q=nominal.L_q, psi_f=nominal.psi_f, G_c=config.get("core_conductance_s", 0),
+            n_p=physical.pole_pairs, R_s=physical.stator_resistance_ohm,
+            L_d=physical.d_inductance_h, L_q=physical.q_inductance_h,
+            psi_f=physical.flux_linkage_wb, G_c=config.get("core_conductance_s", 0),
         )
     else:
+        if config.get("controller_parameters"):
+            raise ValueError("nominal override requires a linear machine")
         nominal, nonlinear = magnetic_map
         plant = nonlinear if config.get("nonlinear", False) else (
             model.SynchronousMachinePars(
@@ -203,6 +213,8 @@ def make_drive(config, magnetic_map=None, robot=None):
         machine, mechanics, converter, dc_bus=dc_bus, pwm=config.get("pwm", True),
         delay=2 if config.get("delay", True) else 0, single_update=True,
     )
+    drive.oeal_resistance_25 = float(plant.R_s)
+    drive.oeal_physical_parameters = vars(physical).copy() if magnetic_map is None else {}
     drive.oeal_pwm_records = []
     upstream_modulate = drive.modulate
     elapsed = 0.0

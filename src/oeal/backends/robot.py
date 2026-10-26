@@ -15,6 +15,7 @@ from oeal.coupling import (
     path_midpoint_exchange,
     transmission,
 )
+from oeal.trajectories import joint_reference
 
 ROBOT_COLUMNS = [
     "time_s", "joint_angle_rad", "joint_speed_rad_s", "reference_rad",
@@ -278,10 +279,7 @@ class RobotLoad:
         return float(self.data.energy.sum())
 
     def reference(self, t):
-        amplitude = self.config.get("position_step_rad", 0.08)
-        start = self.config.get("position_start_s", 0.02)
-        ramp = self.config.get("position_ramp_s", 0.12)
-        return self.initial_angle + amplitude * min(max((t - start) / ramp, 0), 1)
+        return joint_reference(t, self.initial_angle, self.config)
 
 
 def robot_reference_checks(path):

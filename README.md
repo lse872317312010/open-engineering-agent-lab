@@ -161,7 +161,7 @@ P5 交叉编译需 ARM 工具链，运行 `python benchmarks/validate_p5.py`；
 
 原生基准采用合成参数的平均电压模型；可选开源后端已包含开关事件、非线性磁图、
 母线、机器人接触和六节点热网络。仍未实现真实 ADC/ISR 时序、用户设备参数辨识、
-完整关节 FMU 和全系统能量闭合；部分功率器件热估计尚未回写直流损耗。
+MuJoCo 关节 FMU 和全系统能量闭合；部分功率器件热估计尚未回写直流损耗。
 电流指令限幅不保证瞬态真实电流限幅。
 离线提议策略未测试在线 LLM；应用层白名单不是任意 Python 的 OS 沙箱。
 P4 当前验证 double/float32 PI 内核，未验证完整嵌入式 FOC 或固定点。
@@ -212,3 +212,26 @@ IR 0.2 的可选 `controller_parameters` 将名义电阻、电感和磁链与
 全部八组及报告由[专用工作流](.github/workflows/cyclic-mismatch.yml)复现。
 报告展示冻结名义/真实参数、两个周期的全程峰值/RMSE、能量、状态回放和 CSV。
 这只验证指定电气偏差，耦合器参数仍已知，不代表统计或长期鲁棒性。
+
+## 九状态关节 FMI 交换模型
+
+新增原创 FMI 2.0 CoSimulation 植物模型：PMSM dq、弹性双惯量及三节点热网络，
+输出九状态、输入能量/负载做功/环境散热和轴转矩。主机写入旋转 dq 电压、
+负载转矩与附加供电板热，按明确 ZOH 通信窗推进。
+该独立 C 模型不替换现有 IR 配置，控制器由外部主机提供。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev]"
+python benchmarks/validate_joint_fmi.py
+python benchmarks/build_joint_fmi_report.py
+```
+
+需要 GCC；报告交互验收使用已安装的 Chrome。产物在 outputs/joint-fmi/ 与
+outputs/joint-fmi-report/；后者解压打开 index.html，包含三图、PDF、完整 CSV、
+运行机制/组件状态回放和 Linux x86_64 FMU。
+[固定方程、端口和时钟契约](docs/joint-fmi-contract.md)先于实现提交，
+[专用工作流](.github/workflows/joint-fmi.yml)保留独立 DOP853、步长减半、
+接口错误检查与全部哈希；实际结果及下载见[阶段状态](docs/stage-status.md)。
+固定合成参数和四组 0.08 s 实验不代表实测标定；
+MuJoCo 整机 FMU、完整控制器/PWM 与 OpenModelica 集成继续保留为后续工作。

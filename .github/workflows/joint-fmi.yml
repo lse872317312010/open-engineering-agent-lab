@@ -1,0 +1,92 @@
+name: Joint FMI ports clocks and energy evidence
+on:
+  pull_request:
+    paths: ['firmware/fmi/**', 'benchmarks/*joint_fmi*', 'reports/joint-fmi.html', 'tests/test_joint_fmi*', '.github/workflows/joint-fmi.yml']
+  push:
+    branches: [main]
+    paths: ['firmware/fmi/**', 'benchmarks/*joint_fmi*', 'reports/joint-fmi.html', 'tests/test_joint_fmi*', '.github/workflows/joint-fmi.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+jobs:
+  joint-fmi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned FMI and independent solver environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Lint and deterministic regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Build FMU and compare with independent equations
+        run: python benchmarks/validate_joint_fmi.py
+      - name: Offline mechanism report and real Chrome interaction
+        if: always()
+        run: python benchmarks/build_joint_fmi_report.py
+      - name: Retain environment and evidence hashes
+        if: always()
+        run: |
+          mkdir -p outputs/joint-fmi
+          python -m pip freeze > outputs/joint-fmi/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for p in sorted(root.rglob("*")):
+              if p.is_file() and "runtime" not in p.parts and "package" not in p.parts:
+                  files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "joint-fmi/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-fmi-report
+          path: outputs/joint-fmi-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-fmi-raw-evidence
+          path: outputs/joint-fmi/
+          if-no-files-found: error
+      - name: Enforce frozen gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assert json.loads(Path("outputs/joint-fmi/validation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/joint-fmi-report/ui-validation.json").read_text())["passed"]
+          PY
+  tidy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged joint FMI branch
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/joint-fmi"
+          found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
+          if found:
+              sha = found.split()[0]
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
+              subprocess.run(["git", "push", "--force-with-lease=" + ref + ":" + sha, "origin", ":" + ref], check=True)
+          PY

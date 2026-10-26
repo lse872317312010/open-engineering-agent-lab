@@ -22,7 +22,7 @@ flowchart TB
   VERIFY --> LEDGER
   LEDGER --> REPORT["离线交互 HTML / PDF / PNG / SVG / CSV<br/>系统机制、组件状态、优化与留出对比"]
   subgraph VALIDATION["并列验证与交付链"]
-    REF["解析参考 / DOP853 / 步长减半<br/>FMPy：单节点 RC FMI"]
+    REF["解析参考 / DOP853 / 步长减半<br/>FMPy：RC / 九状态关节 FMI"]
     SIL["共享向量 → C PI double / float32<br/>主机 SIL → ARM 交叉编译 / QEMU"]
     CI["GitHub Actions<br/>数值回归 / Chrome UI / manifest / artifacts"]
     REF --> CI

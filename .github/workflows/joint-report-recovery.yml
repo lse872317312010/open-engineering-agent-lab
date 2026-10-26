@@ -1,0 +1,109 @@
+name: Recover joint report from fixed raw evidence
+on:
+  pull_request:
+    paths: ['.github/workflows/joint-report-recovery.yml']
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Existing physical campaign run with all 16 case artifacts
+        default: '40220732997'
+        type: string
+permissions:
+  contents: read
+  actions: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  PHYSICAL_RUN_ID: ${{ inputs.source_run_id || '40220732997' }}
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id || '40220732997' }}
+          pattern: joint-case-*
+          path: outputs/campaign-download
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id || '40220732997' }}
+          pattern: robot-case-*
+          path: outputs/endurance-download
+      - name: Assemble cases without mixing runs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          root = Path("outputs/joint-robustness")
+          root.mkdir(parents=True, exist_ok=True)
+          for source in Path("outputs/campaign-download").glob("joint-case-*"):
+              shutil.move(str(source), root / source.name.removeprefix("joint-case-"))
+          root = Path("outputs/robot-endurance")
+          root.mkdir(parents=True, exist_ok=True)
+          for source in Path("outputs/endurance-download").glob("robot-case-*"):
+              shutil.move(str(source), root / source.name.removeprefix("robot-case-"))
+          PY
+      - name: Install report and reference environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Independently audit all cases and run thermal endurance
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          provenance = {
+              "physical_workflow_run": os.environ["PHYSICAL_RUN_ID"],
+              "physical_head_commit": "16c59870f3b192557c4795cc444344086f1b01e7",
+              "report_commit": os.environ["GITHUB_SHA"],
+              "reason": "recover report after 15-minute aggregation timeout; no physics rerun",
+              "audit": "full raw results re-read with the original immutable gates"
+          }
+          Path("outputs/joint-robustness/recovery-provenance.json").write_text(json.dumps(provenance, indent=2))
+          PY
+          python benchmarks/validate_joint_robustness.py
+          python benchmarks/validate_robot_endurance.py --collect
+          python benchmarks/validate_thermal_endurance.py
+      - name: Build and exercise offline report
+        run: |
+          python benchmarks/build_joint_robustness_report.py
+          python benchmarks/validate_joint_report_ui.py
+          cp outputs/joint-robustness/recovery-provenance.json outputs/joint-report/
+          python -m pip freeze > outputs/joint-robustness/report-environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-robustness-report
+          path: outputs/joint-report/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: joint-robustness-summary
+          path: |
+            outputs/joint-robustness/report-data.json
+            outputs/joint-robustness/recovery-provenance.json
+            outputs/joint-robustness/source-manifest.json
+            outputs/joint-robustness/report-environment.txt
+            outputs/thermal-endurance/
+            outputs/robot-endurance/report.json
+          if-no-files-found: error
+      - name: Enforce predeclared scientific gate after retaining reports
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("outputs/joint-robustness/report-data.json").read_text())
+          endurance = json.loads(Path("outputs/robot-endurance/report.json").read_text())
+          assert endurance["passed"], "Original nine endurance gates failed"
+          assert data["passed"], "Fixed joint campaign gate failed; inspect retained evidence"
+          PY

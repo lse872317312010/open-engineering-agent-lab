@@ -17,7 +17,8 @@
             "native_joint_v1",
             "motulator_pmsm_v1",
             "baldor_map_v1",
-            "ur5e_joint_v1"
+            "ur5e_joint_v1",
+            "fmi_joint_v1"
           ]
         },
         "parameters": {
@@ -175,7 +176,8 @@
           "enum": [
             "native",
             "motulator",
-            "mujoco_motulator"
+            "mujoco_motulator",
+            "fmi"
           ]
         },
         "settings": {
@@ -687,6 +689,24 @@
                 "unit"
               ],
               "additionalProperties": false
+            },
+            "board_power_w": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "unit": {
+                  "const": "W"
+                }
+              },
+              "required": [
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [],
@@ -999,7 +1019,8 @@
           "enum": [
             "native",
             "motulator",
-            "mujoco_motulator"
+            "mujoco_motulator",
+            "fmi"
           ]
         },
         "profile": {
@@ -1008,7 +1029,8 @@
             "native_joint_v1",
             "motulator_pmsm_v1",
             "baldor_map_v1",
-            "ur5e_joint_v1"
+            "ur5e_joint_v1",
+            "fmi_joint_v1"
           ]
         },
         "primary_stream": {

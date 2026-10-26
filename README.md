@@ -42,8 +42,8 @@ P6 合成研究数据不代表实测校准；完整范围见 [模型契约](docs
 
 ## 统一实验与控制设计
 
-IR 0.2 的五个固定模型配置覆盖原生 FOC / 耦合关节、motulator 开关 PMSM、
-上游非线性磁图和 MuJoCo UR5e 单关节。CLI、Agent 和评测共用同一执行接口。
+IR 0.2 的六个固定模型配置覆盖原生 FOC / 耦合关节、motulator 开关 PMSM、
+上游非线性磁图、MuJoCo UR5e 单关节及固定 FMI 关节的外部 dq 电流主机。CLI、Agent 和评测共用同一执行接口。
 IR 0.1 仍兼容。参数附单位，模型资产校验固定哈希，计算时钟与预算在执行前校验。
 控制采样、关节宏步、求解波形与门极事件分别保留原始时间语义。
 
@@ -235,3 +235,29 @@ outputs/joint-fmi-report/；后者解压打开 index.html，包含三图、PDF�
 接口错误检查与全部哈希；实际结果及下载见[阶段状态](docs/stage-status.md)。
 固定合成参数和四组 0.08 s 实验不代表实测标定；
 MuJoCo 整机 FMU、完整控制器/PWM 与 OpenModelica 集成继续保留为后续工作。
+
+## FMI 统一实验与外部电流闭环
+
+`fmi_joint_v1` 通过既有 IR 0.2、CLI/API、StudyTools 与 CSV 导出运行。
+外部 Python 主机复用电流 PI，固定每 50 us 采样并保持旋转 dq 电压，
+可选一采样延迟；细分 FMI doStep 保留 <=5 us 实际端点波形。
+四项目标同时检查尾段电流、真实细步电流峰值、轴转矩峰值和独立全域能量余额。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev,fmi]"
+python benchmarks/validate_joint_fmi.py
+oeal run-experiment examples/studies/fmi_joint_v1.json \
+  --assets-root outputs/joint-fmi --output outputs/fmi-result.json \
+  --csv-dir outputs/fmi-csv
+python benchmarks/validate_fmi_host.py
+python benchmarks/build_fmi_host_report.py
+```
+
+编译/独立参考及报告的完整环境仍使用 benchmarks/p6-requirements.txt 和 GCC/Chrome。
+也可将已下载报告内的 oeal-joint.fmu 所在目录作为 --assets-root；
+程序仅加载已独立验证的 Linux x86_64 二进制哈希，不接受实验指定代码或文件路径。
+[实现前契约](docs/fmi-host-contract.md)与[专用工作流](.github/workflows/fmi-host.yml)
+包含四组达标场景及一个电压不足的预期失败案例，三图报告明确显示真实结果。
+植物物理参数仍固定；这是外部 dq 电流闭环，不包含位置环、PWM、
+完整嵌入式 FOC、MuJoCo 或 OpenModelica 联调。

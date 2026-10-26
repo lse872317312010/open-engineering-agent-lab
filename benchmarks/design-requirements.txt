@@ -2,3 +2,4 @@
 control==0.10.2
 optuna==4.5.0
 SALib==1.5.2
+FMPy==0.3.26

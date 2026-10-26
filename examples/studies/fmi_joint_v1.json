@@ -1,0 +1,89 @@
+{
+  "kind": "ExperimentSpec",
+  "version": "0.2",
+  "id": "fmi_joint_v1",
+  "model": {
+    "kind": "ModelSpec",
+    "version": "0.2",
+    "profile": "fmi_joint_v1",
+    "parameters": {}
+  },
+  "backend": "fmi",
+  "settings": {
+    "duration_s": {
+      "value": 0.06,
+      "unit": "s"
+    },
+    "control_period_s": {
+      "value": 0.00005,
+      "unit": "s"
+    },
+    "integration_step_s": {
+      "value": 0.000005,
+      "unit": "s"
+    },
+    "step_time_s": {
+      "value": 0.005,
+      "unit": "s"
+    },
+    "id_reference_a": {
+      "value": 0,
+      "unit": "A"
+    },
+    "iq_reference_a": {
+      "value": 1,
+      "unit": "A"
+    },
+    "vdc_v": {
+      "value": 48,
+      "unit": "V"
+    },
+    "current_limit_a": {
+      "value": 15,
+      "unit": "A"
+    },
+    "bandwidth_per_s": {
+      "value": 1000,
+      "unit": "1/s"
+    },
+    "tracking_rate_per_s": {
+      "value": 1000,
+      "unit": "1/s"
+    },
+    "delay_samples": {
+      "value": 0,
+      "unit": "1"
+    },
+    "load_nm": {
+      "value": 0,
+      "unit": "N*m"
+    },
+    "board_power_w": {
+      "value": 0,
+      "unit": "W"
+    }
+  },
+  "seed": 20261026,
+  "budget": {
+    "control_ticks": 20000,
+    "solver_evaluations": 2000000
+  },
+  "acceptance": {
+    "current_tail_error_a": {
+      "value": 0.1,
+      "unit": "A"
+    },
+    "current_peak_a": {
+      "value": 3,
+      "unit": "A"
+    },
+    "shaft_torque_peak_nm": {
+      "value": 10,
+      "unit": "N*m"
+    },
+    "energy_balance_abs_j": {
+      "value": 0.000002,
+      "unit": "J"
+    }
+  }
+}

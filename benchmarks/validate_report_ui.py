@@ -116,7 +116,7 @@ def main():
 
         design = json.loads((REPORT / "data.json").read_text()).get("design", {})
         if design.get("validations"):
-            assert page.locator("#unified-results tr").count() == 5
+            assert page.locator("#unified-results tr").count() == 6
             assert page.locator("#design-trial-rows tr").count() == 8
             assert page.locator("#design-results tr").count() == 3
             assert page.locator("#design-trace-chart polyline").count() == 3

@@ -40,6 +40,8 @@ ROBOT_FIELDS = frozenset({
     "coupling_method", "robot_integrator", "position_cycle_period_s",
 })
 REGISTRY = {
+    "fmi_joint_v1": dict(backend="fmi", fields=FOC_FIELDS | {"load_nm", "board_power_w"},
+                         description="pinned FMI joint with external dq current host"),
     "native_foc_v1": dict(backend="native", fields=FOC_FIELDS | {"load_nm"},
                           description="native sampled PMSM FOC"),
     "native_joint_v1": dict(
@@ -67,6 +69,7 @@ REGISTRY = {
 def model_parameters(model):
     defaults = MOTOR | ({
         "ur5e_joint_v1": {"inertia_kg_m2": 5e-5},
+        "fmi_joint_v1": {"inertia_kg_m2": 5e-5},
         "baldor_map_v1": {"inertia_kg_m2": 0.05},
     }.get(model["profile"], {}))
     return defaults | values(model["parameters"])
@@ -89,6 +92,9 @@ def resolved_settings(document):
             "shaft_stiffness_nm_per_rad": 500.0,
             "coupling_method": "jacobi", "robot_integrator": "implicitfast",
         } | values(document["settings"])
+    elif profile == "fmi_joint_v1":
+        settings = settings | {"duration_s": .06, "iq_reference_a": 1., "delay_samples": 0,
+                               "board_power_w": 0., "load_nm": 0.} | values(document["settings"])
     elif profile == "baldor_map_v1":
         settings = settings | {"vdc_v": 540.0, "iq_reference_a": 10.0,
                                "current_limit_a": 20.0} | values(document["settings"])
@@ -99,7 +105,8 @@ def catalog():
     return {
         name: {"backend": info["backend"], "description": info["description"],
                "settings": sorted(info["fields"]),
-               "motor_overrides": [] if name == "baldor_map_v1" else sorted(MOTOR)}
+               "motor_overrides": ([] if name in {"baldor_map_v1", "fmi_joint_v1"}
+                                   else sorted(MOTOR))}
         for name, info in REGISTRY.items()
     }
 
@@ -131,8 +138,8 @@ def validate_study(document):
         return document
     model = document if kind == "ModelSpec" else document["model"]
     profile = model["profile"]
-    if profile == "baldor_map_v1" and model["parameters"]:
-        raise ValueError("pinned magnetic-map machine parameters cannot be overridden")
+    if profile in {"baldor_map_v1", "fmi_joint_v1"} and model["parameters"]:
+        raise ValueError("pinned machine parameters cannot be overridden")
     MotorParameters(**model_parameters(model))
     if kind == "ModelSpec":
         return document
@@ -153,13 +160,26 @@ def validate_study(document):
     ):
         raise ValueError("energy mode requires linear machine, no core loss/fixture/diode bus")
     if ("energy_balance_abs_j" in document["acceptance"]
-            and not s.get("energy_consistent", False)):
+            and not s.get("energy_consistent", False) and profile != "fmi_joint_v1"):
         raise ValueError("energy acceptance requires the explicit energy mode")
+    if profile == "fmi_joint_v1":
+        if (s["control_period_s"] != 50e-6 or not 1e-8 <= s["integration_step_s"] <= 5e-6
+                or s["vdc_v"] > 48 or abs(s["load_nm"]) > 10
+                or not 0 <= s["board_power_w"] <= 1000):
+            raise ValueError("FMI clock, voltage, load or board-power capability exceeded")
+        goals = {"current_tail_error_a", "current_peak_a", "shaft_torque_peak_nm",
+                 "energy_balance_abs_j"}
+        if set(document["acceptance"]) != goals:
+            raise ValueError("FMI requires its four fixed current/torque/energy goals")
     FOCConfig(**{key: s[key] for key in FOC_FIELDS})
     ticks = round(s["duration_s"] / s["control_period_s"]) + 1
     if ticks > document["budget"]["control_ticks"]:
         raise ValueError("control tick budget exceeded")
     minimum = 4 * (ticks - 1) * math.ceil(s["control_period_s"] / s["integration_step_s"])
+    if profile == "fmi_joint_v1":
+        from oeal.backends.fmi_joint import subdivisions
+
+        minimum = (ticks-1)*subdivisions(s)[2]
     if minimum > document["budget"]["solver_evaluations"]:
         raise ValueError("solver evaluation budget too small")
     if profile == "ur5e_joint_v1":
@@ -192,6 +212,10 @@ def validate_study(document):
 
 
 def resolve_assets(profile, root):
+    if profile == "fmi_joint_v1":
+        from oeal.backends.fmi_joint import load_asset
+
+        return {"oeal-joint.fmu": load_asset(root)}
     needed = []
     if profile == "baldor_map_v1":
         needed = ["baldor_400rpm_map.npz"]
@@ -262,6 +286,16 @@ def _native(document, s, motor):
     )
     return {"control": stream(trace["columns"], trace["samples"],
                               "control_ticks_and_endpoint")}, trace["parameters"]
+
+
+def _fmi(s, assets):
+    from oeal.backends.fmi_joint import CONTROL_COLUMNS, WAVE_COLUMNS, run
+
+    rows, waves, context = run(s, assets["oeal-joint.fmu"])
+    return {
+        "control": stream(CONTROL_COLUMNS, rows, "control_ticks_and_endpoint"),
+        "waveforms": stream(WAVE_COLUMNS, waves, "solver_samples"),
+    }, context
 
 
 def _external(document, s, assets, motor):
@@ -463,6 +497,12 @@ def recompute(document, result):
         metrics["torque_law_residual_nm"] = float(np.max(np.abs(residual)))
         numeric = bool(numeric and np.all(fallbacks == 0)
                        and metrics["torque_law_residual_nm"] <= 1e-8)
+    if document["model"]["profile"] == "fmi_joint_v1":
+        from oeal.backends.fmi_joint import audit
+
+        fmi_metrics, fmi_numeric = audit(s, signals, result["context"])
+        metrics.update(fmi_metrics)
+        numeric = bool(numeric and fmi_numeric)
     goals = values(document["acceptance"])
     passed = numeric and all(metrics.get(name, math.inf) <= limit for name, limit in goals.items())
     return metrics, numeric, bool(passed)
@@ -478,6 +518,7 @@ def run_study(document, assets_root=None):
     motor = MotorParameters(**model_parameters(document["model"]))
     streams, context = (
         _native(document, s, motor) if document["backend"] == "native"
+        else _fmi(s, assets) if document["backend"] == "fmi"
         else _external(document, s, assets, motor)
     )
     primary = "joint" if profile == "ur5e_joint_v1" else "control"
@@ -491,7 +532,8 @@ def run_study(document, assets_root=None):
             python=sys.version.split()[0], resolved_settings=s,
             requested_model=copy.deepcopy(document["model"]),
             parameter_source="pinned upstream assets plus declared research parameters",
-            asset_hashes={name: ASSET_LOCK["files"][name] for name in assets},
+            asset_hashes=(context["fmi_asset_hashes"] if profile == "fmi_joint_v1"
+                          else {name: ASSET_LOCK["files"][name] for name in assets}),
         ),
     )
     result["metrics"], result["numeric_passed"], result["goal_passed"] = recompute(document, result)

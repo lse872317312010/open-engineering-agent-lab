@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import zipfile
 from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement, parse
+from xml.etree.ElementTree import SubElement, parse
 
 import fmpy
 import numpy as np

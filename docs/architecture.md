@@ -20,12 +20,14 @@ flowchart TB
   TOOLS --> ENTRY
   ENTRY --> IR["IR 验证与版本分派<br/>0.1 兼容；0.2 单位 / 能力 / 时钟 / 预算"]
   IR --> REG["固定模型注册与资产哈希校验<br/>studies.py / asset-lock.json"]
+  REG --> FMI["固定 FMI / 外部 dq 电流主机<br/>fmi_joint.py / FMPy / FMI 2.0 CS"]
   REG --> NATIVE["原生后端<br/>PMSM RK4 / 20 kHz FOC / 九状态关节"]
   REG --> MOTOR["motulator 后端<br/>PWM / 死区 / 母线 / 磁图 / 传感器"]
   MOTOR <-->|"轴转矩交换与保持"| ROBOT["MuJoCo + Menagerie UR5e<br/>一个电驱关节；其余位置保持"]
   MOTOR <-->|"损耗热源 / 铜阻反馈"| THERMAL["六节点热网络"]
   IR --> LEGACY["IR 0.1 旧适配<br/>native / PathSim 开环"]
   NATIVE --> STREAM["SimulationResult<br/>带单位信号流 / 时间语义 / 输入和原始数据哈希"]
+  FMI --> STREAM
   MOTOR --> STREAM
   ROBOT --> STREAM
   LEGACY --> STREAM
@@ -59,6 +61,7 @@ flowchart TB
 | 设计分析 | [design_analysis.py](../src/oeal/design_analysis.py)、[设计评测](../benchmarks/validate_design_iteration.py) | python-control 降阶筛选、Optuna 有界搜索、SALib Morris |
 | 原生数值模型 | src/oeal/models/、foc.py、current_control.py、transforms.py、multiphysics.py | PMSM、20 kHz FOC、坐标变换、PI、九状态关节 |
 | 开源电驱与机器人 | [motulator.py](../src/oeal/backends/motulator.py)、[robot.py](../src/oeal/backends/robot.py)、refined_thermal.py | 真实开关与磁图模型、转矩交换、UR5e 连杆及六节点热 |
+| FMI 交换与主机 | [fmi_joint.py](../src/oeal/backends/fmi_joint.py) | 固定二进制校验、20 kHz 外部 dq PI、细步实际峰值和能量重算 |
 | 指标与证据 | metrics.py、calibration.py、benchmarks/validate_*.py、evidence_manifest.py | 独立参考、合成标定、验证、账本、输入与产物散列 |
 | 报告 | reports/、[build_p6_report.py](../benchmarks/build_p6_report.py)、[UI 验证](../benchmarks/validate_report_ui.py) | 离线交互 HTML、系统状态、PDF、标准图表与 CSV |
 | 固件相关仿真 | firmware/、benchmarks/validate_p4*.py、validate_p5*.py、validate_qemu_arm.py | PI C 内核、主机 SIL、ARM 编译与 QEMU；不是完整 FOC 固件 |
@@ -95,10 +98,11 @@ FOC 默认按 50 μs 更新；电气求解器在控制间隔内积分。
 
 ## 固定配置与结果接口
 
-IR 0.2 固定注册五种配置：
+IR 0.2 固定注册六种配置：
 
 | 配置 | 后端 | 主要结果流 |
 |---|---|---|
+| fmi_joint_v1 | fmi | control / waveforms |
 | native_foc_v1 | native | control |
 | native_joint_v1 | native | control |
 | motulator_pmsm_v1 | motulator | control / waveforms / gates |
@@ -228,6 +232,27 @@ flowchart LR
 [原始 C](../firmware/fmi/joint.c)使用单体同步 RK4，不通过显式宏步连接 MuJoCo；
 因此其全域能量余额不能替代 UR5e 后端的接口诊断。
 通信输入在**转子 dq 坐标**保持，不能与原生 FOC 的静止 alpha/beta 保持混用。
-内部参数为固定研究值，外部输入是 4 个明确端口；完整物理参数可配置、IR 注册、
-机器人/六节点热适配与 OpenModelica 联调尚待后续实现。
+内部参数为固定研究值，外部输入是 4 个明确端口。
+IR/CLI/API 与受保护工具已通过 fmi_joint_v1 接入外部 20 kHz 电流主机；
+完整物理参数可配置、位置环、机器人/六节点热适配与 OpenModelica 联调尚待后续实现。
 [契约](joint-fmi-contract.md)与[独立验证](../benchmarks/validate_joint_fmi.py)分别留存。
+
+## FMI 主机的控制窗与细步证据
+
+```mermaid
+flowchart LR
+  SPEC["IR 0.2 fmi_joint_v1<br/>单位 / 能力 / 固定目标 / 预算"] --> ASSET["可信主机资产根<br/>ZIP / 二进制 / GUID / 端口校验"]
+  ASSET --> HOST["50 us 读状态 / PI / 解耦<br/>限幅 / 可选一采样延迟"]
+  HOST -->|"保持同一旋转 dq 指令"| STEP["细分 doStep <=5 us<br/>固定 C 九状态植物"]
+  STEP -->|"真实端点状态"| WAVE["waveforms 完整细步流<br/>电流 / 轴转矩 / 能量真实峰值"]
+  STEP -->|"下一控制窗反馈"| HOST
+  HOST --> CONTROL["control 完整控制首末点"]
+  CONTROL --> AUDIT["时钟 / 参考 / 电压重建<br/>储能与有符号能量重算"]
+  WAVE --> AUDIT
+  AUDIT --> REPORT["成功与失败都保留<br/>三图 / 组件状态 / CSV / FMU"]
+```
+
+预算包含 C 每 RK4 子步的四阶段导数与末态域检查，共五次 RHS。
+doStep 通信细步与控制周期明确分开；最后输出点不额外更新控制或积分。
+独立 DOP853 逐控制窗重放实际施加电压，并用独立 PI 算术重建主机指令。
+[固定契约](fmi-host-contract.md)先于参考与主机实现，既有五个配置继续共用原接口。

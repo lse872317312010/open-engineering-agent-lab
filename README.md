@@ -197,3 +197,18 @@ MIT 许可证。第三方代码只在独立评测环境安装，采用结论和�
 报告包含系统运行机制、时间回放、指标与失败原因、六组 PNG/SVG、PDF、
 完整关节 CSV，以及单列的一小时预设热源回放。
 这不是未知电机参数失配或整机耐久认证，真机由用户负责。
+
+
+## 循环轨迹与电气参数失配
+
+IR 0.2 的可选 `controller_parameters` 将名义电阻、电感和磁链与
+真实 `model.parameters` 分离；未设置时沿用原行为。
+可选 `settings.position_cycle_period_s` 启用从静止开始的余弦往复，
+并要求全程峰值位置目标。参考公式与固定八组输入见
+[循环与失配契约](docs/cyclic-mismatch-contract.md)。
+
+运行 `python benchmarks/validate_cyclic_mismatch.py --case combined`，
+再以独立进程运行 `python benchmarks/validate_cyclic_mismatch.py --audit combined`。
+全部八组及报告由[专用工作流](.github/workflows/cyclic-mismatch.yml)复现。
+报告展示冻结名义/真实参数、两个周期的全程峰值/RMSE、能量、状态回放和 CSV。
+这只验证指定电气偏差，耦合器参数仍已知，不代表统计或长期鲁棒性。

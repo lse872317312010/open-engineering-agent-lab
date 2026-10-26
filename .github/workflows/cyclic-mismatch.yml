@@ -1,0 +1,132 @@
+name: Cyclic motion and unknown electrical mismatch
+on:
+  pull_request:
+    paths: ['src/**', 'tests/**', 'benchmarks/**', 'reports/**', '.github/workflows/cyclic-mismatch.yml']
+  push:
+    branches: [main]
+    paths: ['src/**', 'tests/**', 'benchmarks/**', 'reports/**', '.github/workflows/cyclic-mismatch.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MUJOCO_GL: osmesa
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+jobs:
+  cases:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [nominal, resistance, inductance, flux, switching, combined, combined-fine, legacy-step]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/mujoco_menagerie
+          ref: cda5236f98383f6fbaa4820c6b18dba892cd087f
+          path: vendor/menagerie
+          sparse-checkout: universal_robots_ur5e
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned physical backends
+        run: |
+          python -m pip install -r benchmarks/refined-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libosmesa6
+      - name: Independent references and complete regression
+        run: |
+          ruff check . --exclude vendor
+          python -m pytest
+      - name: Simulate frozen case and serialize full raw result
+        run: python benchmarks/validate_cyclic_mismatch.py --case ${{ matrix.case }}
+      - name: Independently reread raw result and enforce unchanged equations
+        run: |
+          python benchmarks/validate_cyclic_mismatch.py --audit ${{ matrix.case }}
+          python -m pip freeze > outputs/cyclic/${{ matrix.case }}/environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cycle-case-${{ matrix.case }}
+          path: outputs/cyclic/${{ matrix.case }}/
+          if-no-files-found: error
+  report:
+    needs: cases
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cycle-case-*
+          path: outputs/downloaded-cycles
+      - name: Retain same-run audited evidence paths
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          root = Path("outputs/cyclic")
+          root.mkdir(parents=True, exist_ok=True)
+          for source in Path("outputs/downloaded-cycles").glob("cycle-case-*"):
+              shutil.move(str(source), root / source.name.removeprefix("cycle-case-"))
+          PY
+      - name: Install report environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Verify audited file hashes and frozen inputs
+        run: python benchmarks/validate_cyclic_mismatch.py
+      - name: Render offline report and verify real browser interactions
+        run: |
+          python benchmarks/build_cyclic_report.py
+          python benchmarks/validate_cyclic_report_ui.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cyclic-mismatch-report
+          path: outputs/cyclic-report/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cyclic-audit-summary
+          path: outputs/cyclic/report-data.json
+          if-no-files-found: error
+      - name: Enforce scientific gate after retaining failure report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("outputs/cyclic/report-data.json").read_text())
+          assert data["passed"], "Frozen cyclic/mismatch/step consistency gate failed"
+          PY
+  tidy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged cyclic branch
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/cyclic-mismatch"
+          found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
+          if found:
+              sha = found.split()[0]
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
+              subprocess.run(["git", "push", "--force-with-lease=" + ref + ":" + sha, "origin", ":" + ref], check=True)
+          PY

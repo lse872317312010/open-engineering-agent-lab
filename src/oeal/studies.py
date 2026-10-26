@@ -37,7 +37,7 @@ ROBOT_FIELDS = frozenset({
     "macro_step_s", "backlash_rad", "fixture", "outer_kp_nm_per_rad",
     "outer_kd_nms_per_rad", "gravity_feedforward_gain", "position_step_rad",
     "position_start_s", "position_ramp_s", "payload_kg", "shaft_stiffness_nm_per_rad",
-    "coupling_method", "robot_integrator",
+    "coupling_method", "robot_integrator", "position_cycle_period_s",
 })
 REGISTRY = {
     "native_foc_v1": dict(backend="native", fields=FOC_FIELDS | {"load_nm"},
@@ -142,6 +142,10 @@ def validate_study(document):
     if set(document["settings"]) - entry["fields"]:
         raise ValueError("unsupported settings for this registered model")
     s = resolved_settings(document)
+    if "controller_parameters" in document and profile not in {
+        "motulator_pmsm_v1", "ur5e_joint_v1"
+    }:
+        raise ValueError("nominal overrides require a registered linear external machine")
     if s.get("energy_consistent", False) and (
         profile not in {"motulator_pmsm_v1", "ur5e_joint_v1"}
         or s.get("core_conductance_s", 0) != 0 or s.get("dc_bus") == "diode"
@@ -172,7 +176,13 @@ def validate_study(document):
             round(s["duration_s"] / s["macro_step_s"]), rel_tol=0, abs_tol=1e-8,
         ):
             raise ValueError("duration must align with macro steps")
-        if s["position_start_s"] + s["position_ramp_s"] >= s["duration_s"]:
+        if "position_cycle_period_s" in s:
+            if (s["position_start_s"] >= s["duration_s"]
+                    or s["position_cycle_period_s"] < 4 * s["macro_step_s"]):
+                raise ValueError("cycle needs an active window and at least four macro intervals")
+            if "position_peak_error_rad" not in document["acceptance"]:
+                raise ValueError("cycle requires a whole-trajectory peak-error goal")
+        elif s["position_start_s"] + s["position_ramp_s"] >= s["duration_s"]:
             raise ValueError("reference ramp must finish inside the experiment")
         if "position_tail_error_rad" not in document["acceptance"]:
             raise ValueError("robot study needs a position acceptance goal")
@@ -265,6 +275,7 @@ def _external(document, s, assets, motor):
         bus_v=s["vdc_v"], delay=bool(s["delay_samples"]), seed=document["seed"],
         max_solver_evaluations=document["budget"]["solver_evaluations"],
         motor_parameters=vars(motor),
+        controller_parameters=values(document.get("controller_parameters", {})),
     )
     config["dc_bus"] = None if s.get("dc_bus", "constant") == "constant" else s["dc_bus"]
     magnetic, robot = None, None
@@ -346,6 +357,7 @@ def _external(document, s, assets, motor):
         )
     context = {
         "nominal_machine": vars(controller.nominal), "magnetic_domain_passed": domain,
+        "physical_machine": controller.drive.oeal_physical_parameters,
         "solver_evaluations": controller.drive.oeal_solver_calls,
     }
     if robot is not None:
@@ -389,11 +401,20 @@ def recompute(document, result):
     if result["primary_stream"] == "joint":
         q = rows[:, primary["columns"].index("joint_angle_rad")]
         ref = rows[:, primary["columns"].index("reference_rad")]
-        expected_ref = q[0] + s["position_step_rad"] * np.clip(
-            (times - s["position_start_s"]) / s["position_ramp_s"], 0, 1
-        )
+        if "position_cycle_period_s" in s:
+            elapsed = np.maximum(times - s["position_start_s"], 0)
+            expected_ref = q[0] + s["position_step_rad"] / 2 * (
+                1 - np.cos(2 * np.pi * elapsed / s["position_cycle_period_s"])
+            )
+        else:
+            expected_ref = q[0] + s["position_step_rad"] * np.clip(
+                (times - s["position_start_s"]) / s["position_ramp_s"], 0, 1
+            )
         if not np.allclose(ref, expected_ref, atol=1e-12, rtol=0):
             raise ValueError("position trace reference differs from protected target")
+        error = q - expected_ref
+        metrics["position_peak_error_rad"] = float(np.max(np.abs(error)))
+        metrics["position_rmse_rad"] = float(np.sqrt(np.mean(error ** 2)))
         tail = times >= 0.9 * s["duration_s"]
         metrics["position_tail_error_rad"] = float(np.mean(np.abs(q[tail] - expected_ref[tail])))
         metrics["shaft_torque_peak_nm"] = float(

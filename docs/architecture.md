@@ -193,3 +193,20 @@ RK4、无齿隙/夹具。默认模式和原实验保持有效。预测、实际�
   `benchmarks/build_joint_robustness_report.py`，
   浏览器验收由 `benchmarks/validate_joint_report_ui.py` 执行。
 - 既有 3600 s 热网络回放单列，不把预设热源误写成实际电驱运行。
+
+
+## 控制器估计与真实对象的分离
+
+IR 0.2 新增可选 `controller_parameters`，只供给线性电驱的 PI、
+解耦/反电势和外环转矩到电流换算；真实电机方程、铜耗、磁能以及
+温度反馈使用 `model.parameters`。实际 R25 与名义 R 明确单列，
+默认两者相同，显式覆盖后不随物理参数或温度变化更新名义值。
+
+`oeal.trajectories.joint_reference` 产生运行时目标，
+保护验收在 `studies.recompute` 中单独用向量公式重算循环参考，
+检查完整宏步流的峰值和 RMSE。未给周期时保持原斜坡。
+
+循环工作流每组分成仿真/序列化和独立重读审计两个进程。
+审计忽略生产者 metrics，重算完整原始流，检查参数隔离、端点储能、
+能量账本与篡改参考；聚合阶段核验同次运行的文件散列、固定输入和
+宏步位置差。完整电磁 JSON 仍保留，避免单一聚合作业反复串行扫描。

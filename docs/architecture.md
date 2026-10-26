@@ -1,6 +1,6 @@
 # 项目架构
 
-更新：2026-10-23。按 main 的已实现代码梳理；软件架构图描述模块职责和数据流，
+更新：2026-10-26。按 main 的已实现代码梳理；软件架构图描述模块职责和数据流，
 运行机制图描述 UR5e 联合模型的物理反馈，图中每个后端是可选实验路径。
 
 [查看 / 下载 SVG 总图](architecture.svg) · [Mermaid 总图源文件](architecture-overview.mmd) ·
@@ -35,7 +35,7 @@ flowchart TB
   VERIFY --> LEDGER
   LEDGER --> REPORT["离线交互 HTML / PDF / PNG / SVG / CSV<br/>系统机制、组件状态、优化与留出对比"]
   subgraph VALIDATION["并列验证与交付链"]
-    REF["解析参考 / DOP853 / 步长减半<br/>FMPy：单节点 RC FMI"]
+    REF["解析参考 / DOP853 / 步长减半<br/>FMPy：RC / 九状态关节 FMI"]
     SIL["共享向量 → C PI double / float32<br/>主机 SIL → ARM 交叉编译 / QEMU"]
     CI["GitHub Actions<br/>数值回归 / Chrome UI / manifest / artifacts"]
     REF --> CI
@@ -114,7 +114,8 @@ IR 0.2 固定注册五种配置：
 
 - 目前是受限的离线优化与工具闭环，未验收在线通用 LLM 自主工程规划。
 - 线性筛选和 Morris 基于降阶模型，不是全非线性系统稳定性证明或实测置信区间。
-- FMI 当前仅为原始单节点 RC 热模型；没有完整关节 FMU / OpenModelica 集成。
+- FMI 包含单节点 RC 与九状态电气/双惯量/热研究关节植物模型；
+  MuJoCo 整机关节 FMU 与 OpenModelica 集成仍未实现。
 - 默认旧模式仍采用采样热估计。可选能量模式已将额外器件热与实际直流支路匹配，
   转子摩擦和传动阻尼热有显式热端口；线性电驱局部与机器人全局分别审计。
   显式宏步的接口误差仍保留，不能宣称整个机器人系统已闭合。
@@ -210,3 +211,23 @@ IR 0.2 新增可选 `controller_parameters`，只供给线性电驱的 PI、
 审计忽略生产者 metrics，重算完整原始流，检查参数隔离、端点储能、
 能量账本与篡改参考；聚合阶段核验同次运行的文件散列、固定输入和
 宏步位置差。完整电磁 JSON 仍保留，避免单一聚合作业反复串行扫描。
+
+## FMI 植物模型的交换边界
+
+```mermaid
+flowchart LR
+  HOST["外部主机 / 控制器<br/>读 → 写 → doStep"] -->|"旋转 dq 电压 / 负载转矩 / 板热"| FMU["FMI 2.0 原创 C 植物<br/>九状态 + 三本能量账"]
+  FMU -->|"电流 / 角度 / 速度 / 温度 / 轴转矩"| HOST
+  FMU --> FMPY["FMPy 0.3.26<br/>XML / 加载 / 生命周期"]
+  FMU --> CSV["完整通信采样 CSV<br/>单位与有符号能量"]
+  REF["独立 Python 方程<br/>逐窗 DOP853"] --> CHECK["固定状态差 / 能量余额 / 内步减半"]
+  CSV --> CHECK
+  CHECK --> REPORT["三图离线报告<br/>机制 / 组件回放 / FMU 下载"]
+```
+
+[原始 C](../firmware/fmi/joint.c)使用单体同步 RK4，不通过显式宏步连接 MuJoCo；
+因此其全域能量余额不能替代 UR5e 后端的接口诊断。
+通信输入在**转子 dq 坐标**保持，不能与原生 FOC 的静止 alpha/beta 保持混用。
+内部参数为固定研究值，外部输入是 4 个明确端口；完整物理参数可配置、IR 注册、
+机器人/六节点热适配与 OpenModelica 联调尚待后续实现。
+[契约](joint-fmi-contract.md)与[独立验证](../benchmarks/validate_joint_fmi.py)分别留存。

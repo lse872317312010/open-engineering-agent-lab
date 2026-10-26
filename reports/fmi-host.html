@@ -1,0 +1,70 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OEAL · FMI 外部电流闭环</title><style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b1220;color:#e6edf7}
+*{box-sizing:border-box}body{margin:0}main{max-width:1160px;margin:auto;padding:28px 18px}
+h1{font-size:clamp(26px,5vw,42px);margin:12px 0}h2{font-size:21px}p{line-height:1.8;color:#b9c8dd}
+.tag{color:#64e0be;letter-spacing:2px;font-size:12px}.panel,.card{background:#121e31;border:1px solid #2b3b52;border-radius:16px;padding:20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{margin:0;padding:16px;min-width:0}.card strong{display:block;margin-top:10px;color:#74e0cb;font-size:19px}
+select,button,.button{font:inherit;color:#e6edf7;background:#20354f;border:1px solid #547493;border-radius:8px;padding:10px;text-decoration:none;display:inline-block}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}input{width:100%;accent-color:#64e0be}label{display:block;margin:12px 0}
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.node{border-left:3px solid #64e0be;padding:12px;background:#19283d;line-height:1.8}
+.small{font-size:13px;color:#b9c8dd}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:12px;border-bottom:1px solid #2b3b52;white-space:nowrap}
+svg,img{width:100%;height:auto;display:block}svg{background:#0c1728;border-radius:10px}
+code{overflow-wrap:anywhere;font-size:12px}.figs{display:grid;grid-template-columns:1fr;gap:18px}
+a{color:#83d9ff}details{margin:16px 0}summary{cursor:pointer}
+@media(max-width:700px){.grid,.flow{grid-template-columns:1fr 1fr}.panel{padding:14px}.node{grid-column:1/-1}main{padding:20px 12px}}
+</style><main>
+<div class="tag">OPEN ENGINEERING AGENT LAB · FMI 2.0 · SIMULATION EVIDENCE</div>
+<h1>从模型交换走向闭环实验</h1>
+<p>统一 IR / CLI / Agent 接口驱动固定 FMI 关节植物。外部 20 kHz dq 电流控制器负责采样、解耦与电压限制；模型负责真实电磁、机械和热响应。四组达标案例及一个预先声明的不可达案例完整保留。</p>
+<div class="panel"><b id="gate"></b><p id="summary"></p><div class="controls"><a class="button" href="oeal-joint.fmu" download>下载 Linux FMU</a><a class="button" href="report.pdf">三图 PDF</a><a href="contract.md">固定方程与验收契约</a><a href="report-data.json" download>完整验证摘要</a></div></div>
+<section class="panel"><h2>主机与植物如何协同</h2><div class="flow">
+<div class="node"><b>① 外部主机 · 50 μs 控制</b><br>读电流/速度 → dq PI 与解耦<br>径向限幅 → 可选一采样延迟<br>在控制窗内保持旋转 dq 电压</div>
+<div class="node"><b>② 固定 FMU · 电气与机械</b><br>电压 → id/iq → 电磁转矩<br>电机惯量 → 10:1 弹性轴 → 负载<br>电流与轴转矩峰值检查细步端点</div>
+<div class="node"><b>③ 连续热与能量账</b><br>铜耗 → 绕组；机械损耗 → 壳体<br>附加供电板热 → 板级；温度反馈铜阻<br>储能/输入/负载/环境独立重算</div></div>
+<p class="small">控制窗 50 μs；主机细分 doStep 至 ≤5 μs，每个细步采样植物，不额外更新控制器。终点重复此前保持命令。旋转 dq 保持不等同于静止坐标 PWM。初始温度25°C，其余状态为零。</p>
+<p class="small">只加载白名单 Linux x86_64 二进制。IR 拒绝路径或物理参数覆盖，资产/GUID/端口/单位在加载前检查；StudyTools 冻结目标、时钟、预算与原始流来源。当前是电流闭环，位置环未加入。</p></section>
+<section class="panel"><h2>组件状态回放</h2><p id="case-result"></p><div class="controls"><label>固定场景 <select id="case" aria-label="固定场景"></select></label><a id="csv" class="button" download>导出完整 CSV</a></div>
+<label for="time">时间位置 <b id="now"></b></label><input id="time" type="range" min="0" value="0" aria-label="时间位置">
+<p class="small">使用 Home / End 定位首末点，方向键逐点移动。回放间隔 0.5 ms；完整 CSV 保留全部 1201 个控制采样点；5 μs 波形见原始证据。</p>
+<div id="states" class="grid"></div><h3>电流响应与受限参考 · A</h3><p class="small">青色：实际 q 电流；橙色虚线：受限电流参考。电压不足时，未达标响应仍完整展示。</p><svg id="trace" viewBox="0 0 900 240" role="img" aria-label="电流与受限参考曲线"></svg><p id="range" class="small"></p></section>
+<section class="panel"><h2>固定门槛与实际结果</h2><p class="small">固定尾段 q 电流误差 ≤0.1 A、真实细步电流峰值 ≤3 A、轴转矩峰值 ≤10 N·m、全域余额峰值 ≤2e-6 J。另用独立 DOP853 和独立 PI 算术校验植物与主机。五组均为 0.06 s 合成研究实验，非耐久证明。</p><div class="scroll"><table id="results"><thead><tr><th>场景</th><th>实际目标</th><th>预期</th><th>尾段误差 A</th><th>真实峰值 A</th><th>轴转矩 N·m</th><th>余额峰值 J</th></tr></thead><tbody></tbody></table></div>
+<details><summary>生命周期与故障检查</summary><ul id="checks"></ul></details></section>
+<section class="panel"><h2>可导出图表</h2><div class="figs">
+<a href="plots/01-mechanics.svg"><img src="plots/01-mechanics.png" alt="五工况负载角度与速度"></a>
+<a href="plots/02-electrical-reference.svg"><img src="plots/02-electrical-reference.png" alt="电流与固定尾差目标"></a>
+<a href="plots/03-energy-thermal.svg"><img src="plots/03-energy-thermal.png" alt="控制采样能量余额与板温升"></a></div></section>
+<section class="panel"><h2>来源与边界</h2><p>原创 MIT C 模型；FMPy 0.3.26 执行 FMI 2.0 加载与验证；SciPy DOP853 使用独立 Python 方程逐窗积分。FMU 包内保留源码、契约与许可证。二进制仅覆盖 Linux x86_64。</p>
+<p>本模型没有 MuJoCo 整机、位置环、六轴耦合、磁饱和、齿隙、开关 PWM、OpenModelica 或实测标定。独立原始证据保留全细步波形、失败案例、CLI/API 以及受保护 Agent 工具的检查结果。</p><div id="provenance" class="small"></div></section></main>
+<script>
+const data=__DATA__,sel=document.querySelector('#case'),slider=document.querySelector('#time');
+const fmt=x=>Number(x).toExponential(3);
+document.querySelector('#gate').textContent=data.passed?'四组闭环达标，不可达案例按预期失败':'存在非预期结果，请检查原始证据';
+document.querySelector('#summary').textContent='五组固定实验 · 九个植物状态 · 三本能量账 · '+data.boundary_checks.length+' 项接口检查';
+for(const c of data.cases){sel.add(new Option(c.id,c.id));const tr=document.createElement('tr');for(const s of [c.id,c.passed?'达标':'未达标',c.expected_passed?'应达标':'应失败',fmt(c.metrics.current_tail_error_a),fmt(c.metrics.current_peak_a),fmt(c.metrics.shaft_torque_peak_nm),fmt(c.peak_balance_j)]){const td=document.createElement('td');td.textContent=s;tr.append(td)}document.querySelector('#results tbody').append(tr)}
+for(const s of data.boundary_checks){const li=document.createElement('li');li.textContent=s;document.querySelector('#checks').append(li)}
+for(const key of ['code_commit','source_sha256','binary_sha256','fmu_sha256','compiler']){const p=document.createElement('p');p.textContent=key+': ';const code=document.createElement('code');code.textContent=data.metadata[key];p.append(code);document.querySelector('#provenance').append(p)}
+function current(){return data.cases.find(c=>c.id===sel.value)}
+function render(){
+ const c=current(),rows=c.samples;document.querySelector('#case-result').textContent=c.passed?'目标达标：已通过固定四项门槛。':'目标未达标：预先声明的电压不足案例；保持原门槛与完整失败响应。';slider.max=rows.length-1;const r=rows[+slider.value];
+ const get=(name,row=r)=>row[c.columns.indexOf(name)];
+ document.querySelector('#now').textContent=get('time_s').toFixed(5)+' s';
+ document.querySelector('#csv').href=c.id+'.csv';
+ const status=get('time_s')===0?'已初始化':'仿真运行';
+ const cards=[['电气 · '+status,'iq '+get('iq_a').toFixed(3)+' A','id '+get('id_a').toFixed(3)+' A'],
+ ['机械 · '+status,get('load_angle_rad').toFixed(5)+' rad','负载速度 '+get('load_speed_rad_s').toFixed(3)+' rad/s；轴转矩 '+(80*(get('motor_angle_rad')/10-get('load_angle_rad'))+.15*(get('motor_speed_rad_s')/10-get('load_speed_rad_s'))).toFixed(3)+' N·m'],
+ ['热网络 · '+status,'绕组 '+get('winding_c').toFixed(4)+' °C','壳体 '+get('case_c').toFixed(4)+' °C；板级 '+get('board_c').toFixed(4)+' °C'],
+ ['能量核算 · '+(Math.abs(get('balance_j'))<=2e-6?'范围内':'超阈值'),fmt(get('balance_j'))+' J','输入 '+get('input_energy_j').toFixed(4)+' J；负载 '+get('load_work_j').toFixed(4)+' J；散热 '+get('ambient_heat_j').toFixed(5)+' J']];
+ const container=document.querySelector('#states');container.replaceChildren();
+ for(const [label,value,detail] of cards){const el=document.createElement('div');el.className='card';el.textContent=label;const strong=document.createElement('strong');strong.textContent=value;el.append(strong);const note=document.createElement('p');note.className='small';note.textContent=detail;el.append(note);container.append(el)}
+ const vals=rows.flatMap(row=>[get('iq_a',row),get('iq_reference_a',row)]),lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo||1;
+ const points=name=>rows.map(row=>(30+get('time_s',row)/.06*840)+','+(210-(get(name,row)-lo)/span*180)).join(' ');
+ const svg=document.querySelector('#trace');svg.replaceChildren();
+ for(const [name,color,dash] of [['iq_a','#64e0be',''],['iq_reference_a','#ffc278','6 4']]){
+ const line=document.createElementNS('http://www.w3.org/2000/svg','polyline');line.setAttribute('points',points(name));line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width','2');line.setAttribute('stroke-dasharray',dash);svg.append(line)}
+ const marker=document.createElementNS('http://www.w3.org/2000/svg','line'),px=30+get('time_s')/.06*840;
+ for(const [key,value] of Object.entries({x1:px,x2:px,y1:20,y2:220,stroke:'#ffffff66'}))marker.setAttribute(key,value);svg.append(marker);
+ document.querySelector('#range').textContent='时间 0–0.06 s；纵轴 '+lo.toFixed(5)+' 至 '+hi.toFixed(5)+' A。当前输入：vd '+get('vd_v').toFixed(2)+' V，vq '+get('vq_v').toFixed(2)+' V，负载 '+get('load_nm').toFixed(2)+' N·m，板热 '+get('board_power_w').toFixed(1)+' W；电压限幅 '+(get('voltage_limited')?'激活':'未激活')+'，本例限幅 '+c.limited_ticks+' 个控制周期。';
+}
+sel.onchange=()=>{slider.value=0;render()};slider.oninput=render;render();
+</script></html>

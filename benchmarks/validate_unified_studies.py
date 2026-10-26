@@ -2,6 +2,7 @@
 
 import copy
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +20,12 @@ ASSETS = ROOT / "outputs/open-models"
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    from validate_joint_fmi import OUT as FMI_OUT
+    from validate_joint_fmi import build
+
+    build()
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(FMI_OUT / "oeal-joint.fmu", ASSETS / "oeal-joint.fmu")
     results = {}
     for profile in catalog():
         source = ROOT / "examples/studies" / (profile + ".json")

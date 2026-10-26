@@ -342,7 +342,7 @@ function initDesign(){
  const A=D.design,U=D.unified;if(!A?.validations?.length)return;
  el("design-content").hidden=false;el("design-unavailable").hidden=true;
  el("design-gate").textContent=A.passed?"设计基准 · 固定门槛通过":"设计基准 · 门槛未通过";
- el("design-summary").textContent="五种模型通过同一 IR / CLI / Agent 接口运行。Optuna 8 次搜索仅修改 Kp ∈ [50,1200]、Kd ∈ [5,100]，基准开关模型尾段误差改善 "+format(A.baseline_improvement_fraction*100,1)+"%。全部为仿真证据；载荷留出验证单独显示。";
+ el("design-summary").textContent="各注册模型通过同一 IR / CLI / Agent 接口运行。Optuna 8 次搜索仅修改 Kp ∈ [50,1200]、Kd ∈ [5,100]，基准开关模型尾段误差改善 "+format(A.baseline_improvement_fraction*100,1)+"%。全部为仿真证据；载荷留出验证单独显示。";
  Object.entries(U.profiles||{}).forEach(([profile,p])=>addCells("unified-results",[profile,p.backend||"见模型注册表",(p.streams||[]).join(", "),p.numeric_passed===false?"失败":"通过",p.goal_passed?"达成":"未达"]));
  const valid=A.trials.filter(t=>t.verification.metrics);
  chart("design-trials-chart",[

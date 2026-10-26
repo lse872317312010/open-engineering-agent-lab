@@ -1,0 +1,70 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OEAL · 关节 FMI 运行机制</title><style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b1220;color:#e6edf7}
+*{box-sizing:border-box}body{margin:0}main{max-width:1160px;margin:auto;padding:28px 18px}
+h1{font-size:clamp(26px,5vw,42px);margin:12px 0}h2{font-size:21px}p{line-height:1.8;color:#b9c8dd}
+.tag{color:#64e0be;letter-spacing:2px;font-size:12px}.panel,.card{background:#121e31;border:1px solid #2b3b52;border-radius:16px;padding:20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{margin:0;padding:16px;min-width:0}.card strong{display:block;margin-top:10px;color:#74e0cb;font-size:19px}
+select,button,.button{font:inherit;color:#e6edf7;background:#20354f;border:1px solid #547493;border-radius:8px;padding:10px;text-decoration:none;display:inline-block}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}input{width:100%;accent-color:#64e0be}label{display:block;margin:12px 0}
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.node{border-left:3px solid #64e0be;padding:12px;background:#19283d;line-height:1.8}
+.small{font-size:13px;color:#b9c8dd}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:12px;border-bottom:1px solid #2b3b52;white-space:nowrap}
+svg,img{width:100%;height:auto;display:block}svg{background:#0c1728;border-radius:10px}
+code{overflow-wrap:anywhere;font-size:12px}.figs{display:grid;grid-template-columns:1fr;gap:18px}
+a{color:#83d9ff}details{margin:16px 0}summary{cursor:pointer}
+@media(max-width:700px){.grid,.flow{grid-template-columns:1fr 1fr}.panel{padding:14px}.node{grid-column:1/-1}main{padding:20px 12px}}
+</style><main>
+<div class="tag">OPEN ENGINEERING AGENT LAB · FMI 2.0 · SIMULATION EVIDENCE</div>
+<h1>看见关节内部如何运行</h1>
+<p>一个可交换的九状态研究模型：电压形成电流与转矩，弹性传动连接双惯量，损耗进入热网络。四组固定激励与独立求解器逐窗对照。所有物理参数均为合成研究值。</p>
+<div class="panel"><b id="gate"></b><p id="summary"></p><div class="controls"><a class="button" href="oeal-joint.fmu" download>下载 Linux FMU</a><a class="button" href="report.pdf">三图 PDF</a><a href="contract.md">固定方程与验收契约</a><a href="report-data.json" download>完整验证摘要</a></div></div>
+<section class="panel"><h2>运行机制与端口</h2><div class="flow">
+<div class="node"><b>① 电气 · 旋转 dq</b><br>输入 vd / vq [V] → id / iq [A]<br>温度反馈 R(Tw)；电流产生 Te<br>输出转子速度供反电势反馈</div>
+<div class="node"><b>② 双惯量 · 弹性传动</b><br>Te → 电机惯量 → N=10 → K/D → 负载<br>负载转矩 Tload [N·m] 交换轴功<br>电机/负载粘性与轴阻尼产生热</div>
+<div class="node"><b>③ 三节点热网络</b><br>铜耗 → 绕组 ↔ 壳体 ↔ 板级<br>机械耗散 → 壳体；Pboard → 板级<br>壳体/板级 → 25°C 环境</div></div>
+<p class="small">外部主机：读状态 → 写入电压/负载/板热 → doStep(t,h) → 读取下一状态。输入在旋转 dq 坐标零阶保持；示例通信周期 50 μs，变步长案例交替 25/75 μs；内部 RK4 ≤5 μs。外部控制器与 PWM 不在此 FMU 内。</p>
+<p class="small">能量独立核算：储能变化 − 电气与外加板热输入 + 负载做功 + 环境散热 = 余额。Pboard 来自附加供电，不重复计算铜耗；余额不补成热源。正负载转矩在正转时吸能，反转时可能供能。</p></section>
+<section class="panel"><h2>组件状态回放</h2><div class="controls"><label>固定场景 <select id="case" aria-label="固定场景"></select></label><a id="csv" class="button" download>导出完整 CSV</a></div>
+<label for="time">时间位置 <b id="now"></b></label><input id="time" type="range" min="0" value="0" aria-label="时间位置">
+<p class="small">使用 Home / End 定位首末点，方向键逐点移动。回放间隔 0.5 ms；完整 CSV 保留全部 1601 个通信采样点。</p>
+<div id="states" class="grid"></div><h3>负载角度与独立参考 · rad</h3><p class="small">青色：FMU；橙色虚线：独立 DOP853。数值接近时两线重叠。</p><svg id="trace" viewBox="0 0 900 240" role="img" aria-label="负载角度与独立参考曲线"></svg><p id="range" class="small"></p></section>
+<section class="panel"><h2>固定门槛与实际结果</h2><p class="small">最大状态差逐项采用各自 SI 单位；门槛 2e-5。全域余额峰值 ≤2e-6 J；内步减半末态差 ≤2e-5，细步误差不得明显退化。通过范围仅覆盖这四组 0.08 s 激励。</p><div class="scroll"><table id="results"><thead><tr><th>场景</th><th>结果</th><th>最大状态差</th><th>余额峰值 J</th><th>细步误差</th></tr></thead><tbody></tbody></table></div>
+<details><summary>生命周期与故障检查</summary><ul id="checks"></ul></details></section>
+<section class="panel"><h2>可导出图表</h2><div class="figs">
+<a href="plots/01-mechanics.svg"><img src="plots/01-mechanics.png" alt="四工况负载角度与速度"></a>
+<a href="plots/02-electrical-reference.svg"><img src="plots/02-electrical-reference.png" alt="电流与独立参考误差"></a>
+<a href="plots/03-energy-thermal.svg"><img src="plots/03-energy-thermal.png" alt="能量余额与板温升"></a></div></section>
+<section class="panel"><h2>来源与边界</h2><p>原创 MIT C 模型；FMPy 0.3.26 执行 FMI 2.0 加载与验证；SciPy DOP853 使用独立 Python 方程逐窗积分。FMU 包内保留源码、契约与许可证。二进制仅覆盖 Linux x86_64。</p>
+<p>本模型没有 MuJoCo 整机、六轴耦合、磁饱和、齿隙、开关器件、在线控制器、OpenModelica 导出或实测标定。当前交付不代表整个关节 FMI 路线已完成；本轮仿真足以独立复现端口与时序验证。</p><div id="provenance" class="small"></div></section></main>
+<script>
+const data=__DATA__,sel=document.querySelector('#case'),slider=document.querySelector('#time');
+const fmt=x=>Number(x).toExponential(3);
+document.querySelector('#gate').textContent=data.passed?'四组固定 FMI 验收通过':'存在未通过项，请检查原始证据';
+document.querySelector('#summary').textContent='四种激励 · 九个物理状态 · 三本能量账 · '+data.boundary_checks.length+' 项接口检查';
+for(const c of data.cases){sel.add(new Option(c.id,c.id));const tr=document.createElement('tr');for(const s of [c.id,c.passed?'通过':'未通过',fmt(c.max_state_error),fmt(c.peak_balance_j),fmt(c.fine_state_error)]){const td=document.createElement('td');td.textContent=s;tr.append(td)}document.querySelector('#results tbody').append(tr)}
+for(const s of data.boundary_checks){const li=document.createElement('li');li.textContent=s;document.querySelector('#checks').append(li)}
+for(const key of ['code_commit','source_sha256','binary_sha256','fmu_sha256','compiler']){const p=document.createElement('p');p.textContent=key+': ';const code=document.createElement('code');code.textContent=data.metadata[key];p.append(code);document.querySelector('#provenance').append(p)}
+function current(){return data.cases.find(c=>c.id===sel.value)}
+function render(){
+ const c=current(),rows=c.samples;slider.max=rows.length-1;const r=rows[+slider.value];
+ const get=(name,row=r)=>row[c.columns.indexOf(name)];
+ document.querySelector('#now').textContent=get('time_s').toFixed(5)+' s';
+ document.querySelector('#csv').href=c.id+'.csv';
+ const status=get('time_s')===0?'已初始化':'仿真运行';
+ const cards=[['电气 · '+status,'iq '+get('iq_a').toFixed(3)+' A'],
+ ['机械 · '+status,get('load_angle_rad').toFixed(5)+' rad'],
+ ['热网络 · '+status,'绕组 '+get('winding_c').toFixed(4)+' °C'],
+ ['能量核算 · '+(Math.abs(get('balance_j'))<=2e-6?'范围内':'超阈值'),fmt(get('balance_j'))+' J']];
+ const container=document.querySelector('#states');container.replaceChildren();
+ for(const [label,value] of cards){const el=document.createElement('div');el.className='card';el.textContent=label;const strong=document.createElement('strong');strong.textContent=value;el.append(strong);container.append(el)}
+ const vals=rows.flatMap(row=>[get('load_angle_rad',row),get('reference_load_angle_rad',row)]),lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo||1;
+ const points=name=>rows.map(row=>(30+get('time_s',row)/.08*840)+','+(210-(get(name,row)-lo)/span*180)).join(' ');
+ const svg=document.querySelector('#trace');svg.replaceChildren();
+ for(const [name,color,dash] of [['load_angle_rad','#64e0be',''],['reference_load_angle_rad','#ffc278','6 4']]){
+ const line=document.createElementNS('http://www.w3.org/2000/svg','polyline');line.setAttribute('points',points(name));line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width','2');line.setAttribute('stroke-dasharray',dash);svg.append(line)}
+ const marker=document.createElementNS('http://www.w3.org/2000/svg','line'),px=30+get('time_s')/.08*840;
+ for(const [key,value] of Object.entries({x1:px,x2:px,y1:20,y2:220,stroke:'#ffffff66'}))marker.setAttribute(key,value);svg.append(marker);
+ document.querySelector('#range').textContent='时间 0–0.08 s；纵轴 '+lo.toFixed(5)+' 至 '+hi.toFixed(5)+' rad。当前输入：vd '+get('vd_v').toFixed(2)+' V，vq '+get('vq_v').toFixed(2)+' V，负载 '+get('load_nm').toFixed(2)+' N·m，板热 '+get('board_w').toFixed(1)+' W。';
+}
+sel.onchange=()=>{slider.value=0;render()};slider.oninput=render;render();
+</script></html>

@@ -175,3 +175,21 @@ flowchart LR
 RK4、无齿隙/夹具。默认模式和原实验保持有效。预测、实际状态、有效惯量与回退
 分别导出为带单位 `coupling` 流；独立验收不把预测中点当成实际储能。
 [契约与公平对照](midpoint-coupling-contract.md)列明误差门槛和未覆盖事件。
+
+
+## 秒级联合验证与报告的证据流
+
+`joint-robustness.yml` 将 16 个固定实验分别运行，逐组保留输入、
+压缩完整结果、原始单位/时钟与散列。聚合作业只读取同一工作流的产物：
+重新核对固定输入，重算原目标和全量轨迹，检查步长敏感性后生成离线报告。
+图表显示抽样不参与 Gate；原始关节 CSV 单独保留。
+
+- 原九组：`benchmarks/validate_robot_endurance.py`，最长 2 s，
+  沿用 PR #15 冻结设计，机器人完整能量余额仍为诊断。
+- 新七组：`benchmarks/validate_joint_robustness.py`，1 s，
+  包括参数/PWM/传感器组合；额外独立重算接口与扩展余额及其固定预算。
+- 时间参考：`oeal.robustness`，手算非均匀采样、缺失端点与非有限输入检查。
+- 新报告：`reports/joint-robustness.html` 与
+  `benchmarks/build_joint_robustness_report.py`，
+  浏览器验收由 `benchmarks/validate_joint_report_ui.py` 执行。
+- 既有 3600 s 热网络回放单列，不把预设热源误写成实际电驱运行。

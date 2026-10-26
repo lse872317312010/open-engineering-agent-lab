@@ -81,7 +81,7 @@ jobs:
         run: |
           ruff check . --exclude vendor
           python -m pytest
-      - name: Fixed one-second case
+      - name: Fixed original one-/two-second PWM holdout
         run: |
           python benchmarks/validate_robot_endurance.py --case ${{ matrix.case }}
           python -m pip freeze > outputs/robot-endurance/${{ matrix.case }}/environment.txt
@@ -95,7 +95,7 @@ jobs:
     needs: [campaign, robot_campaign]
     if: always()
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -129,11 +129,12 @@ jobs:
           python -m pip install -e ".[dev]"
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
-      - name: Independently audit all cases and run thermal endurance
-        run: |
-          python benchmarks/validate_joint_robustness.py
-          python benchmarks/validate_robot_endurance.py --collect
-          python benchmarks/validate_thermal_endurance.py
+      - name: Independently audit seven joint parameter cases
+        run: python benchmarks/validate_joint_robustness.py
+      - name: Independently audit nine original PWM endurance cases
+        run: python benchmarks/validate_robot_endurance.py --collect
+      - name: Preserve separate one-hour prescribed thermal reference
+        run: python benchmarks/validate_thermal_endurance.py
       - name: Build and exercise offline report
         run: |
           python benchmarks/build_joint_robustness_report.py
@@ -179,7 +180,8 @@ jobs:
         run: |
           python - <<'PY'
           import subprocess
-          refs = ["refs/heads/codex/joint-robustness", "refs/heads/codex/robot-endurance"]
+          refs = ["refs/heads/codex/joint-robustness",
+                  "refs/heads/codex/robot-endurance", "refs/heads/codex/thermal-endurance"]
           for ref in refs:
               found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
               if found:

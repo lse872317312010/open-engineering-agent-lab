@@ -8,6 +8,7 @@ import csv
 import ctypes
 import gzip
 import hashlib
+import json
 import shutil
 import zipfile
 from pathlib import Path
@@ -48,9 +49,25 @@ class MSLDriveThermal:
             derivative = variables_xml[int(unknown.attrib["index"])-1]
             state_index = int(derivative.find("Real").attrib["derivative"])-1
             self.state_names.append(variables_xml[state_index].attrib["name"])
-        assert len(self.state_names) == 8 and set(self.state_names) == set(STATES)
-        self.index = [self.state_names.index(n) for n in STATES]
+        assert len(self.state_names) == 8
         self.variables = {v.name: v for v in md.modelVariables}
+        state_variables = [self.variables[n] for n in self.state_names]
+        self.index, self.offsets = [], []
+        for i, canonical in enumerate(STATES):
+            candidates = [self.variables[canonical]]
+            if i < 6:
+                candidates.append(self.variables[f"temperature_c[{i+1}]"])
+            matches = [(j, v.unit) for j, v in enumerate(state_variables)
+                       if any(v.valueReference == c.valueReference for c in candidates)]
+            assert len(matches) == 1, (canonical, self.state_names,
+                                       [(v.name, v.unit, v.valueReference) for v in state_variables])
+            j, unit = matches[0]
+            assert unit in (("K", "degC") if i < 6 else ("J",))
+            self.index.append(j)
+            self.offsets.append(273.15 if unit == "K" else 0.)
+        assert sorted(self.index) == list(range(8))
+        print("msl-state-map: "+json.dumps(dict(states=self.state_names, index=self.index,
+                                                offsets=self.offsets)), flush=True)
         for name in NODES:
             assert self.variables[name].unit == "K"
         for name in POWERS:
@@ -69,7 +86,8 @@ class MSLDriveThermal:
         self.fmu.enterContinuousTimeMode()
         initial = np.empty(8)
         self.fmu.getContinuousStates(initial.ctypes.data_as(PTR), 8)
-        np.testing.assert_allclose(initial[self.index], [298.15]*6+[0., 0.], atol=1e-12)
+        np.testing.assert_allclose(initial[self.index],
+                                   np.r_[[25.]*6, 0., 0.]+self.offsets, atol=1e-12)
         self.file = gzip.open(destination, "wt", compresslevel=1)
         self.writer = csv.writer(self.file)
         self.writer.writerow(LOG_COLUMNS)
@@ -79,7 +97,7 @@ class MSLDriveThermal:
 
     def evaluate(self, t, temperatures, heat, input_j, ambient_j, *, accepted=False):
         values = np.empty(8)
-        values[self.index] = np.r_[np.asarray(temperatures)+273.15, input_j, ambient_j]
+        values[self.index] = np.r_[temperatures, input_j, ambient_j]+self.offsets
         m = self.fmu
         m.setTime(float(t))
         m.setContinuousStates(values.ctypes.data_as(PTR), 8)
@@ -108,7 +126,8 @@ class MSLDriveThermal:
 
     def describe(self):
         return dict(kind="fixed self-built MSL4.0.0 ModelExchange",
-                    state_names=self.state_names, binary_sha256=self.binary_hashes,
+                    state_names=self.state_names, canonical_indices=self.index,
+                    canonical_offsets=self.offsets, binary_sha256=self.binary_hashes,
                     rhs_calls=self.calls, accepted_checkpoints=self.checkpoints,
                     projection_temperature_k=self.projection_temperature_k,
                     projection_energy_j=self.projection_energy_j)

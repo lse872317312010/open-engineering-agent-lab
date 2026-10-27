@@ -390,3 +390,22 @@ python benchmarks/build_msl_cooling_report.py
 五图报告可回放六节点温度、三条热流/能量去向、风冷正常/减弱/增强状态，
 并导出六组全部CSV。六组一小时实验为预设热源回放；
 新非线性边界尚未接入上一轮实际电驱提供方，旧七IR及线性FMU不变。
+
+## 实际电驱与非线性MSL散热
+
+继独立一小时热源回放后，新增实际motulator电驱损耗与Convection/BodyRadiation的同阶段联合反馈。
+壳体、对流、辐射三条能量由电驱求解器分别积分，全部温度、热流、积分与源能独立核对。
+新实验以六节点80°C合成初态激励散热，持续0.02–0.1s；不等同长时电机耐久。
+
+```bash
+python benchmarks/build_msl_cooling.py
+python benchmarks/validate_msl_cooling_drive.py
+python benchmarks/build_msl_cooling_drive_report.py
+```
+
+沿用MSL热编译依赖，另需固定motulator；完整基线检出与环境命令见
+[专项工作流](.github/workflows/msl-cooling-drive.yml)。
+[契约](docs/msl-cooling-drive-contract.md) /
+[联合机制](docs/msl-cooling-drive-network.mmd) /
+[实际结果与报告下载](docs/stage-status.md)。
+默认25°C路径、旧线性FMU接口及七IR保持兼容。

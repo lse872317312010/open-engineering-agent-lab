@@ -51,9 +51,12 @@ class PythonCooling:
 
     def __init__(self, area, varying=False):
         self.area, self.varying = area, varying
+        self.accepted = []
 
     def evaluate(self, t, temperatures, heat, input_j, ambient_j, *,
                  branch_energy_j, accepted=False):
+        if accepted:
+            self.accepted.append([t, *branch_energy_j])
         return rates(temperatures, heat, gc_at(t, self.varying), self.area)[0]
 
     def describe(self):

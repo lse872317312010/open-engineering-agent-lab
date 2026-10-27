@@ -237,8 +237,7 @@ def make_drive(config, magnetic_map=None, robot=None, *, thermal_provider=None):
     if config.get("energy_consistent", False):
         from oeal.backends.energy import attach_energy
 
-        attach_energy(drive, config, robot)
-        drive.oeal_energy.thermal_provider = thermal_provider
+        attach_energy(drive, config, robot, thermal_provider=thermal_provider)
     controller = DriveController(nominal, config, robot)
     controller.drive = drive
     return drive, controller

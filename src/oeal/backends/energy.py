@@ -32,16 +32,25 @@ class EnergyTimeSeries(SubsystemTimeSeries):
 
 
 class EnergySubsystem(Subsystem):
-    def __init__(self, drive, config, bridge_current, robot):
+    def __init__(self, drive, config, bridge_current, robot, thermal_provider=None):
         self.drive, self.config, self.bridge_current, self.robot = (
             drive, config, bridge_current, robot
         )
         self.network = ThermalNetwork(period_s=config["period_s"])
-        self.thermal_provider = None  # trusted Python object; never selected by experiment JSON
+        self.thermal_provider = thermal_provider  # trusted object, never an experiment JSON path
+        self.provider_state_names = tuple(getattr(thermal_provider, "state_names", ()))
+        if self.provider_state_names not in ((), (
+                "case_out_j", "convection_out_j", "radiation_out_j")):
+            raise ValueError("unsupported thermal provider energy states")
+        initial = np.asarray(getattr(thermal_provider, "initial_temperatures_c", [25.]*6),
+                             dtype=float)
+        if initial.shape != (6,) or not np.all(np.isfinite(initial)):
+            raise ValueError("thermal provider needs six finite initial temperatures")
         self.resistance_25 = float(drive.machine.par.R_s)
         self.inp, self.out = None, SimpleNamespace()
         self.state = SimpleNamespace(**{
-            **dict.fromkeys(TEMPERATURES, 25.0), **dict.fromkeys(INTEGRALS, 0.0)
+            **dict(zip(TEMPERATURES, initial, strict=True)), **dict.fromkeys(INTEGRALS, 0.0),
+            **dict.fromkeys(self.provider_state_names, 0.0)
         })
         if config.get("coupling_method") == "midpoint_predictor":
             self.state.motor_torque_impulse_nms = 0.0
@@ -112,16 +121,26 @@ class EnergySubsystem(Subsystem):
             "copper_j", "conduction_j", "auxiliary_device_j", "rotor_friction_j",
             "shaft_heat_import_j",
         ))
+        extra = {}
+        if self.provider_state_names:
+            extra["branch_energy_j"] = [
+                float(getattr(self.state, n).real) for n in self.provider_state_names
+            ]
+            if abs(sum(extra["branch_energy_j"])-float(self.state.ambient_j.real)) > 1e-8:
+                raise ValueError("thermal provider branch state sum disagrees with ambient energy")
         response = np.asarray(self.thermal_provider.evaluate(
             t, self.temperatures, heat, heat_j, float(self.state.ambient_j.real),
-            accepted=accepted,
+            accepted=accepted, **extra,
         ), dtype=float)
-        if response.shape != (8,) or not np.all(np.isfinite(response)):
-            raise ValueError("thermal provider must return six rates and two power derivatives")
+        if (response.shape != (8+len(self.provider_state_names),)
+                or not np.all(np.isfinite(response))):
+            raise ValueError("thermal provider returned invalid thermal/energy derivatives")
         if abs(response[6]-sum(heat)) > 1e-8:
             raise ValueError("thermal provider input power disagrees with actual heat")
         if abs(CAPACITIES @ response[:6]+response[7]-sum(heat)) > 1e-8:
             raise ValueError("thermal provider violates fixed six-node power balance")
+        if self.provider_state_names and abs(sum(response[8:])-response[7]) > 1e-8:
+            raise ValueError("thermal provider branch powers disagree with total ambient power")
         return response
 
     def rhs(self, t):
@@ -132,6 +151,8 @@ class EnergySubsystem(Subsystem):
             response = self._provider_rates(t, heat)
             thermal, rates["ambient_j"] = response[:6], response[7]
         derivatives = [*thermal, *[rates[name] for name in INTEGRALS]]
+        if self.provider_state_names:
+            derivatives.extend(response[8:])
         if hasattr(self.state, "motor_torque_impulse_nms"):
             torque = float(self.drive.machine.out.tau_M)
             derivatives.extend([torque, t * torque])
@@ -150,7 +171,8 @@ class EnergySubsystem(Subsystem):
             "copper_j", "conduction_j", "auxiliary_device_j", "rotor_friction_j",
             "shaft_heat_import_j",
         ))
-        thermal_residual = heat - storage["thermal_j"] - integrals["ambient_j"]
+        thermal_residual = (heat - (storage["thermal_j"] - self.initial_storage["thermal_j"])
+                            - integrals["ambient_j"])
         row = dict(
             time_s=t, **integrals, **storage, local_residual_j=residual,
             thermal_residual_j=thermal_residual, **dict(zip(
@@ -191,10 +213,10 @@ class EnergySubsystem(Subsystem):
         return "energy", EnergyTimeSeries(self)
 
 
-def attach_energy(drive, config, robot=None):
+def attach_energy(drive, config, robot=None, *, thermal_provider=None):
     """Attach the opt-in extension using the fixed upstream subsystem API."""
     original_dc = drive.converter.compute_internal_dc_current
-    energy = EnergySubsystem(drive, config, original_dc, robot)
+    energy = EnergySubsystem(drive, config, original_dc, robot, thermal_provider)
     converter = drive.converter
 
     def with_device_shunt(inp):

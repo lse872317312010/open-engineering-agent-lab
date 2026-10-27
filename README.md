@@ -367,3 +367,26 @@ python benchmarks/build_msl_drive_report.py
 
 这是0.06–0.4s实际损耗联合仿真，区别于上一轮一小时预设损耗回放；
 两者都不代表一小时整机或实物温度精度，真机由用户负责。
+
+## MSL 非线性散热与风冷变化
+
+新增真实MSL `Convection` 与 `BodyRadiation` 组件：
+壳体仍经热阻散热，散热器通过对流和绝对Kelvin四次方辐射并联向环境散热。
+外部Gc输入控制等效对流导热系数，Gr参数表示合成有效辐射面积；
+输入热、壳体/对流/辐射三条散热积分和热储能分别审计。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev]"
+python benchmarks/build_msl_cooling.py
+python benchmarks/validate_msl_cooling.py
+python benchmarks/build_msl_cooling_report.py
+```
+
+需Docker/Linux x86_64/Chrome；准备阶段拉取固定库/镜像，实际编译断网。
+[冻结契约](docs/msl-cooling-contract.md) /
+[散热架构图](docs/msl-cooling-network.svg) /
+[实际结果与下载](docs/stage-status.md)。
+五图报告可回放六节点温度、三条热流/能量去向、风冷正常/减弱/增强状态，
+并导出六组全部CSV。六组一小时实验为预设热源回放；
+新非线性边界尚未接入上一轮实际电驱提供方，旧七IR及线性FMU不变。

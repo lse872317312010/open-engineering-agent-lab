@@ -36,5 +36,5 @@ def test_frozen_four_exchange_clocks_cover_real_discontinuities():
         assert len(windows) == 1600
         assert abs(windows[-1][0]+windows[-1][1]-.08) < 1e-13
         assert all(h > 0 for _, h, _ in windows)
-        for left, right in zip(windows, windows[1:]):
+        for left, right in zip(windows[:-1], windows[1:], strict=True):
             assert abs(left[0]+left[1]-right[0]) < 1e-14

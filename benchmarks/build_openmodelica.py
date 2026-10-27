@@ -1,13 +1,15 @@
 """Resolve a real compiler image once, export FMI2 ME, retain its provenance."""
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "outputs/openmodelica"
-IMAGE = "openmodelica/openmodelica:v1.25.5-minimal"
+IMAGE = ("openmodelica/openmodelica@"
+         "sha256:116ec5a9404019c8cee3111ad80e0db7f09ad7bc433c3777feb05b2418d5e57d")
 
 
 def run(args, **kwargs):
@@ -26,7 +28,11 @@ def main():
     (OUT / "compiler-version.txt").write_text(version+"\n")
     (OUT / "compiler-image.json").write_text(json.dumps(
         dict(tag=IMAGE, digest=digest, image_id=info["Id"], version=version), indent=2))
-    log = run(base + ["omc", "/work/models/modelica/export.mos"], stderr=subprocess.STDOUT)
+    try:
+        log = run(base + ["omc", "/work/models/modelica/export.mos"], stderr=subprocess.STDOUT)
+    finally:
+        run(base + ["chown", "-R", f"{os.getuid()}:{os.getgid()}",
+                    "/work/outputs/openmodelica"])
     (OUT / "export.log").write_text(log)
     print(log)
     artifact = OUT / "OEALJointExchange.fmu"

@@ -1,0 +1,96 @@
+name: MSL six-node thermal FMU endurance evidence
+on:
+  push:
+    branches: [main, codex/msl-thermal]
+    paths: ['models/modelica/OEALMSLThermal.mo', 'models/modelica/export-msl-thermal.mos', 'benchmarks/*msl_thermal*', 'reports/msl-thermal.html', 'tests/test_msl_thermal*', '.github/workflows/msl-thermal.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+concurrency:
+  group: msl-thermal-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  thermal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed host and independent reference environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Export actual MSL components using pinned library and compiler
+        run: python benchmarks/build_msl_thermal.py
+      - name: Lint and deterministic regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Full one-hour Radau matrix-exponential and energy audit
+        run: python benchmarks/validate_msl_thermal.py
+      - name: Offline report and Chrome interaction
+        run: python benchmarks/build_msl_thermal_report.py
+      - name: Retain environment and evidence hashes
+        if: always()
+        run: |
+          mkdir -p outputs/msl-thermal
+          python -m pip freeze > outputs/msl-thermal/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("msl-thermal", "msl-thermal-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file() and not any(x in p.parts for x in ("runtime", "package")):
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "msl-thermal/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-thermal-report
+          path: outputs/msl-thermal-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-thermal-raw-evidence
+          path: |
+            outputs/msl-thermal/
+          if-no-files-found: error
+      - name: Enforce frozen physics and UI gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assert json.loads(Path("outputs/msl-thermal/validation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/msl-thermal-report/ui-validation.json").read_text())["passed"]
+          PY
+  tidy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged thermal branch with a lease
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/msl-thermal"
+          found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
+          if found:
+              sha = found.split()[0]
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
+              subprocess.run(["git", "push", "--force-with-lease=" + ref + ":" + sha, "origin", ":" + ref], check=True)
+          PY

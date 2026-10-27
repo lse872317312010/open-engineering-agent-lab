@@ -234,7 +234,7 @@ outputs/joint-fmi-report/；后者解压打开 index.html，包含三图、PDF�
 [专用工作流](.github/workflows/joint-fmi.yml)保留独立 DOP853、步长减半、
 接口错误检查与全部哈希；实际结果及下载见[阶段状态](docs/stage-status.md)。
 固定合成参数和四组 0.08 s 实验不代表实测标定；
-MuJoCo 整机 FMU、完整控制器/PWM 与 OpenModelica 集成继续保留为后续工作。
+MuJoCo 整机 FMU、完整控制器/PWM 继续保留；OpenModelica 固定植物交换见下节。
 
 ## FMI 统一实验与外部电流闭环
 
@@ -287,3 +287,26 @@ python benchmarks/build_fmi_servo_report.py
 报告说明见[阶段状态](docs/stage-status.md)；四图报告包含主机/植物机制、
 七参数实际与名义值对照、状态回放、完整控制CSV及Linux x86_64 FMU。
 位置环使用理想模型状态；未覆盖编码器/PWM、MuJoCo整机或全参数范围稳定性。
+
+## OpenModelica 模型交换与三方核验
+
+新增原创 Modelica 九状态关节，由 OpenModelica v1.25.5 实际导出 FMI 2.0
+**ModelExchange**。FMPy 导入生成二进制，主机按零阶保持通信窗用 DOP853 积分；
+同一四组激励与独立 Python 方程、现有 C CoSimulation FMU 逐点比较。
+这是独立交换验证路径，统一 IR 仍为七配置，旧资产白名单保持不变。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev]"
+python benchmarks/build_openmodelica.py
+python benchmarks/validate_openmodelica.py
+python benchmarks/build_openmodelica_report.py
+```
+
+需 Docker（Linux x86_64 容器）、GCC 与 Chrome。
+编译镜像已固定实际摘要，导出过程断网；包内保留生成源码、原始版权和契约。
+[交换链路架构图](docs/openmodelica-exchange.svg) /
+[实现前固定契约](docs/openmodelica-interop-contract.md) /
+[实际结果与下载](docs/stage-status.md#2026-10-27openmodelica-model-exchange-三方验证)。
+报告含三图/PDF、三方曲线、四组件状态回放、四组完整CSV和可导入FMU。
+固定传动/热参数与四组短时合成输入，不代表实物精度或完整机器人交换。

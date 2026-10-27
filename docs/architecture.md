@@ -4,7 +4,7 @@
 运行机制图描述 UR5e 联合模型的物理反馈，图中每个后端是可选实验路径。
 
 [查看 / 下载 SVG 总图](architecture.svg) · [Mermaid 总图源文件](architecture-overview.mmd) ·
-[运行机制源文件](architecture-runtime.mmd)
+[运行机制源文件](architecture-runtime.mmd) · [OpenModelica 交换链路](openmodelica-exchange.svg)
 
 ![OEAL 项目架构](architecture.svg)
 
@@ -238,7 +238,8 @@ flowchart LR
 内部参数为固定研究值，外部输入是 4 个明确端口。
 IR/CLI/API 与受保护工具已通过 fmi_joint_v1 接入外部 20 kHz 电流主机；
 七个电机参数与外部位置环已由 fmi_servo_v2 接入；
-传动/热参数配置、机器人/六节点热适配与 OpenModelica 联调尚待后续实现。
+OpenModelica固定植物的ModelExchange导出与FMPy导入已独立验证，见下文；
+传动/热参数配置、机器人/六节点热适配与控制器/事件交换尚待实现。
 [契约](joint-fmi-contract.md)与[独立验证](../benchmarks/validate_joint_fmi.py)分别留存。
 
 ## FMI 主机的控制窗与细步证据
@@ -285,3 +286,18 @@ flowchart LR
 [修订契约](fmi-servo-contract.md)和手算参考先于反馈修改提交。
 旧 fmi_joint_v1 继续使用原18端口与原二进制；
 新版25端口中的18..24为七个固定电机参数。
+
+## OpenModelica 编译与 ModelExchange 交换验证
+
+![OpenModelica交换链路](openmodelica-exchange.svg)
+
+[Mermaid源文件](openmodelica-exchange.mmd)与[冻结契约](openmodelica-interop-contract.md)配套。
+原创Modelica源码经固定OpenModelica镜像实际导出ME FMU；
+FMPy按变量名解析端口和编译器自己的连续状态顺序。
+主机每个零阶保持通信窗设置时间/状态、调用生成导数，并用DOP853积分。
+ModelExchange本身不提供积分器；原C模型的CoSimulation仍使用自身RK4。
+
+全部12输出对照独立Python方程，九物理状态再对照C FMU；
+实际状态重算轴转矩、储能和三本有符号能量账。
+这是独立基准链，不加入IR注册或允许实验指定任意FMU路径。
+报告保留三方轨迹、组件回放、全量CSV、编译镜像摘要及源码/二进制散列。

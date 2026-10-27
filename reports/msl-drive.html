@@ -21,7 +21,7 @@
 <a href="plots/03-losses.svg"><img src="plots/03-losses.png" alt="真实损耗路由及回馈功率"></a>
 <a href="plots/04-energy.svg"><img src="plots/04-energy.png" alt="本地能量与热分账"></a>
 <a href="plots/05-derivatives.svg"><img src="plots/05-derivatives.png" alt="全部FMU导数试探与轨迹独立审计"></a></section>
-<section class="panel"><h2>来源与边界</h2><p>motulator固定上游方程、Modelica Standard Library4.0.0真实热组件、OpenModelica1.25.5导出、FMPy导数调用。温度/储能与环境散热按独立方程重算；上一版默认路径在相同依赖环境做逐位数组对照。</p><p>本轮为0.06–0.4 s连续联合仿真，不是一小时电机或机器人耐久。固定六节点合成RC、理想电流测量、线性单惯量；没有MuJoCo、二极管前端、磁图/铁损支路或实物标定。可信Python接口不允许实验JSON选择FMU，统一IR仍为七配置。真机由用户负责。</p><details><summary>实际构建、映射及来源散列</summary><div id="provenance"></div></details></section></main>
+<section class="panel"><h2>来源与边界</h2><p>motulator固定上游方程、Modelica Standard Library4.0.0真实热组件、OpenModelica1.25.5导出、FMPy导数调用。温度/储能与环境散热按独立方程重算；上一版默认路径在相同依赖环境做逐位数组对照。</p><p>本轮为0.06–0.4 s连续联合仿真，不是一小时电机或机器人耐久。固定六节点合成RC、理想电流测量、线性单惯量；没有MuJoCo、二极管前端、磁图/铁损支路或实物标定。可信Python接口不允许实验JSON选择FMU，统一IR仍为七配置。真机由用户负责。</p><details><summary>早期投影检查失败记录</summary><p>修正前的五组物理轨迹和独立热导数已达到固定门槛，但接受控制点先读取公开输出、再完成积分步，导致公开别名读数滞后。最坏投影差约0.001614 K / 0.001405 J，整次验收明确失败。现按已核对的OpenModelica1.25.5运行时顺序，先完成接受步以刷新代数/公开别名，再读取并按原门槛核对，未修改物理方程、输入或阈值。</p><a href="https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40463015224/artifacts/12715986153">原失败运行的完整证据</a></details><details><summary>实际构建、映射及来源散列</summary><div id="provenance"></div></details></section></main>
 <script>
 const data=__DATA__,sel=document.querySelector('#case'),slider=document.querySelector('#time'),fmt=x=>Number(x).toExponential(3);
 document.querySelector('#gate').textContent=data.passed?'五组连续联合反馈固定验收通过':'存在未通过项，请检查原始证据';

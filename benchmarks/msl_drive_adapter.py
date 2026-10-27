@@ -114,6 +114,8 @@ class MSLDriveThermal:
             if t <= self.last_checkpoint:
                 raise ValueError("accepted controller checkpoints must strictly increase")
             self.last_checkpoint = t
+            # OMC1.25.5 refreshes algebraic/public output aliases on accepted-step completion.
+            assert m.completedIntegratorStep() == (False, False)
             outputs = m.getReal([self.variables[f"temperature_c[{i}]"].valueReference
                                  for i in range(1, 7)]
                                 + [self.variables[n].valueReference for n in STATES[6:]])
@@ -122,7 +124,8 @@ class MSLDriveThermal:
             self.projection_energy_j = max(self.projection_energy_j,
                                             float(max(abs(np.asarray(outputs[6:])
                                                           - [input_j, ambient_j]))))
-            assert m.completedIntegratorStep() == (False, False)
+            assert self.projection_temperature_k <= 1e-10, self.projection_temperature_k
+            assert self.projection_energy_j <= 1e-8, self.projection_energy_j
             self.checkpoints += 1
         else:
             self.calls += 1

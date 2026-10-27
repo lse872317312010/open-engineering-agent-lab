@@ -179,7 +179,10 @@ Agent 只负责提出假设、修改工程文件、选择试验和解释失败�
    OpenModelica固定九状态植物已实际导出FMI2 ModelExchange，经FMPy导入，
    主机DOP853与独立Python方程/原C FMU三方逐点核验；
    [交换契约](openmodelica-interop-contract.md)与[链路架构](openmodelica-exchange.svg)留存。
-   传动/热参数配置、MuJoCo整机/六节点热FMU及控制器/事件联合交换仍待推进，
+   继续采用MSL4.0.0真实热容/热阻/热源组件构建六节点热FMU，
+   固定六组一小时损耗回放，经全轨迹Radau/矩阵指数与能量核验；
+   [热交换契约](msl-thermal-contract.md)和[组件连接图](msl-thermal-network.svg)保留适用边界。
+   传动/热参数配置、MuJoCo整机FMU、真实损耗联合反馈及控制器/事件交换仍待推进，
    不能将短时固定植物及电流主机当作整项完成。
    外部开源 FMU 引入前必须核验版本、许可与数值行为。
 5. **完整控制内核 SIL / ARM 仿真。** 从 PI 扩展到坐标变换、FOC 状态与保护顺序，

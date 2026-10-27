@@ -310,3 +310,27 @@ python benchmarks/build_openmodelica_report.py
 [实际结果与下载](docs/stage-status.md#2026-10-27openmodelica-model-exchange-三方验证)。
 报告含三图/PDF、三方曲线、四组件状态回放、四组完整CSV和可导入FMU。
 固定传动/热参数与四组短时合成输入，不代表实物精度或完整机器人交换。
+
+## MSL 六节点热网络 FMU
+
+用 **Modelica Standard Library 4.0.0 的真实物理组件**构建绕组/铁芯/壳体/
+结温/板级/散热器网络，OpenModelica 1.25.5 导出 FMI2 ModelExchange。
+六路独立保持损耗输入；内部绝对温度 K、输出 °C；提供有符号热流和输入/散热积分。
+固定库提交与编译镜像，开源许可/实际组件源码随 FMU 留存。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev]"
+python benchmarks/build_msl_thermal.py
+python benchmarks/validate_msl_thermal.py
+python benchmarks/build_msl_thermal_report.py
+```
+
+构建准备阶段需网络拉取/核对固定MSL源码与镜像；实际编译断网，需Docker/GCC/Chrome。
+[实现前契约](docs/msl-thermal-contract.md) /
+[真实组件连接图](docs/msl-thermal-network.svg) /
+[采用记录](research/reviews/msl-thermal.md) /
+[实际结果与下载](docs/stage-status.md)。
+报告包含温度/加热冷却状态、带方向热流、工况/时间回放、六组完整CSV和四图PDF/PNG/SVG。
+这是固定合成参数与预设损耗回放，不是整机一小时联合运行或实物热额定值验收；
+统一IR仍为七配置。

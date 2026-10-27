@@ -21,9 +21,8 @@ def test_nonzero_temperature_flows_and_total_power_identity():
     t = np.array([[45., 39., 35., 42., 38., 31.]])
     heat = np.array([[40., 5., .2, 15., 0., 0.]])
     rates = independent_rates(t, heat)[0]
-    expected_net = np.array([30., 5., -13.3, 10., -12/1.2+1.5, 7/1.2-2.])
+    expected_net = np.array([30., 5., 6.7, 10., -1.5+5.-7/1.2, 7/1.2-2.])
     # Board receives -1.5 W from case, +5 W from junction, rejects 7/1.2 W.
-    expected_net[4] = -1.5+5.-7/1.2
     np.testing.assert_allclose(rates[:6]*[60,70,200,.5,25,100], expected_net, atol=1e-13)
     assert abs(np.dot([60,70,200,.5,25,100], rates[:6])+rates[7]-heat.sum()) < 1e-13
 

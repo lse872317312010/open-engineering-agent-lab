@@ -6,7 +6,9 @@ from msl_thermal_reference import CAPACITY, EDGES
 
 
 def resistance(winding_c, enabled=True):
-    return .3*(1+.00393*(np.asarray(winding_c)-25)) if enabled else np.asarray(winding_c)*0+.3
+    if enabled:
+        return .3*(1+.00393*(np.asarray(winding_c)-25))
+    return np.asarray(winding_c)*0+.3
 
 
 def route_heat(copper, friction, conduction, auxiliary):

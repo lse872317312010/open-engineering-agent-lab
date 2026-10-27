@@ -142,7 +142,8 @@ def main():
     assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
     ui = dict(passed=True, browser=version, charts=5, page_errors=errors,
               external_requests=network,
-              checks=["five cases", "four state cards with all six temperatures", "keyboard endpoints",
+              checks=["five cases", "four state cards with all six temperatures",
+                      "keyboard endpoints",
                       "five full control CSVs", "play/pause", "390px layout", "PDF/PNG/SVG"])
     (OUT / "ui-validation.json").write_text(json.dumps(ui, indent=2))
     print("msl-drive-ui: "+json.dumps(ui), flush=True)

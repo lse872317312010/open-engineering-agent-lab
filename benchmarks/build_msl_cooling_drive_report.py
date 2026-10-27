@@ -114,7 +114,7 @@ def main():
             page.locator("#time").focus()
             page.keyboard.press("Home")
             assert page.locator("#now").inner_text().startswith("0.00000 s")
-            assert "80.000" in page.locator("#n0").inner_text()
+            assert "80.000" in page.locator("#n0").text_content()
             page.keyboard.press("End")
             assert abs(float(page.locator("#now").inner_text().split()[0])-c["duration_s"]) < 1e-10
             assert page.locator("#states .card").count() == 9

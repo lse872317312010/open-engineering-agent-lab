@@ -38,7 +38,7 @@ class EnergySubsystem(Subsystem):
         )
         self.network = ThermalNetwork(period_s=config["period_s"])
         self.thermal_provider = thermal_provider  # trusted object, never an experiment JSON path
-        self.provider_state_names = tuple(getattr(thermal_provider, "state_names", ()))
+        self.provider_state_names = tuple(getattr(thermal_provider, "energy_state_names", ()))
         if self.provider_state_names not in ((), (
                 "case_out_j", "convection_out_j", "radiation_out_j")):
             raise ValueError("unsupported thermal provider energy states")

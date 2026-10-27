@@ -46,7 +46,7 @@ def rates(temperatures, heat, gc, area):
 
 
 class PythonCooling:
-    state_names = BRANCHES
+    energy_state_names = BRANCHES
     initial_temperatures_c = (80.,)*6
 
     def __init__(self, area, varying=False):

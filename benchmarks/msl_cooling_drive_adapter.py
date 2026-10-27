@@ -30,7 +30,7 @@ LOG_COLUMNS = (["accepted", "time_s"]+[f"temperature_{i}_c" for i in range(6)]
 
 
 class MSLCoolingDrive:
-    state_names = BRANCHES
+    energy_state_names = BRANCHES
     initial_temperatures_c = (80.,)*6
 
     def __init__(self, destination, duration, area, varying=False):

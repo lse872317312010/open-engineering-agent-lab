@@ -52,7 +52,7 @@ class ThermalProviderTests(unittest.TestCase):
 
     def test_branch_integrals_are_solver_states_with_hot_initial_storage(self):
         class Provider:
-            state_names = ("case_out_j", "convection_out_j", "radiation_out_j")
+            energy_state_names = ("case_out_j", "convection_out_j", "radiation_out_j")
             initial_temperatures_c = (80.,)*6
 
             def evaluate(self, _t, temperatures, heat, input_j, ambient_j, *,
@@ -76,7 +76,7 @@ class ThermalProviderTests(unittest.TestCase):
 
     def test_branch_power_and_state_sum_mismatches_are_rejected(self):
         class Provider:
-            state_names = ("case_out_j", "convection_out_j", "radiation_out_j")
+            energy_state_names = ("case_out_j", "convection_out_j", "radiation_out_j")
 
             def evaluate(self, _t, temperatures, heat, *_args, **_kwargs):
                 return np.r_[np.array(heat)/np.array([60.,70.,200.,.5,25.,100.]),

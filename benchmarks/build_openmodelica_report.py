@@ -70,6 +70,11 @@ def main():
     shutil.copyfile(SOURCE / "OEALJointExchange.fmu", OUT / "OEALJointExchange.fmu")
     shutil.copyfile(SOURCE / "validation.json", OUT / "report-data.json")
     shutil.copyfile(ROOT / "docs/openmodelica-interop-contract.md", OUT / "contract.md")
+    shutil.copyfile(ROOT / "docs/openmodelica-exchange.svg", OUT / "exchange.svg")
+    shutil.copyfile(ROOT / "LICENSE", OUT / "LICENSE")
+    for filename in ("compiler-image.json", "compiler-package-copyright.txt"):
+        shutil.copyfile(SOURCE / filename, OUT / filename)
+    shutil.copyfile(ROOT / "models/modelica/OEALJointExchange.mo", OUT / "OEALJointExchange.mo")
     template = (ROOT / "reports/openmodelica.html").read_text()
     (OUT / "index.html").write_text(template.replace("__DATA__", json.dumps(data)))
     (OUT / "README.txt").write_text(
@@ -85,6 +90,8 @@ def main():
         page.on("request", lambda req: network.append(req.url)
                 if req.url.startswith(("http://", "https://")) else None)
         page.goto((OUT / "index.html").as_uri())
+        assert page.locator('img[src="exchange.svg"]').count() == 1
+        assert page.evaluate("Array.from(document.images).every(i=>i.complete && i.naturalWidth>0)")
         assert page.locator("#case option").count() == 4
         assert page.locator("#results tbody tr").count() == 4
         for name in names:

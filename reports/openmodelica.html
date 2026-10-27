@@ -18,7 +18,7 @@ a{color:#83d9ff}details{margin:16px 0}summary{cursor:pointer}
 <h1>同一关节，跨工具核验</h1>
 <p>原创 Modelica 方程经 OpenModelica 编译成真实 ModelExchange FMU，由 FMPy 导入；与独立 Python 方程和现有 C FMU 三方逐点对照。四组固定激励，全部为合成研究参数。</p>
 <div class="panel"><b id="gate"></b><p id="summary"></p><div class="controls"><a class="button" href="OEALJointExchange.fmu" download>下载 Linux FMU</a><a class="button" href="report.pdf">三图 PDF</a><a href="contract.md">固定方程与验收契约</a><a href="report-data.json" download>完整验证摘要</a></div></div>
-<section class="panel"><h2>运行机制与端口</h2><div class="flow">
+<section class="panel"><h2>交换链路与核验关系</h2><img src="exchange.svg" alt="编译、导入、主机积分及独立三方核验架构"></section><section class="panel"><h2>运行机制与端口</h2><div class="flow">
 <div class="node"><b>① 电气 · 旋转 dq</b><br>输入 vd / vq [V] → id / iq [A]<br>温度反馈 R(Tw)；电流产生 Te<br>输出转子速度供反电势反馈</div>
 <div class="node"><b>② 双惯量 · 弹性传动</b><br>Te → 电机惯量 → N=10 → K/D → 负载<br>负载转矩 Tload [N·m] 交换轴功<br>电机/负载粘性与轴阻尼产生热</div>
 <div class="node"><b>③ 三节点热网络</b><br>铜耗 → 绕组 ↔ 壳体 ↔ 板级<br>机械耗散 → 壳体；Pboard → 板级<br>壳体/板级 → 25°C 环境</div></div>

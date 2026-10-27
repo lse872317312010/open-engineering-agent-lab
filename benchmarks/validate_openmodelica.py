@@ -130,6 +130,9 @@ def main():
                    any(p in n.lower() for p in ("license", "copyright", "copying"))]
         source_names = [n for n in z.namelist() if n.startswith("sources/")]
         assert source_names, "retain generated/runtime source with the FMU"
+        assert "resources/oeal-licenses/compiler-package-copyright.txt" in notices
+        assert "resources/oeal-licenses/OSMC-License.txt" in notices
+        assert "resources/oeal-licenses/OEAL-MIT.txt" in z.namelist()
         notice_sources = [n for n in source_names if n.endswith((".c", ".h"))
                           and b"Copyright" in z.read(n)]
         assert notice_sources, "missing runtime source copyright headers"

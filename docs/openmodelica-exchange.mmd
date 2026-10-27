@@ -1,0 +1,9 @@
+flowchart LR
+  MO["原创 Modelica 方程"] --> OMC["OpenModelica v1.25.5 / 镜像摘要"]
+  OMC --> ME["FMI 2.0 ModelExchange 二进制"]
+  ME --> HOST["FMPy / setTime / setContinuousStates / getDerivatives"]
+  HOST --> DOP["主机 DOP853 / 通信窗 ZOH"]
+  DOP --> AUDIT["全部端点 / 轴转矩 / 独立能量余额"]
+  PY["独立 Python 方程 / DOP853"] --> AUDIT
+  C["既有 C CoSimulation FMU / 内部 RK4"] --> AUDIT
+  AUDIT --> REPORT["离线报告 / 状态回放 / 全量 CSV / 来源与边界"]

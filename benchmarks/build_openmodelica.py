@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +28,7 @@ def main():
     assert "1.25.5" in version, version
     (OUT / "compiler-version.txt").write_text(version+"\n")
     (OUT / "compiler-image.json").write_text(json.dumps(
-        dict(tag=IMAGE, digest=digest, image_id=info["Id"], version=version), indent=2))
+        dict(tag="openmodelica/openmodelica:v1.25.5-minimal", digest=digest, image_id=info["Id"], version=version), indent=2))
     try:
         log = run(base + ["omc", "/work/models/modelica/export.mos"], stderr=subprocess.STDOUT)
     finally:
@@ -40,6 +41,16 @@ def main():
     copyright_text = run(base + ["sh", "-c",
         "cat /usr/share/doc/omc/copyright"])
     (OUT / "compiler-package-copyright.txt").write_text(copyright_text)
+    with zipfile.ZipFile(artifact, "a", zipfile.ZIP_DEFLATED) as package:
+        package.writestr("resources/oeal-licenses/compiler-package-copyright.txt", copyright_text)
+        for path, target in [
+            ("LICENSE", "OEAL-MIT.txt"),
+            ("research/licenses/OpenModelica-v1.25.5.txt", "OSMC-License.txt"),
+            ("research/licenses/OSMC-USAGE-MODE.txt", "OSMC-USAGE-MODE.txt"),
+            ("docs/openmodelica-interop-contract.md", "contract.md"),
+            ("models/modelica/OEALJointExchange.mo", "OEALJointExchange.mo"),
+        ]:
+            package.write(ROOT / path, "resources/oeal-licenses/"+target)
     shutil.copyfile(ROOT / "models/modelica/OEALJointExchange.mo", OUT / "OEALJointExchange.mo")
     shutil.copyfile(ROOT / "docs/openmodelica-interop-contract.md", OUT / "contract.md")
     print("openmodelica-compiler: "+json.dumps(dict(version=version, digest=digest)))

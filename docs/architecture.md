@@ -1,6 +1,6 @@
 # 项目架构
 
-更新：2026-10-26。按 main 的已实现代码梳理；软件架构图描述模块职责和数据流，
+更新：2026-10-27。按 main 的已实现代码梳理；软件架构图描述模块职责和数据流，
 运行机制图描述 UR5e 联合模型的物理反馈，图中每个后端是可选实验路径。
 
 [查看 / 下载 SVG 总图](architecture.svg) · [Mermaid 总图源文件](architecture-overview.mmd) ·
@@ -20,6 +20,7 @@ flowchart TB
   TOOLS --> ENTRY
   ENTRY --> IR["IR 验证与版本分派<br/>0.1 兼容；0.2 单位 / 能力 / 时钟 / 预算"]
   IR --> REG["固定模型注册与资产哈希校验<br/>studies.py / asset-lock.json"]
+  REG --> SERVO["可配置 FMI / 外部位置与电流双环<br/>负载位置 / 电机输出侧速度"]
   REG --> FMI["固定 FMI / 外部 dq 电流主机<br/>fmi_joint.py / FMPy / FMI 2.0 CS"]
   REG --> NATIVE["原生后端<br/>PMSM RK4 / 20 kHz FOC / 九状态关节"]
   REG --> MOTOR["motulator 后端<br/>PWM / 死区 / 母线 / 磁图 / 传感器"]
@@ -27,6 +28,7 @@ flowchart TB
   MOTOR <-->|"损耗热源 / 铜阻反馈"| THERMAL["六节点热网络"]
   IR --> LEGACY["IR 0.1 旧适配<br/>native / PathSim 开环"]
   NATIVE --> STREAM["SimulationResult<br/>带单位信号流 / 时间语义 / 输入和原始数据哈希"]
+  SERVO --> STREAM
   FMI --> STREAM
   MOTOR --> STREAM
   ROBOT --> STREAM
@@ -98,11 +100,12 @@ FOC 默认按 50 μs 更新；电气求解器在控制间隔内积分。
 
 ## 固定配置与结果接口
 
-IR 0.2 固定注册六种配置：
+IR 0.2 固定注册七种配置：
 
 | 配置 | 后端 | 主要结果流 |
 |---|---|---|
 | fmi_joint_v1 | fmi | control / waveforms |
+| fmi_servo_v2 | fmi | joint / control / waveforms |
 | native_foc_v1 | native | control |
 | native_joint_v1 | native | control |
 | motulator_pmsm_v1 | motulator | control / waveforms / gates |
@@ -234,7 +237,8 @@ flowchart LR
 通信输入在**转子 dq 坐标**保持，不能与原生 FOC 的静止 alpha/beta 保持混用。
 内部参数为固定研究值，外部输入是 4 个明确端口。
 IR/CLI/API 与受保护工具已通过 fmi_joint_v1 接入外部 20 kHz 电流主机；
-完整物理参数可配置、位置环、机器人/六节点热适配与 OpenModelica 联调尚待后续实现。
+七个电机参数与外部位置环已由 fmi_servo_v2 接入；
+传动/热参数配置、机器人/六节点热适配与 OpenModelica 联调尚待后续实现。
 [契约](joint-fmi-contract.md)与[独立验证](../benchmarks/validate_joint_fmi.py)分别留存。
 
 ## FMI 主机的控制窗与细步证据
@@ -256,3 +260,28 @@ flowchart LR
 doStep 通信细步与控制周期明确分开；最后输出点不额外更新控制或积分。
 独立 DOP853 逐控制窗重放实际施加电压，并用独立 PI 算术重建主机指令。
 [固定契约](fmi-host-contract.md)先于参考与主机实现，既有五个配置继续共用原接口。
+
+## 可配置植物与反馈修订 B
+
+```mermaid
+flowchart LR
+  IR["IR电机实际参数 / 范围 / 单位"] --> INIT["白名单FMU初始化<br/>原子写入7参数；运行期固定"]
+  QR["目标位置 / 速度"] --> PD["位置PD<br/>Kp60 / Kd3"]
+  LOAD["实际负载位置 ql"] --> PD
+  SPEED["实际转子速度 wm / 10"] --> PD
+  PD --> KT["冻结名义转矩常数<br/>生成 iq*；id*=0"]
+  KT --> PI["冻结名义 dq PI / 解耦 / 限幅"]
+  PI --> FMU["可配置C植物<br/>电气 / 双惯量 / 三节点热"]
+  INIT --> FMU
+  FMU --> LOAD
+  FMU --> SPEED
+  FMU --> AUDIT["实际参数下的储能 / 功 / 热<br/>完整时钟 / 参数与状态绑定"]
+  AUDIT --> REPORT["四图 + 参数表 + 状态回放<br/>原结构A与预期失败保留"]
+```
+
+原结构A使用负载侧速度作微分反馈。理想电流环双惯量的独立Routh-Hurwitz检查
+揭示其结构性问题；修订B采用电机输出侧速度，位置反馈仍在负载侧。
+该判据是限定降阶分析，不能代替完整采样非线性联合模型的固定Gate。
+[修订契约](fmi-servo-contract.md)和手算参考先于反馈修改提交。
+旧 fmi_joint_v1 继续使用原18端口与原二进制；
+新版25端口中的18..24为七个固定电机参数。

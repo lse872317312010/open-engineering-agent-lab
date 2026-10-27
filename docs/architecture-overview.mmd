@@ -7,6 +7,7 @@ flowchart TB
   TOOLS --> ENTRY
   ENTRY --> IR["IR 验证与版本分派<br/>0.1 兼容；0.2 单位 / 能力 / 时钟 / 预算"]
   IR --> REG["固定模型注册与资产哈希校验<br/>studies.py / asset-lock.json"]
+  REG --> SERVO["可配置 FMI / 外部位置与电流双环<br/>负载位置 / 电机输出侧速度"]
   REG --> FMI["固定 FMI / 外部 dq 电流主机<br/>fmi_joint.py / FMPy / FMI 2.0 CS"]
   REG --> NATIVE["原生后端<br/>PMSM RK4 / 20 kHz FOC / 九状态关节"]
   REG --> MOTOR["motulator 后端<br/>PWM / 死区 / 母线 / 磁图 / 传感器"]
@@ -14,6 +15,7 @@ flowchart TB
   MOTOR <-->|"损耗热源 / 铜阻反馈"| THERMAL["六节点热网络"]
   IR --> LEGACY["IR 0.1 旧适配<br/>native / PathSim 开环"]
   NATIVE --> STREAM["SimulationResult<br/>带单位信号流 / 时间语义 / 输入和原始数据哈希"]
+  SERVO --> STREAM
   FMI --> STREAM
   MOTOR --> STREAM
   ROBOT --> STREAM

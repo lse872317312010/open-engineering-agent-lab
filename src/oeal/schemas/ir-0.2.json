@@ -18,7 +18,8 @@
             "motulator_pmsm_v1",
             "baldor_map_v1",
             "ur5e_joint_v1",
-            "fmi_joint_v1"
+            "fmi_joint_v1",
+            "fmi_servo_v2"
           ]
         },
         "parameters": {
@@ -1030,7 +1031,8 @@
             "motulator_pmsm_v1",
             "baldor_map_v1",
             "ur5e_joint_v1",
-            "fmi_joint_v1"
+            "fmi_joint_v1",
+            "fmi_servo_v2"
           ]
         },
         "primary_stream": {

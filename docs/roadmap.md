@@ -1,7 +1,7 @@
 # 开发路线图（Roadmap v1.2）
 
 > 项目：Open Engineering Agent Lab（OEAL）  
-> 更新日期：2026-10-26  
+> 更新日期：2026-10-27  
 > 定位：开放、可迁移、可验证的 **Python + AI Agent 原生工程建模与自主研发平台**。  
 > 第一垂直领域：PMSM / FOC / 机器人关节伺服。  
 > 核心资产：模型、代码、实验数据、工程知识、验证证据；不绑定 MATLAB、单一 LLM、求解器或 MCU 厂商。
@@ -174,7 +174,9 @@ Agent 只负责提出假设、修改工程文件、选择试验和解释失败�
    [FMI 契约](joint-fmi-contract.md)与阶段状态。
    已继续完成 fmi_joint_v1 的第六 IR/CLI/API/StudyTools 注册与外部 dq 电流闭环，
    四组固定目标通过，一个预声明电压不足案例明确失败；[主机契约](fmi-host-contract.md)先于实现。
-   完整参数配置、位置环、MuJoCo 整机/六节点热 FMU 与 OpenModelica 联调仍待推进，
+   继续新增 fmi_servo_v2：七个初始化前电机参数、实际参数下的能量核算与外部位置/电流双环；
+   独立判据支持速度反馈修订B，原结构A与不可达目标完整保留，见[FMI伺服契约](fmi-servo-contract.md)。
+   传动/热参数配置、MuJoCo 整机/六节点热 FMU 与 OpenModelica 联调仍待推进，
    不能将短时固定植物及电流主机当作整项完成。
    外部开源 FMU 引入前必须核验版本、许可与数值行为。
 5. **完整控制内核 SIL / ARM 仿真。** 从 PI 扩展到坐标变换、FOC 状态与保护顺序，

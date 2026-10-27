@@ -29,11 +29,13 @@ CONTROL_COLUMNS = [*WAVE_COLUMNS, "vd_v", "vq_v", "load_nm", "board_power_w",
                    "id_reference_a", "iq_reference_a", "voltage_limited", "current_limited"]
 
 
-def load_asset(root):
+def load_asset(root, *, filename="oeal-joint.fmu", binary_path=BINARY,
+               binary_sha256=BINARY_SHA256, source_sha256=SOURCE_SHA256,
+               guid=GUID, ident=IDENT, port_names=NAMES, port_units=UNITS):
     if root is None:
         raise ValueError("FMI profile needs the trusted host's --assets-root")
     base = Path(root).resolve()
-    path = (base / "oeal-joint.fmu").resolve()
+    path = (base / filename).resolve()
     if not path.is_relative_to(base):
         raise ValueError("FMI asset escapes trusted root")
     if path.stat().st_size > 4_000_000:
@@ -41,7 +43,7 @@ def load_asset(root):
     raw = path.read_bytes()
     if len(raw) > 4_000_000:
         raise ValueError("FMI package exceeds size limit")
-    allowed = {"modelDescription.xml", BINARY, "resources/joint.c", "resources/contract.md",
+    allowed = {"modelDescription.xml", binary_path, "resources/joint.c", "resources/contract.md",
                "resources/LICENSE", "resources/THIRD_PARTY.txt"}
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         names = archive.namelist()
@@ -52,31 +54,31 @@ def load_asset(root):
         xml = archive.read("modelDescription.xml")
         if len(xml) > 65536 or b"<!DOCTYPE" in xml.upper() or b"<!ENTITY" in xml.upper():
             raise ValueError("FMI descriptor outside fixed contract")
-        binary = archive.read(BINARY)
+        binary = archive.read(binary_path)
         source = archive.read("resources/joint.c")
-    if hashlib.sha256(binary).hexdigest() != BINARY_SHA256:
+    if hashlib.sha256(binary).hexdigest() != binary_sha256:
         raise ValueError("pinned FMI binary hash mismatch")
-    if hashlib.sha256(source).hexdigest() != SOURCE_SHA256:
+    if hashlib.sha256(source).hexdigest() != source_sha256:
         raise ValueError("pinned FMI source hash mismatch")
     description = fromstring(xml)
     cs = description.find("CoSimulation")
     if (description.tag != "fmiModelDescription" or description.get("fmiVersion") != "2.0"
-            or description.get("guid") != GUID or cs is None
-            or cs.get("modelIdentifier") != IDENT or description.find("ModelExchange") is not None):
+            or description.get("guid") != guid or cs is None
+            or cs.get("modelIdentifier") != ident or description.find("ModelExchange") is not None):
         raise ValueError("FMI type/GUID/identifier mismatch")
     variables = description.findall("./ModelVariables/ScalarVariable")
-    if len(variables) != 18:
+    if len(variables) != len(port_names):
         raise ValueError("FMI port count mismatch")
     for index, node in enumerate(variables):
         causality = "output" if index < 12 or index == 17 else (
-            "parameter" if index == 16 else "input")
+            "parameter" if index == 16 or index >= 18 else "input")
         real = node.find("Real")
-        if (node.get("name") != NAMES[index] or node.get("valueReference") != str(index)
+        if (node.get("name") != port_names[index] or node.get("valueReference") != str(index)
                 or node.get("causality") != causality or real is None
-                or real.get("unit") != UNITS[index]):
+                or real.get("unit") != port_units[index]):
             raise ValueError("FMI port reference/unit/causality mismatch")
-    return dict(xml=xml, binary=binary,
-                hashes=dict(binary_sha256=BINARY_SHA256, xml_sha256=hashlib.sha256(xml).hexdigest(),
+    return dict(xml=xml, binary=binary, binary_path=binary_path,
+                hashes=dict(binary_sha256=binary_sha256, xml_sha256=hashlib.sha256(xml).hexdigest(),
                             archive_sha256=hashlib.sha256(raw).hexdigest()))
 
 
@@ -110,7 +112,7 @@ def torque(x):
     return 80*(x[2]/10-x[4])+.15*(x[3]/10-x[5])
 
 
-def run(s, payload):
+def run(s, payload, *, guid=GUID, ident=IDENT, command=control, motor_values=None):
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "AMD64"}:
         raise ValueError("pinned FMI binary supports Linux x86_64 only")
     from fmpy import read_model_description
@@ -121,19 +123,23 @@ def run(s, payload):
     rows, waves = [], []
     with tempfile.TemporaryDirectory(prefix="oeal-fmi-") as directory:
         root = Path(directory)
-        binary = root / BINARY
+        binary = root / payload.get("binary_path", BINARY)
         binary.parent.mkdir(parents=True)
         binary.write_bytes(payload["binary"])
         (root / "modelDescription.xml").write_bytes(payload["xml"])
         (root / "resources").mkdir()
         read_model_description(directory, validate=True)
-        model = FMU2Slave(guid=GUID, unzipDirectory=directory, modelIdentifier=IDENT,
+        model = FMU2Slave(guid=guid, unzipDirectory=directory, modelIdentifier=ident,
                          instanceName="oeal-host")
         model.instantiate()
         try:
             model.setupExperiment(startTime=0., stopTime=s["duration_s"])
             model.enterInitializationMode()
             model.setReal([16], [s["integration_step_s"]])
+            if motor_values is not None:
+                model.setReal(list(range(18, 25)), motor_values)
+                if model.getReal(list(range(18, 25))) != list(motor_values):
+                    raise ValueError("FMI physical parameters were not applied")
             model.exitInitializationMode()
             x = model.getReal(list(range(12)))
             waves.append([0., *x, torque(x)])
@@ -141,7 +147,7 @@ def run(s, payload):
             extra = None
             for tick in range(ticks):
                 t = tick*s["control_period_s"]
-                output = control(s, x, tick, state)
+                output = command(s, x, tick, state)
                 state = output.next_state
                 applied = pending if s["delay_samples"] else (output.vd_v, output.vq_v)
                 pending = (output.vd_v, output.vq_v)
@@ -164,9 +170,10 @@ def run(s, payload):
                              physical_parameters="joint-fmi-contract-v1")
 
 
-def audit(s, signals, context):
+def audit(s, signals, context, *, command=control, binary_sha256=BINARY_SHA256,
+          storage=None):
     """Rebuild commands, complete clocks and all-domain storage from physical states."""
-    if context.get("fmi_asset_hashes", {}).get("binary_sha256") != BINARY_SHA256:
+    if context.get("fmi_asset_hashes", {}).get("binary_sha256") != binary_sha256:
         raise ValueError("FMI attestation differs from the fixed binary")
     if context.get("hold_frame") != "rotating_dq":
         raise ValueError("FMI hold frame mismatch")
@@ -195,7 +202,7 @@ def audit(s, signals, context):
         raise ValueError("FMI solver budget record mismatch")
     state, pending = CurrentPIState(), (0., 0.)
     for tick, row in enumerate(rows[:-1]):
-        output = control(s, row[1:13], tick, state)
+        output = command(s, row[1:13], tick, state)
         state = output.next_state
         applied = pending if s["delay_samples"] else (output.vd_v, output.vq_v)
         pending = (output.vd_v, output.vq_v)
@@ -213,6 +220,8 @@ def audit(s, signals, context):
     energy = (.0006*(x[:, 0]**2+x[:, 1]**2)+.000025*x[:, 3]**2+.01*x[:, 5]**2
               + 40*(x[:, 2]/10-x[:, 4])**2
               + 60*(x[:, 6]-25)+200*(x[:, 7]-25)+25*(x[:, 8]-25))
+    if storage is not None:
+        energy = storage(x)
     residual = energy-energy[0]-x[:, 9]+x[:, 10]+x[:, 11]
     metrics = dict(energy_balance_abs_j=float(np.max(np.abs(residual))),
                    shaft_torque_peak_nm=float(np.max(np.abs(shaft))),

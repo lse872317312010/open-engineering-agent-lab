@@ -28,7 +28,8 @@ def main():
     assert "1.25.5" in version, version
     (OUT / "compiler-version.txt").write_text(version+"\n")
     (OUT / "compiler-image.json").write_text(json.dumps(
-        dict(tag="openmodelica/openmodelica:v1.25.5-minimal", digest=digest, image_id=info["Id"], version=version), indent=2))
+        dict(tag="openmodelica/openmodelica:v1.25.5-minimal", digest=digest,
+             image_id=info["Id"], version=version), indent=2))
     try:
         log = run(base + ["omc", "/work/models/modelica/export.mos"], stderr=subprocess.STDOUT)
     finally:

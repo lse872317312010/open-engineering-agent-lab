@@ -1,7 +1,6 @@
 """Independent loss routing and resistance checks frozen before coupling code."""
 
 import numpy as np
-
 from msl_thermal_reference import CAPACITY, EDGES
 
 

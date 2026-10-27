@@ -37,6 +37,7 @@ class EnergySubsystem(Subsystem):
             drive, config, bridge_current, robot
         )
         self.network = ThermalNetwork(period_s=config["period_s"])
+        self.thermal_provider = None  # trusted Python object; never selected by experiment JSON
         self.resistance_25 = float(drive.machine.par.R_s)
         self.inp, self.out = None, SimpleNamespace()
         self.state = SimpleNamespace(**{
@@ -106,9 +107,30 @@ class EnergySubsystem(Subsystem):
     def set_outputs(self, t):
         pass
 
+    def _provider_rates(self, t, heat, *, accepted=False):
+        heat_j = sum(float(getattr(self.state, n).real) for n in (
+            "copper_j", "conduction_j", "auxiliary_device_j", "rotor_friction_j",
+            "shaft_heat_import_j",
+        ))
+        response = np.asarray(self.thermal_provider.evaluate(
+            t, self.temperatures, heat, heat_j, float(self.state.ambient_j.real),
+            accepted=accepted,
+        ), dtype=float)
+        if response.shape != (8,) or not np.all(np.isfinite(response)):
+            raise ValueError("thermal provider must return six rates and two power derivatives")
+        if abs(response[6]-sum(heat)) > 1e-8:
+            raise ValueError("thermal provider input power disagrees with actual heat")
+        if abs(CAPACITIES @ response[:6]+response[7]-sum(heat)) > 1e-8:
+            raise ValueError("thermal provider violates fixed six-node power balance")
+        return response
+
     def rhs(self, t):
         _, rates, heat = self.powers(t)
-        thermal = self.network.rates(self.temperatures, heat)
+        if self.thermal_provider is None:
+            thermal = self.network.rates(self.temperatures, heat)
+        else:
+            response = self._provider_rates(t, heat)
+            thermal, rates["ambient_j"] = response[:6], response[7]
         derivatives = [*thermal, *[rates[name] for name in INTEGRALS]]
         if hasattr(self.state, "motor_torque_impulse_nms"):
             torque = float(self.drive.machine.out.tau_M)
@@ -116,7 +138,9 @@ class EnergySubsystem(Subsystem):
         return derivatives
 
     def snapshot(self, t):
-        powers, _, _ = self.powers(t)
+        powers, _, heat = self.powers(t)
+        if self.thermal_provider is not None:
+            powers["ambient_w"] = self._provider_rates(t, heat, accepted=True)[7]
         integrals = {n: float(getattr(self.state, n).real) for n in INTEGRALS}
         storage = self.storage()
         delta = sum(storage[n] - self.initial_storage[n] for n in storage)
@@ -138,7 +162,7 @@ class EnergySubsystem(Subsystem):
     def describe(self):
         bus = self.drive.dc_bus
         mechanics = self.drive.mechanics
-        return {
+        description = {
             "boundary": "DC feed port + linear PMSM + rotor + six thermal nodes",
             "thermal_nodes": list(NAMES),
             "capacities_j_per_k": CAPACITIES.tolist(),
@@ -157,6 +181,11 @@ class EnergySubsystem(Subsystem):
             "torque_impulse_semantics": "integral of actual torque; predictor-only, N*m*s",
             "torque_moment_semantics": "integral of solver-time * torque; N*m*s^2",
         }
+
+        if self.thermal_provider is not None:
+            description["thermal_provider"] = self.thermal_provider.describe()
+            description["thermal_semantics"] = "provider derivatives in upstream continuous solver"
+        return description
 
     def create_time_series(self, t):
         return "energy", EnergyTimeSeries(self)

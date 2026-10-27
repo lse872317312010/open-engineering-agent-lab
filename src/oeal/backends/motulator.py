@@ -136,8 +136,10 @@ class DriveController:
         return SimpleNamespace(t=np.array([r[0] for r in self.rows]), samples=self.rows)
 
 
-def make_drive(config, magnetic_map=None, robot=None):
+def make_drive(config, magnetic_map=None, robot=None, *, thermal_provider=None):
     """Construct real upstream electrical, mechanical, converter and DC-bus models."""
+    if thermal_provider is not None and (not config.get("energy_consistent") or robot is not None):
+        raise ValueError("thermal provider requires energy mode without a robot")
     if config.get("energy_consistent", False):
         if (magnetic_map is not None or config.get("two_mass", False)
                 or config.get("core_conductance_s", 0) != 0
@@ -236,13 +238,14 @@ def make_drive(config, magnetic_map=None, robot=None):
         from oeal.backends.energy import attach_energy
 
         attach_energy(drive, config, robot)
+        drive.oeal_energy.thermal_provider = thermal_provider
     controller = DriveController(nominal, config, robot)
     controller.drive = drive
     return drive, controller
 
 
-def run_drive(config, magnetic_map=None, robot=None):
-    drive, controller = make_drive(config, magnetic_map, robot)
+def run_drive(config, magnetic_map=None, robot=None, *, thermal_provider=None):
+    drive, controller = make_drive(config, magnetic_map, robot, thermal_provider=thermal_provider)
     upstream_rhs = drive.rhs
     drive.oeal_solver_calls = 0
 

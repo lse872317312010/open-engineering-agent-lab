@@ -58,3 +58,16 @@ Ts50us，48V，参考.005s阶跃，nominal R.3/Ld=Lq.0008/psi.03/pp7/J.002/B1e-5
 输入/源码/上游版本/FMU与二进制散列。默认路径做确定性兼容检查，Ruff/pytest通过。
 报告含实际耦合/同阶段温度反馈机制、热流与控制器状态、反馈/冻结对照、
 四图以上PDF/PNG/SVG、全量控制CSV、故障注入和适用边界；真实Chrome验收手机布局及离线交互。
+
+## 执行补充：编译别名与接受步输出刷新
+
+保持上文全部物理方程/输入/Gate。实际OpenModelica1.25.5编译的能量状态为
+_D_outputAlias_input_energy_j / _D_outputAlias_ambient_energy_j，
+与公开输出名称和valueReference不同；按XML与已验证实际别名建立坐标，
+并在每个接受点核对公开温度及能量账。RHS导数仍来自生成FMU。
+
+该运行时的getDerivatives只刷新ODE并清除更新标记；
+completedIntegratorStep负责代数及公开输出别名刷新。
+接受控制点按“设置实际状态/输入 → 读热导数 → 完成接受步 → 读公开输出”执行。
+原先相反读取顺序的失败数据保留在阶段状态及报告链接中。
+本补充说明接口调用修复，不放宽投影或其他验收门槛。

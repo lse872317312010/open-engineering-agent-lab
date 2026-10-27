@@ -1,7 +1,9 @@
 """Analytic hot-start and variable-cooling checks before integration code."""
 import sys
 from pathlib import Path
+
 import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 from msl_cooling_drive_reference import gc_at, rates  # noqa: E402
 from msl_cooling_reference import SIGMA  # noqa: E402

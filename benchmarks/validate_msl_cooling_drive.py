@@ -137,8 +137,8 @@ def main():
                          for n in ("id_a", "iq_a", "motor_speed_rad_s",
                                    "vd_command_v", "vq_command_v")}
         accounting, local, thermal = energy_audit(control, energy)
-        def get(n):
-            return col(energy, ENERGY_COLUMNS, n)
+        def get(n, data=energy):
+            return col(data, ENERGY_COLUMNS, n)
         d, q = [col(control, CONTROL_COLUMNS, n) for n in ("id_a", "iq_a")]
         winding = get("winding_c")
         valid = np.hypot(d, q) > .1

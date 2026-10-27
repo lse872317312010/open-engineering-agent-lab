@@ -55,6 +55,9 @@ class MSLDriveThermal:
         self.index, self.offsets = [], []
         for i, canonical in enumerate(STATES):
             candidates = [self.variables[canonical]]
+            generated_alias = self.variables.get("_D_outputAlias_"+canonical)
+            if generated_alias is not None:
+                candidates.append(generated_alias)
             if i < 6:
                 candidates.append(self.variables[f"temperature_c[{i+1}]"])
             matches = [(j, v.unit) for j, v in enumerate(state_variables)

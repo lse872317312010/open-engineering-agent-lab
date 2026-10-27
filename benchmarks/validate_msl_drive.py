@@ -187,6 +187,10 @@ def main():
         finally:
             provider.close()
         rhs_audit = audit_rhs(target / "rhs.csv.gz")
+        assert rhs_audit["total_rows"] == metadata["rhs_calls"]+metadata["accepted_checkpoints"]
+        assert rhs_audit["checkpoints"] == metadata["accepted_checkpoints"] == len(control)
+        assert rhs_audit["first_checkpoint_s"] == 0.
+        assert abs(rhs_audit["last_checkpoint_s"]-config["duration_s"]) <= 1e-12
         csv_save(target / "control.csv", CONTROL_COLUMNS, control)
         csv_save(target / "energy.csv", ENERGY_COLUMNS, energy)
         csv_save(target / "waveforms.csv.gz", FINE_COLUMNS, fine)

@@ -639,3 +639,75 @@ Chrome155.0.8059.39验证六组选项、首末点/键盘、CSV、七参数表、
 真实编码器/PWM/硬实时、MuJoCo整机FMU或长期耐久证明。
 传动/热参数配置、MuJoCo/六节点热与OpenModelica互操作继续按路线图推进。
 真机由用户负责。
+
+
+## 2026-10-27：OpenModelica Model Exchange 三方验证
+
+[PR #21](https://github.com/lse872317312010/open-engineering-agent-lab/pull/21)
+推进路线图队列4的实际工具交换：原创MIT Modelica九状态关节，
+经OpenModelica v1.25.5真实导出FMI2 ModelExchange，FMPy0.3.26导入生成二进制。
+该模型沿用固定九状态植物及三本能量账，不新增统一IR配置或修改旧白名单。
+[固定契约与独立极限](openmodelica-interop-contract.md)于143e49e提交在先，
+e4663fc随后实现模型/导出/主机/对照与报告。
+[开源有限采用记录](../research/reviews/openmodelica.md)明确工具链与未采用组件。
+
+[最终专项运行40456983477](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40456983477)
+成功，实际执行头1420538d421e077cc05c45a4b24b6cf39b7be892。
+Ruff通过，101项pytest通过、13项可选依赖/编译资产测试跳过；
+实际OpenModelica导出/加载、原C FMU编译和四组对照在专项脚本中执行通过，
+不能把pytest中的跳过项说成通过。
+修正过程保留：首轮导出已成功，但测试zip规范和生成日志读取权限导致工作流失败；
+后续打包改动曾有一处长行lint失败；均未改变方程、输入或科学门槛。
+
+### 真实交换语义与结果
+
+12个连续状态（九物理状态+三能量积分）、四输入和13输出（含轴转矩）。
+编译器状态顺序由FMU自身管理；主机按变量名解析端口，不套用C模型valueReference。
+每个真实通信窗写输入，设置时间/连续状态，调用生成导数，由主机DOP853积分；
+现有C CoSimulation模型仍由自身RK4积分。两者求解器职责不能混淆。
+四组均0.08s/1601端点，输入50us或交替25/75us ZOH；
+12输出对独立Python/DOP853逐项门槛2e-5（各自SI单位），
+九物理状态对C FMU同门槛，独立轴转矩2e-5N*m、全域能量余额2e-6J。
+
+| 场景 | 结果 | 对Python最大转速差 rad/s* | 对C最大转速差 rad/s* | 能量余额峰值 J |
+|---|---|---:|---:|---:|
+| no-load | 通过 | 1.24345e-14 | 3.30060e-10 | 8.46341e-12 |
+| loaded-heating | 通过 | 1.06581e-14 | 5.08729e-10 | 1.38284e-11 |
+| reversal | 通过 | 1.77636e-14 | 6.62175e-10 | 2.91832e-11 |
+| variable-clock | 通过 | 9.76996e-15 | 3.32311e-10 | 6.79014e-12 |
+
+*各状态误差原始12/9项数组保存在validation.json；本次每组最大项均为电机转速，
+表格不混合不同单位当作无量纲精度。最坏Python差约1.777e-14rad/s，
+最坏C差约6.622e-10rad/s、余额约2.919e-11J。
+这是同方程下的跨实现计算一致性，不是实物精度或普遍稳定性证明。
+
+独立静止d轴1V初始1250A/s、25W板热初始1K/s、零激励平衡、
+实例隔离与reset逐位重现通过；在输入能量副本添加1mJ被独立余额门槛拒绝。
+不使用FMU自报余额冒充重算。
+
+### 来源、报告和边界
+
+官方源码v1.25.5标签解析到38bef66da59e57597a6a5f482695e6c37ca09940；
+实际编译器版本1.25.5，镜像固定摘要
+116ec5a9404019c8cee3111ad80e0db7f09ad7bc433c3777feb05b2418d5e57d。
+生成过程断网；原Modelica源码SHA256
+280ffb59bca58a404a069f7668c5a924cd58b9de29faf1b45db98d4da0f1ed1d。
+本次生成二进制SHA256
+7c0b9013545da1a956ab47edc4433ad26d8d7d66084ebe37409bcbcbcc0545bb；
+FMU SHA256为338a8a302115c497d583fbad443718232176e890b1b1532ae32ec7b809b354da。
+每次编译的实际GUID/生成产物散列单独记录，不声称FMU ZIP逐位可复现。
+包内保留260项生成/运行时源条目及其版权，额外附MIT原文、模型源码、
+契约、OSMC许可/使用模式与实际编译器包版权。
+
+[下载三图交互报告、PDF与ModelExchange FMU，约4.1MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40456983477/artifacts/12712696671) /
+[完整原始证据，约2.9MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40456983477/artifacts/12713345867)。
+解压报告打开index.html；保留四组完整1601端点CSV及三方数据、独立能量余额。
+新增[交换链路架构SVG](openmodelica-exchange.svg)区分编译器/FMU/主机积分/独立核验；
+报告三方轨迹、四组件状态、工况切换、首末点键盘、四组CSV、所有图片、
+390px布局及PDF/PNG/SVG均通过Chrome155.0.8059.39检查；
+页面错误和外部请求为空。
+
+本轮有限采用OpenModelica编译/FMI交换能力，没有加载MSL或采用外部实测关节模型。
+主机只覆盖该无事件ODE；真实编码器、保护事件、控制器联合交换、
+传动/热参数配置、MuJoCo整机/六节点热FMU仍待推进。
+真机继续由用户负责。

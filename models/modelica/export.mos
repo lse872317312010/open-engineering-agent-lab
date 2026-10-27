@@ -1,0 +1,6 @@
+loadFile("../../models/modelica/OEALJointExchange.mo");
+getErrorString();
+checkModel(OEALJointExchange);
+getErrorString();
+buildModelFMU(OEALJointExchange, version="2.0", fmuType="me", fileNamePrefix="OEALJointExchange");
+getErrorString();

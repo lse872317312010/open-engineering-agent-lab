@@ -1,0 +1,55 @@
+within;
+model OEALJointExchange "Original MIT nine-state research plant for FMI exchange"
+  output Real id_a(unit="A", start=0, fixed=true);
+  output Real iq_a(unit="A", start=0, fixed=true);
+  output Real motor_angle_rad(unit="rad", start=0, fixed=true);
+  output Real motor_speed_rad_s(unit="rad/s", start=0, fixed=true);
+  output Real load_angle_rad(unit="rad", start=0, fixed=true);
+  output Real load_speed_rad_s(unit="rad/s", start=0, fixed=true);
+  output Real winding_c(unit="degC", start=25, fixed=true);
+  output Real case_c(unit="degC", start=25, fixed=true);
+  output Real board_c(unit="degC", start=25, fixed=true);
+  output Real input_energy_j(unit="J", start=0, fixed=true);
+  output Real load_work_j(unit="J", start=0, fixed=true);
+  output Real ambient_heat_j(unit="J", start=0, fixed=true);
+  output Real shaft_nm(unit="N.m");
+  input Real vd_v(unit="V", start=0);
+  input Real vq_v(unit="V", start=0);
+  input Real load_nm(unit="N.m", start=0);
+  input Real board_w(unit="W", start=0);
+protected
+  Real resistance;
+  Real we;
+  Real rate;
+  Real copper;
+  Real friction;
+  Real wc;
+  Real bc;
+  Real ca;
+  Real ba;
+equation
+  resistance = .3*(1+.00393*(winding_c-25));
+  we = 7*motor_speed_rad_s;
+  rate = motor_speed_rad_s/10-load_speed_rad_s;
+  shaft_nm = 80*(motor_angle_rad/10-load_angle_rad)+.15*rate;
+  copper = 1.5*resistance*(id_a^2+iq_a^2);
+  friction = 1e-5*motor_speed_rad_s^2+.02*load_speed_rad_s^2+.15*rate^2;
+  wc = (winding_c-case_c)/.8;
+  bc = (board_c-case_c)/1.2;
+  ca = (case_c-25)/2;
+  ba = (board_c-25)/4;
+  der(id_a) = (vd_v-resistance*id_a+we*.0008*iq_a)/.0008;
+  der(iq_a) = (vq_v-resistance*iq_a-we*(.0008*id_a+.03))/.0008;
+  der(motor_angle_rad) = motor_speed_rad_s;
+  der(motor_speed_rad_s) = (.315*iq_a-shaft_nm/10-1e-5*motor_speed_rad_s)/5e-5;
+  der(load_angle_rad) = load_speed_rad_s;
+  der(load_speed_rad_s) = (shaft_nm-load_nm-.02*load_speed_rad_s)/.02;
+  der(winding_c) = (copper-wc)/60;
+  der(case_c) = (wc+bc+friction-ca)/200;
+  der(board_c) = (board_w-bc-ba)/25;
+  der(input_energy_j) = 1.5*(vd_v*id_a+vq_v*iq_a)+board_w;
+  der(load_work_j) = load_nm*load_speed_rad_s;
+  der(ambient_heat_j) = ca+ba;
+  annotation(experiment(StartTime=0, StopTime=.08, Tolerance=1e-10),
+    Documentation(info="<html>Fixed synthetic model, rotating dq ZOH inputs. MIT OEAL source. FMI ModelExchange requires a host integrator; no controller/PWM/robot included.</html>"));
+end OEALJointExchange;

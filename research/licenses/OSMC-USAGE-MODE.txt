@@ -1,0 +1,6 @@
+OpenModelica compiler usage mode: AGPL version 3 under OSMC-PL 1.8.
+Compiler executed as an independent build tool; compiler image is not redistributed here.
+Original OEAL Modelica source: MIT. Generated runtime sources retain upstream notices.
+Runtime headers with BSD NEW/GPL3/OSMC alternatives are used under BSD NEW.
+Actual compiler package copyright is archived as compiler-package-copyright.txt.
+Upstream compiler source: https://github.com/OpenModelica/OpenModelica/tree/38bef66da59e57597a6a5f482695e6c37ca09940

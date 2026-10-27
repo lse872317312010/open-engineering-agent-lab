@@ -1,0 +1,19 @@
+flowchart LR
+  P["六路实际保持损耗 W"] --> S["MSL PrescribedHeatFlow ×6"]
+  S --> W["绕组 / HeatCapacitor / 60 J/K"]
+  S --> C["铁芯 / HeatCapacitor / 70 J/K"]
+  S --> H["壳体 / HeatCapacitor / 200 J/K"]
+  S --> J["结温 / HeatCapacitor / 0.5 J/K"]
+  S --> B["板级 / HeatCapacitor / 25 J/K"]
+  S --> K["散热器 / HeatCapacitor / 100 J/K"]
+  W <-->|"ThermalResistor 0.6 K/W"| C
+  C <-->|"0.4 K/W"| H
+  H <-->|"2 K/W"| B
+  J <-->|"0.8 K/W"| B
+  B <-->|"1.2 K/W"| K
+  H <-->|"2 K/W"| A["MSL FixedTemperature / 固定环境"]
+  K <-->|"3 K/W"| A
+  W --> E["状态 / 有符号热流 / 输入与散热积分"]
+  H --> E
+  K --> E
+  E --> AUDIT["独立 Radau + 原生矩阵指数 / 全轨迹 / 独立能量余额"]

@@ -45,7 +45,7 @@ def reference(t, s):
     elapsed = t-s["position_start_s"]
     q = s["position_step_rad"]*max(0., min(1., elapsed/s["position_ramp_s"]))
     velocity = (s["position_step_rad"]/s["position_ramp_s"]
-                if 0 <= elapsed < s["position_ramp_s"] else 0.)
+                if s["position_start_s"] <= t < s["position_start_s"]+s["position_ramp_s"] else 0.)
     return q, velocity
 
 

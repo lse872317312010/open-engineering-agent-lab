@@ -26,6 +26,11 @@ def main():
     build()
     ASSETS.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(FMI_OUT / "oeal-joint.fmu", ASSETS / "oeal-joint.fmu")
+    from validate_configurable_fmi import OUT as SERVO_OUT
+    from validate_configurable_fmi import build as build_servo
+
+    build_servo()
+    shutil.copyfile(SERVO_OUT / "oeal-servo.fmu", ASSETS / "oeal-servo.fmu")
     results = {}
     for profile in catalog():
         source = ROOT / "examples/studies" / (profile + ".json")
@@ -67,7 +72,7 @@ def main():
     assert (OUT / "cli-csv/control.csv").read_text().startswith("time_s,id_a,iq_a")
     assert json.loads((OUT / "cli-csv/streams.json").read_text())["raw_sha256"] == cli["raw_sha256"]
     report = {"passed": True, "profiles": results, "cross_backend_current_error_a": cross,
-              "scope": "IR 0.2 native, motulator and UR5e registered adapters"}
+              "scope": "IR 0.2 seven native, motulator, robot and FMI registered adapters"}
     (OUT / "summary.json").write_text(json.dumps(report, indent=2))
     print("unified.json: " + json.dumps(report), flush=True)
 

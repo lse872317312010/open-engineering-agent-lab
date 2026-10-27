@@ -42,7 +42,7 @@ P6 合成研究数据不代表实测校准；完整范围见 [模型契约](docs
 
 ## 统一实验与控制设计
 
-IR 0.2 的六个固定模型配置覆盖原生 FOC / 耦合关节、motulator 开关 PMSM、
+IR 0.2 的七个固定模型配置覆盖原生 FOC / 耦合关节、motulator 开关 PMSM、
 上游非线性磁图、MuJoCo UR5e 单关节及固定 FMI 关节的外部 dq 电流主机。CLI、Agent 和评测共用同一执行接口。
 IR 0.1 仍兼容。参数附单位，模型资产校验固定哈希，计算时钟与预算在执行前校验。
 控制采样、关节宏步、求解波形与门极事件分别保留原始时间语义。
@@ -261,3 +261,29 @@ python benchmarks/build_fmi_host_report.py
 包含四组达标场景及一个电压不足的预期失败案例，三图报告明确显示真实结果。
 植物物理参数仍固定；这是外部 dq 电流闭环，不包含位置环、PWM、
 完整嵌入式 FOC、MuJoCo 或 OpenModelica 联调。
+
+## 可配置电机 FMI 与位置伺服
+
+新增 `fmi_servo_v2`：七个电机物理参数在初始化前配置，
+电机电阻/凸极电感/磁链/极对数/惯量/粘性摩擦进入真实方程与能量核算。
+控制器名义参数冻结；外部20kHz位置PD使用负载位置和电机输出侧速度反馈，
+再驱动既有dq电流PI。传动与三节点热网络参数仍固定。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev,fmi]"
+python benchmarks/validate_configurable_fmi.py
+oeal run-experiment examples/studies/fmi_servo_v2.json \
+  --assets-root outputs/configurable-fmi --output outputs/servo.json \
+  --csv-dir outputs/servo-csv
+python benchmarks/validate_fmi_servo.py
+python benchmarks/build_fmi_servo_report.py
+```
+
+[实现前契约与反馈修订B](docs/fmi-servo-contract.md)记录原负载速度反馈结构A的
+独立降阶判据，以及保留原增益/输入/门槛的电机侧速度反馈方案。
+[专用工作流](.github/workflows/fmi-servo.yml)保留参数化植物证明、两种结构、
+参数失配/反向/载荷/细步以及不可达案例的原始轨迹。
+报告说明见[阶段状态](docs/stage-status.md)；四图报告包含主机/植物机制、
+七参数实际与名义值对照、状态回放、完整控制CSV及Linux x86_64 FMU。
+位置环使用理想模型状态；未覆盖编码器/PWM、MuJoCo整机或全参数范围稳定性。

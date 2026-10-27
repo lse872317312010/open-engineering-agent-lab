@@ -1,0 +1,81 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OEAL · 非线性散热与风冷变化</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;color:#e5eef8;background:#0a1322}
+*{box-sizing:border-box}body{margin:0}main{max-width:1180px;padding:28px 18px;margin:auto}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.3;margin:12px 0}h2{font-size:21px}
+p{line-height:1.8;color:#b6c8dd}.tag{font-size:12px;letter-spacing:2px;color:#6de5c3}
+.panel,.card{border:1px solid #29425e;border-radius:16px;background:#111f32;padding:20px;margin:16px 0;min-width:0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{margin:0;padding:16px;border-top:3px solid #7e94ae}
+.card strong{display:block;font-size:23px;margin:8px 0}.card p{font-size:13px;margin:5px 0}
+button,select,.button{font:inherit;border:1px solid #527596;border-radius:9px;background:#203750;color:#ecf3fa;padding:10px;display:inline-block;text-decoration:none}
+.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}label{display:block;margin:12px 0}
+input{width:100%;accent-color:#6de5c3}a{color:#8fdcff}.small{font-size:13px;color:#b6c8dd}
+.scroll{overflow:auto;max-width:100%}#network{min-width:820px;background:#0b1729;border-radius:12px}
+svg,img{width:100%;height:auto;display:block}#trace{background:#0b1729;border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:12px;text-align:left;border-bottom:1px solid #29425e;white-space:nowrap}
+code{overflow-wrap:anywhere;font-size:12px}details{margin:18px 0}summary{cursor:pointer}
+.ledger{background:#17334a;border-left:3px solid #6de5c3;padding:14px;margin-top:16px}
+@media(max-width:700px){main{padding:20px 12px}.panel{padding:14px}.grid{grid-template-columns:1fr 1fr}.card{padding:12px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+<main><div class="tag">OPEN ENGINEERING AGENT LAB · MSL 4.0.0 · THERMAL FMU</div>
+<h1>看见对流、辐射与风冷变化</h1>
+<p>复用真实 MSL Convection 与 BodyRadiation，散热器通过对流和 Kelvin 四次方辐射向环境散热。六组一小时预设损耗实验对照线性极限、辐射、风冷减弱/恢复与冷热环境，并独立核对全部温度和三条散热能量账。</p>
+<section class="panel"><b id="gate"></b><p>6 热容 · 6 热阻 · 6 热源 · 1 固定环境 · 1 Convection · 1 BodyRadiation。MSL 实际导出/导入，主机 DOP853；独立 Radau 全轨迹参考，关闭辐射的线性极限另对照原生矩阵指数。</p>
+<div class="controls"><a class="button" href="OEALMSLCooling.fmu" download>下载 Linux 热网络 FMU</a><a class="button" href="report.pdf">五图 PDF</a><a href="contract.md">固定契约</a><a href="report-data.json" download>完整验证摘要</a></div></section>
+<section class="panel"><h2>六节点状态与热流回放</h2>
+<div class="controls"><label>仿真工况 <select id="case" aria-label="仿真工况"></select></label><button id="play" aria-pressed="false">播放</button><a class="button" id="csv" download>导出完整 CSV</a></div>
+<label for="time">时间位置 <b id="now"></b></label><input id="time" type="range" min="0" value="0" aria-label="时间位置">
+<p class="small">Home / End 定位首末点，方向键逐点移动。回放为完整 CSV 的抽样；CSV 保留每个真实通信端点。输入功率表示该端点之前通信窗的实际保持值，块边界不做插值。</p>
+<div class="scroll"><svg id="network" viewBox="0 0 960 420" role="img" aria-label="六节点实际连接、有符号热流和温度"></svg></div>
+<p class="small">箭头按实际热流方向绘制；正方向为内部边起点→终点、三散热支路节点→环境。橙色：净吸热；青色：净放热；灰色：近稳态。手机可横向滑动网络图，完整节点信息见下方状态卡。状态不表示器件额定温度合格。</p>
+<div id="states" class="grid"></div><div id="ledger" class="ledger"></div>
+<h3>六节点温度 · °C</h3><svg id="trace" viewBox="0 0 900 250" role="img" aria-label="六节点温度完整时间范围曲线"></svg><p id="range" class="small"></p></section>
+<section class="panel"><h2>预先固定的验收与结果</h2>
+<p class="small">所有端点温差≤2e-7 K；能量账差与独立余额≤1e-5 J；热流差≤2e-7 W。关闭辐射时与原生线性模型比较，辐射/细步在完整共同点比较；风冷变化1200/2400 s精确分段，不跨边界插值。</p>
+<div class="scroll"><table id="results"><thead><tr><th>场景</th><th>结果</th><th>Radau 最大温差 K</th><th>能量账最大差 J</th><th>余额峰值 J</th></tr></thead><tbody></tbody></table></div>
+<details><summary>极限、初始化与能量检查</summary><ul id="checks"></ul></details></section>
+<section class="panel"><h2>可导出图表</h2>
+<a href="plots/01-temperatures.svg"><img src="plots/01-temperatures.png" alt="一小时六节点温度"></a>
+<a href="plots/02-radiation.svg"><img src="plots/02-radiation.png" alt="线性极限和非线性辐射对照"></a>
+<a href="plots/03-fan.svg"><img src="plots/03-fan.png" alt="风冷减弱和恢复及散热器温度"></a>
+<a href="plots/04-energy.svg"><img src="plots/04-energy.png" alt="三条实际散热支路能量与总余额"></a><a href="plots/05-validation.svg"><img src="plots/05-validation.png" alt="独立全轨迹温差与辐射热流"></a></section>
+<section class="panel"><h2>适用范围与来源</h2>
+<p>实际对流 Q=Gc·ΔT，Gc 是外部等效导热系数 W/K；实际辐射 Q=Gr·σ·(T⁴−Ta⁴)，Gr 是合成有效辐射面积 m²，温度必须用绝对K。默认Gr=0.02 m²、Gc=1/3 W/K；环境 -10 / 25 / 60 °C。热容/热阻和散热几何仍为合成研究值。</p>
+<p>风冷状态仅表示Gc输入：正常1/3、减弱0.05、增强1.0 W/K，不推断真实风机硬件故障。这是预设损耗回放，不是一小时电机、开关逆变器或机器人联合运行，也没有证明实物散热能力与器件额定值。ModelExchange 主机仅覆盖此无事件连续网络；统一 IR 仍为七配置。真机由用户负责。</p>
+<details><summary>组件版本、源码与二进制散列</summary><div id="provenance"></div></details></section>
+</main><script>
+const data=__DATA__,sel=document.querySelector('#case'),slider=document.querySelector('#time');
+const names=['绕组','铁芯','壳体','结温','板级','散热器'],keys=['winding_c','core_c','case_c','junction_c','board_c','sink_c'];
+const colors=['#66dfc0','#78b9ff','#f2bf6b','#ed8fad','#c3a5ff','#c9dc75'],capacity=[60,70,200,.5,25,100];
+const edges=[[0,1,.6],[1,2,.4],[2,4,2],[3,4,.8],[4,5,1.2]],positions=[[105,80],[335,80],[565,80],[105,260],[335,260],[565,260],[820,175]];
+const fmt=x=>Number(x).toExponential(3),node=(tag,attrs,text)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);if(text!==undefined)e.textContent=text;return e};
+document.querySelector('#gate').textContent=data.passed?'六组一小时非线性散热固定验收通过':'存在未通过项，请检查原始证据';
+for(const c of data.cases){sel.add(new Option(c.id,c.id));const tr=document.createElement('tr');for(const value of[c.id,c.passed?'通过':'未通过',fmt(c.max_reference_error_k),fmt(Math.max(...c.energy_errors_j,c.total_energy_error_j)),fmt(c.peak_balance_j)]){const td=document.createElement('td');td.textContent=value;tr.append(td)}document.querySelector('#results tbody').append(tr)}
+for(const check of [...data.boundary_checks,'错误摄氏度四次方副本：被拒绝','漏记辐射散热积分副本：被拒绝（Gr=0线性极限不适用）','固定因果对照：'+JSON.stringify(data.comparisons)]){const li=document.createElement('li');li.textContent=check;document.querySelector('#checks').append(li)}
+for(const[k,v]of Object.entries(data.metadata)){const p=document.createElement('p'),code=document.createElement('code');p.textContent=k+': ';code.textContent=typeof v==='object'?JSON.stringify(v):v;p.append(code);document.querySelector('#provenance').append(p)}
+let timer=null;
+function stop(){clearInterval(timer);timer=null;document.querySelector('#play').textContent='播放';document.querySelector('#play').setAttribute('aria-pressed','false')}
+function current(){return data.cases.find(c=>c.id===sel.value)}
+function render(){
+ const c=current(),rows=c.samples;slider.max=rows.length-1;const r=rows[+slider.value],get=(n,row=r)=>row[c.columns.indexOf(n)];
+ const t=get('time_s'),temps=keys.map(k=>get(k)),powers=keys.map((_,i)=>get('previous_power_'+(i+1)+'_w'));
+ const rates=edges.map((_,i)=>get('link_'+(i+1)+'_w')),ambientRates=[get('case_heat_w'),get('convection_heat_w'),get('radiation_heat_w')],net=[...powers],gc=get('previous_gc_w_k');
+ edges.forEach(([a,b],i)=>{net[a]-=rates[i];net[b]+=rates[i]});net[2]-=ambientRates[0];net[5]-=ambientRates[1]+ambientRates[2];
+ document.querySelector('#now').textContent=t.toFixed(1)+' s / '+(t/60).toFixed(2)+' min';document.querySelector('#csv').href=c.id+'.csv';
+ const svg=document.querySelector('#network');svg.replaceChildren();const defs=node('defs',{}),marker=node('marker',{id:'arrow',markerWidth:8,markerHeight:8,refX:7,refY:3,orient:'auto'});marker.append(node('path',{d:'M0 0L7 3L0 6',fill:'#9fc6df'}));defs.append(marker);svg.append(defs);
+ function flow(a,b,q,label){const p=positions[a],s=positions[b],dx=s[0]-p[0],dy=s[1]-p[1],length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length;let start=[p[0]+ux*76,p[1]+uy*35],end=[s[0]-ux*76,s[1]-uy*35];if(q<0)[start,end]=[end,start];svg.append(node('line',{x1:start[0],y1:start[1],x2:end[0],y2:end[1],stroke:'#9fc6df','stroke-width':2,'marker-end':'url(#arrow)'}));svg.append(node('text',{x:(p[0]+s[0])/2,y:(p[1]+s[1])/2-12,fill:'#d3dfef','text-anchor':'middle','font-size':14},label+' '+q.toFixed(2)+' W'))}
+ edges.forEach(([a,b,res],i)=>flow(a,b,rates[i],res+' K/W'));flow(2,6,ambientRates[0],'壳体 2 K/W');flow(5,6,ambientRates[1],'对流 '+gc.toFixed(3)+' W/K');
+ const rad=ambientRates[2],path=rad<0?'M820 210 C930 320 700 390 565 295':'M565 295 C700 390 930 320 820 210';svg.append(node('path',{d:path,fill:'none',stroke:'#dc9bde','stroke-width':2,'marker-end':'url(#arrow)'}));svg.append(node('text',{x:765,y:375,fill:'#e6bee8','text-anchor':'middle','font-size':15},'辐射 Gr '+c.area_m2+' m² · '+rad.toFixed(2)+' W'));
+ const container=document.querySelector('#states');container.replaceChildren();
+ for(let i=0;i<7;i++){const[x,y]=positions[i],status=i===6?'固定环境':Math.abs(net[i])<1e-5?'近稳态':net[i]>0?'净吸热':'净放热',color=i===6?'#7e94ae':Math.abs(net[i])<1e-5?'#7e94ae':net[i]>0?'#f2bf6b':'#66dfc0';svg.append(node('rect',{x:x-72,y:y-35,width:144,height:70,rx:12,fill:'#1b3048',stroke:color}));svg.append(node('text',{x,y:y-9,fill:'#ecf4fa','text-anchor':'middle','font-size':17},i===6?'环境':names[i]+' · '+status));svg.append(node('text',{x,y:y+17,fill:color,'text-anchor':'middle','font-size':18},(i===6?c.ambient_c:temps[i]).toFixed(3)+' °C'));if(i===6)continue;const card=document.createElement('div');card.className='card';card.style.borderTopColor=color;card.textContent=names[i]+' · '+status;const strong=document.createElement('strong');strong.textContent=temps[i].toFixed(4)+' °C';card.append(strong);const p=document.createElement('p');p.textContent='热容 '+capacity[i]+' J/K；前窗热源 '+powers[i].toFixed(1)+' W；净热流 '+net[i].toFixed(3)+' W；对应温升率 '+(net[i]/capacity[i]).toFixed(5)+' K/s';card.append(p);container.append(card)}
+ const stored=temps.reduce((s,v,i)=>s+capacity[i]*(v-c.ambient_c),0),residual=get('balance_j');
+ document.querySelector('#ledger').textContent='风冷 '+(gc<.1?'减弱':gc>=.9?'增强':'正常')+' ('+gc.toFixed(3)+' W/K)，Gr '+c.area_m2+' m²；壳体/对流/辐射累计 '+get('case_energy_j').toFixed(2)+' / '+get('convection_energy_j').toFixed(2)+' / '+get('radiation_energy_j').toFixed(2)+' J。'+(Math.abs(residual)<=1e-5?'能量闭合':'审计超阈值')+' · 余额 '+fmt(residual)+' J；输入 '+get('input_energy_j').toFixed(2)+' J；环境散热 '+get('ambient_energy_j').toFixed(2)+' J；热储能 '+stored.toFixed(2)+' J。';
+ const vals=rows.flatMap(row=>keys.map(k=>get(k,row))),lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo||1,trace=document.querySelector('#trace');trace.replaceChildren();keys.forEach((k,i)=>{trace.append(node('polyline',{points:rows.map(row=>(30+get('time_s',row)/3600*840)+','+(220-(get(k,row)-lo)/span*190)).join(' '),fill:'none',stroke:colors[i],'stroke-width':2}))});const px=30+t/3600*840;trace.append(node('line',{x1:px,x2:px,y1:15,y2:235,stroke:'#ffffff99'}));
+ document.querySelector('#range').textContent='时间 0–3600 s；纵轴 '+lo.toFixed(2)+' 至 '+hi.toFixed(2)+' °C。曲线顺序：绕组(绿)、铁芯(蓝)、壳体(金)、结温(粉)、板级(紫)、散热器(浅绿)。';
+}
+sel.onchange=()=>{stop();slider.value=0;render()};slider.oninput=()=>{stop();render()};
+document.querySelector('#play').onclick=()=>{if(timer){stop();return}if(+slider.value>=+slider.max){slider.value=0;render()}document.querySelector('#play').textContent='暂停';document.querySelector('#play').setAttribute('aria-pressed','true');timer=setInterval(()=>{slider.value=+slider.value+1;render();if(+slider.value>=+slider.max)stop()},200)};
+render();
+</script></html>

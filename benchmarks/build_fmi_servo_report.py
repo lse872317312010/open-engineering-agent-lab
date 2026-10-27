@@ -97,7 +97,7 @@ def main():
                 if req.url.startswith(("http://", "https://")) else None)
         page.goto((OUT / "index.html").as_uri())
         assert page.locator("#case option").count() == 6
-        assert page.locator("#results tbody tr").count() == 5
+        assert page.locator("#results tbody tr").count() == 6
         for name in names:
             page.select_option("#case", name)
             page.locator("#time").focus()

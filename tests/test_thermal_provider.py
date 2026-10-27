@@ -20,6 +20,9 @@ class ThermalProviderTests(unittest.TestCase):
 
     def test_actual_port_heat_is_sent_to_provider_in_same_rhs(self):
         class Provider:
+            # Existing FMI providers use state_names for compiler metadata, not host states.
+            state_names = ("legacy_compiled_state",)
+
             def evaluate(self, t, temperatures, heat, input_j, ambient_j, **_):
                 np.testing.assert_array_equal(temperatures, [25.]*6)
                 assert t == .001 and input_j == ambient_j == 0.

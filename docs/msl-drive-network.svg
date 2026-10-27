@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 450" role="img" aria-label="电驱与MSL同阶段连续温度反馈">
+<defs><marker id="a" markerWidth="9" markerHeight="7" refX="8" refY="3" orient="auto"><path d="M0 0L8 3L0 6" fill="#79d9c4"/></marker></defs>
+<rect width="1060" height="450" rx="18" fill="#0b1729"/>
+<g font-family="system-ui,sans-serif" text-anchor="middle" fill="#e8f0fa">
+<text x="530" y="35" font-size="23">实际电机损耗 × MSL · 同阶段连续温度反馈</text>
+<g fill="#1c344d" stroke="#507693"><rect x="30" y="80" width="270" height="90" rx="12"/><rect x="395" y="80" width="270" height="90" rx="12"/><rect x="760" y="80" width="270" height="90" rx="12"/><rect x="760" y="260" width="270" height="90" rx="12"/><rect x="395" y="260" width="270" height="90" rx="12"/><rect x="30" y="260" width="270" height="90" rx="12"/></g>
+<g font-size="18"><text x="165" y="114">motulator 电机 / 逆变器</text><text x="165" y="145">20 kHz PI · 名义参数冻结</text><text x="530" y="114">实际铜耗 / 摩擦 / 器件热</text><text x="530" y="145">同阶段六功率 / 六T / 两账本</text><text x="895" y="114">MSL ModelExchange FMU</text><text x="895" y="145">实际状态别名 / 单位映射</text><text x="895" y="294">真实热导数 / 环境散热</text><text x="895" y="325">getDerivatives · 无损耗ZOH</text><text x="530" y="294">同一个连续求解器</text><text x="530" y="325">共同推进电磁与六节点温度</text><text x="165" y="294">实际 R(Tw) 回到电机方程</text><text x="165" y="325">另保留冻结R的因果对照</text></g>
+<text x="530" y="399" font-size="17" fill="#b6c8dd">完整RHS试探与接受控制点分别留存；独立热导数、损耗路由与能量审计</text>
+<text x="530" y="430" font-size="16" fill="#b6c8dd">0.06–0.4 s 合成参数联合仿真 · 非一小时整机 / 实物热验证</text></g>
+<g fill="none" stroke="#79d9c4" stroke-width="2" marker-end="url(#a)"><path d="M300 125H395"/><path d="M665 125H760"/><path d="M895 170V260"/><path d="M760 305H665"/><path d="M395 305H300"/><path d="M165 260V170"/></g></svg>

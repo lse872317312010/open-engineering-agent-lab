@@ -334,3 +334,36 @@ python benchmarks/build_msl_thermal_report.py
 报告包含温度/加热冷却状态、带方向热流、工况/时间回放、六组完整CSV和四图PDF/PNG/SVG。
 这是固定合成参数与预设损耗回放，不是整机一小时联合运行或实物热额定值验收；
 统一IR仍为七配置。
+
+## 电驱与 MSL 连续热反馈
+
+在真实 motulator 电磁/逆变器模型上，新增可信 Python 热导数接口。
+实际铜耗、器件耗散和转子摩擦进入 MSL 热 FMU；每个连续求解阶段
+投影温度/能量状态，读取真实 `getDerivatives`，由同一上游求解器共同积分。
+绕组温度同阶段修正实际电阻，控制器名义参数冻结；默认路径仍用原生热网络。
+
+```bash
+python -m pip install -r benchmarks/p6-requirements.txt
+python -m pip install -e ".[dev]"
+python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+git worktree add --detach outputs/msl-drive-base 65acdc66d3ccdcdfcee933c3e82b67c2a549cad4
+python benchmarks/build_msl_thermal.py
+python benchmarks/validate_msl_drive.py
+python benchmarks/build_msl_drive_report.py
+```
+
+独立基线检出用于默认路径逐位兼容比较；构建环境仍需 Docker/GCC/Chrome。
+[实现前契约](docs/msl-drive-contract.md) /
+[连续联合架构图](docs/msl-drive-network.svg) /
+[实际结果与报告下载](docs/stage-status.md)。
+五图报告含电流/限幅、全部六节点温度、实际R、损耗/回馈、独立能量与故障注入。
+
+可信 Python 调用使用 `make_drive(..., thermal_provider=对象)` 或
+`run_drive(..., thermal_provider=对象)`，仅支持无机器人的 energy_consistent 模式。
+对象提供 `evaluate(t, temperatures_c, heat_w, input_j, ambient_j, accepted=False)`
+与 `describe()`；返回六个K/s热导数、输入功率W和环境散热W，核对形状/有限性/功率守恒。
+调用者管理外部对象生命周期。该接口不允许实验JSON选择FMU或代码路径；
+统一IR仍为七配置。
+
+这是0.06–0.4s实际损耗联合仿真，区别于上一轮一小时预设损耗回放；
+两者都不代表一小时整机或实物温度精度，真机由用户负责。

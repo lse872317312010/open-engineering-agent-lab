@@ -1,0 +1,17 @@
+flowchart LR
+  CTRL["冻结名义参数 / 20 kHz dq PI"] --> INV["上游平均桥或PWM / 死区 / 压降"]
+  INV --> MOTOR["motulator PMSM / 单惯量"]
+  MOTOR --> LOSS["实际铜耗 / 转子摩擦 / 有符号DC-AC损耗"]
+  INV --> LOSS
+  DC["实际额外DC器件支路"] --> LOSS
+  LOSS --> PROJECTION["同一RHS阶段 / 六真实热输入 / 六温度与两能量账"]
+  PROJECTION --> ME["实际MSL ME FMU / 按valueReference别名及单位映射"]
+  ME --> DERIV["getDerivatives / 六热导数与环境热流"]
+  DERIV --> SOLVER["同一个上游连续求解器"]
+  MOTOR --> SOLVER
+  SOLVER --> TEMP["同阶段绕组温度 Tw"]
+  TEMP --> R["实际R(Tw) / 冻结R因果对照"]
+  R --> MOTOR
+  PROJECTION --> AUDIT["完整RHS试探流 / 独立导数与功率恒等式"]
+  SOLVER --> AUDIT
+  AUDIT --> REPORT["接受控制点 / 独立能量 / 五图与四状态卡"]

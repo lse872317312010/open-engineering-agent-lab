@@ -27,7 +27,8 @@ class StudyTools:
         self._ledger.mkdir(parents=True, exist_ok=True)
         self._trusted = set()
         allowed = ({"outer_kp_nm_per_rad", "outer_kd_nms_per_rad"}
-                   if goal["model"]["profile"] in {"ur5e_joint_v1", "fmi_servo_v2"} else set(BOUNDS))
+                   if goal["model"]["profile"] in {"ur5e_joint_v1", "fmi_servo_v2"}
+                   else set(BOUNDS))
         self._allowed = allowed.intersection(goal["settings"])
         self._bounds = ({"outer_kp_nm_per_rad": (10., 200.), "outer_kd_nms_per_rad": (.5, 10.)}
                         if goal["model"]["profile"] == "fmi_servo_v2" else BOUNDS)

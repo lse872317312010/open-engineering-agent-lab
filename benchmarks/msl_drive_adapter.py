@@ -60,7 +60,8 @@ class MSLDriveThermal:
             matches = [(j, v.unit) for j, v in enumerate(state_variables)
                        if any(v.valueReference == c.valueReference for c in candidates)]
             assert len(matches) == 1, (canonical, self.state_names,
-                                       [(v.name, v.unit, v.valueReference) for v in state_variables])
+                                       [(v.name, v.unit, v.valueReference)
+                                        for v in state_variables])
             j, unit = matches[0]
             assert unit in (("K", "degC") if i < 6 else ("J",))
             self.index.append(j)

@@ -1,0 +1,17 @@
+flowchart LR
+  POWER["六路预设损耗 / 真实保持窗"] --> SOURCE["MSL PrescribedHeatFlow ×6"]
+  SOURCE --> RC["六节点热容 / 五内部热阻"]
+  RC --> CASE["壳体 / 热阻2 K/W"]
+  RC --> CONV["散热器 / MSL Convection"]
+  RC --> RAD["散热器 / MSL BodyRadiation"]
+  FAN["外部Gc W/K / 正常→减弱→增强"] --> CONV
+  AREA["初始化Gr m² / 合成有效面积"] --> RAD
+  CASE --> ENV["固定环境 / 内部K"]
+  CONV -->|"Gc·ΔT"| ENV
+  RAD -->|"Gr·σ·(Ts⁴−Ta⁴)"| ENV
+  CASE --> LEDGER["三条实际散热功率积分"]
+  CONV --> LEDGER
+  RAD --> LEDGER
+  LEDGER --> AUDIT["独立Radau / 全轨迹 / 能量余额"]
+  RC --> AUDIT
+  AUDIT --> REPORT["五图 / 六节点状态 / 风冷与热流回放"]

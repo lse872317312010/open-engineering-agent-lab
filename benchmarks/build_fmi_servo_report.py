@@ -130,7 +130,7 @@ def main():
                           "keyboard endpoints",
                           "six full CSV exports", "390px layout", "PDF/PNG/SVG"])
     (OUT / "ui-validation.json").write_text(json.dumps(result, indent=2))
-    print(f"fmi-servo-ui: " + json.dumps(result))
+    print("fmi-servo-ui: " + json.dumps(result))
 
 
 if __name__ == "__main__":

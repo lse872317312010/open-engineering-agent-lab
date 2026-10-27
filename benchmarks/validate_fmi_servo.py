@@ -67,7 +67,7 @@ def independent(document, result):
     x, integral, previous = initial(), np.zeros(2), np.zeros(2)
     voltage_error = 0.
     for tick, row in enumerate(rows[:-1]):
-        applied, integral, previous, _ = command(s, x, tick, integral, previous)
+        applied, integral, previous = command(s, x, tick, integral, previous)
         voltage_error = max(voltage_error, float(np.max(np.abs(applied-row[14:16]))))
         t, end = row[0], rows[tick+1, 0]
         solution = solve_ivp(rhs, (t, end), x, args=(row[14:18], p), method="DOP853",

@@ -1,6 +1,7 @@
 """Validate the shared FMI host against separate plant and sampled PI equations."""
 
 import copy
+import gzip
 import json
 import shutil
 import subprocess
@@ -15,6 +16,7 @@ from scipy.integrate import solve_ivp
 from validate_configurable_fmi import OUT as PLANT_OUT
 from validate_configurable_fmi import build
 
+from oeal.backends import fmi_joint, fmi_servo
 from oeal.backends.fmi_servo import load_asset
 from oeal.experiments import run_experiment
 from oeal.ir import document_hash
@@ -85,10 +87,49 @@ def independent(document, result):
     return reference, errors, voltage_error
 
 
+def legacy_feedback(document):
+    s = resolved_settings(document)
+    p = model_parameters(document["model"])
+
+    def original_command(s, x, tick, state):
+        q, velocity = fmi_servo.reference(tick*s["control_period_s"], s)
+        effort = (s["outer_kp_nm_per_rad"]*(q-x[4])
+                  + s["outer_kd_nms_per_rad"]*(velocity-x[5]))
+        return fmi_joint.control(dict(s, id_reference_a=0., iq_reference_a=effort/3.15,
+                                     step_time_s=0.), x, tick, state)
+
+    rows, waves, context = fmi_joint.run(
+        s, load_asset(OUT), guid=fmi_servo.GUID, ident=fmi_servo.IDENT,
+        command=original_command, motor_values=[p[k] for k in fmi_servo.PARAMETERS])
+    actual = np.asarray(rows)
+    targets = s["position_step_rad"]*np.clip(
+        (actual[:, 0]-s["position_start_s"])/s["position_ramp_s"], 0, 1)
+    error = actual[:, 5]-targets
+    metrics = dict(position_peak_error_rad=float(np.max(np.abs(error))),
+                   position_tail_error_rad=float(np.mean(np.abs(error[
+                       actual[:, 0] >= .9*s["duration_s"]]))))
+    peak = np.asarray(waves)
+    metrics["current_peak_a"] = float(np.max(np.hypot(peak[:, 1], peak[:, 2])))
+    metrics["shaft_torque_peak_nm"] = float(np.max(np.abs(peak[:, 13])))
+    balance = stored(peak[:, 1:13], p)-peak[:, 10]+peak[:, 11]+peak[:, 12]
+    metrics["energy_balance_abs_j"] = float(np.max(np.abs(balance)))
+    passed = all(metrics[name] <= goal["value"] for name, goal in document["acceptance"].items())
+    with gzip.open(OUT / "legacy-load-velocity.json.gz", "wt") as handle:
+        json.dump(dict(input=document, parameters=p, rows=rows, waves=waves, context=context,
+                       metrics=metrics, passed=passed), handle, allow_nan=False)
+    record = dict(passed=passed, metrics=metrics,
+                  samples=actual[::10, [0, 5]].tolist(),
+                  scope="Original A load-side derivative; unchanged gains and goals")
+    print("legacy-feedback-A: "+json.dumps({k: value for k, value in record.items()
+                                           if k != "samples"}))
+    return record
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     _, metadata = build()
     shutil.copyfile(PLANT_OUT / "oeal-servo.fmu", OUT / "oeal-servo.fmu")
+    legacy = legacy_feedback(specs()["nominal"])
     cases = []
     trajectories = {}
     checks = []
@@ -195,7 +236,8 @@ def main():
     difference = float(np.max(np.abs(trajectories["mismatch"]-trajectories["mismatch-fine"])))
     assert difference <= 1e-5
     checks.append("fixed common-time 5/2.5 us position agreement")
-    report = dict(passed=True, position_step_difference_rad=difference, cases=cases,
+    report = dict(passed=True, legacy_feedback=legacy,
+                  position_step_difference_rad=difference, cases=cases,
                   boundary_checks=checks, metadata=metadata,
                   evidence_level="model_simulated",
                   scope="configurable motor and external 20kHz position/current FMI servo")

@@ -45,7 +45,7 @@ def reference(t, s):
 
 def control(s, x, tick, state):
     q, v = reference(tick*s["control_period_s"], s)
-    torque = s["outer_kp_nm_per_rad"]*(q-x[4])+s["outer_kd_nms_per_rad"]*(v-x[5])
+    torque = s["outer_kp_nm_per_rad"]*(q-x[4])+s["outer_kd_nms_per_rad"]*(v-x[3]/10)
     # The nominal torque constant and all PI/feedforward parameters stay frozen.
     requested = torque/(10*1.5*7*.03)
     return fmi_joint.control(dict(s, id_reference_a=0., iq_reference_a=requested,

@@ -28,6 +28,9 @@ def main():
     for name, row in rows.items():
         axes[0].plot(row["time_s"], row["load_angle_rad"], label=name)
         axes[1].plot(row["time_s"], row["load_speed_rad_s"])
+    legacy = np.asarray(data["legacy_feedback"]["samples"])
+    axes[0].plot(legacy[:, 0], legacy[:, 1], color="black", linestyle="--",
+                 label="original A load-velocity")
     axes[0].set(ylabel="Load angle (rad)", title="Joint FMU: mechanical response")
     axes[0].legend(fontsize=8)
     axes[1].set(xlabel="Time (s)", ylabel="Load speed (rad/s)")

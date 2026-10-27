@@ -52,7 +52,7 @@ def reference(t, s):
 def command(s, x, tick, integral, previous):
     period = s["control_period_s"]
     qref, vref = reference(tick*period, s)
-    effort = s["outer_kp_nm_per_rad"]*(qref-x[4])+s["outer_kd_nms_per_rad"]*(vref-x[5])
+    effort = s["outer_kp_nm_per_rad"]*(qref-x[4])+s["outer_kd_nms_per_rad"]*(vref-x[3]/10)
     rd, rq = 0., effort/(10*1.5*7*.03)
     length = math.hypot(rd, rq)
     if length > s["current_limit_a"]:

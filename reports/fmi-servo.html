@@ -19,7 +19,7 @@ a{color:#83d9ff}details{margin:16px 0}summary{cursor:pointer}
 <p>统一 IR / CLI / Agent 接口驱动固定 FMI 关节植物。外部 20 kHz 位置 PD 与 dq 电流 PI 形成双环；电机七个实际参数在初始化前配置，控制器名义参数保持冻结。五组达标案例及一个预先声明的不可达案例完整保留。</p>
 <div class="panel"><b id="gate"></b><p id="summary"></p><div class="controls"><a class="button" href="oeal-servo.fmu" download>下载 Linux FMU</a><a class="button" href="report.pdf">四图 PDF</a><a href="contract.md">固定方程与验收契约</a><a href="report-data.json" download>完整验证摘要</a></div></div>
 <section class="panel"><h2>主机与植物如何协同</h2><div class="flow">
-<div class="node"><b>① 外部主机 · 50 μs 控制</b><br>位置/速度参考 → 位置PD → iq参考<br>读电流/转速 → dq PI 与解耦<br>径向限幅 → 可选一采样延迟<br>在控制窗内保持旋转 dq 电压</div>
+<div class="node"><b>① 外部主机 · 50 μs 控制</b><br>负载位置参考 → 位置误差<br>电机输出侧速度反馈 → PD → iq参考<br>读电流/转速 → dq PI 与解耦<br>径向限幅 → 可选一采样延迟<br>在控制窗内保持旋转 dq 电压</div>
 <div class="node"><b>② 固定 FMU · 电气与机械</b><br>电压 → id/iq → 电磁转矩<br>电机惯量 → 10:1 弹性轴 → 负载<br>电流与轴转矩峰值检查细步端点</div>
 <div class="node"><b>③ 连续热与能量账</b><br>铜耗 → 绕组；机械损耗 → 壳体<br>附加供电板热 → 板级；温度反馈铜阻<br>储能/输入/负载/环境独立重算</div></div>
 <p class="small">控制窗 50 μs；主机细分 doStep 至 ≤5 μs，每个细步采样植物，不额外更新控制器。终点重复此前保持命令。旋转 dq 保持不等同于静止坐标 PWM。初始温度25°C，其余状态为零。</p>
@@ -30,7 +30,7 @@ a{color:#83d9ff}details{margin:16px 0}summary{cursor:pointer}
 <div id="states" class="grid"></div><h3>负载位置与目标 · rad</h3><p class="small">青色：实际负载位置；橙色虚线：目标位置。电压不足时，未达标响应仍完整展示。</p><svg id="trace" viewBox="0 0 900 240" role="img" aria-label="负载位置与目标位置曲线"></svg><p id="range" class="small"></p></section>
 <section class="panel"><h2>固定门槛与实际结果</h2><p class="small">固定全程峰值位置误差 ≤0.01 rad、尾段平均误差 ≤0.003 rad、真实细步电流峰值 ≤3.5 A、轴转矩峰值 ≤12 N·m、能量余额峰值 ≤2e-6 J。六组均为0.25 s合成研究实验，名义PD/PI不重新整定。独立DOP853与独立PD/PI算术校验植物与主机。</p><div class="scroll"><table id="results"><thead><tr><th>场景</th><th>实际目标</th><th>预期</th><th>尾段误差 rad</th><th>真实峰值 A</th><th>轴转矩 N·m</th><th>余额峰值 J</th></tr></thead><tbody></tbody></table></div>
 <details><summary>生命周期与故障检查</summary><ul id="checks"></ul></details></section>
-<section class="panel"><h2>实际参数与冻结名义值</h2><p class="small">写入 FMU 的实际参数只在初始化前改变；主机 PI、解耦和转矩换算继续采用默认名义值。此表显示当前选择工况。</p><div class="scroll"><table id="parameters"><thead><tr><th>参数</th><th>实际值</th><th>名义值</th><th>单位</th></tr></thead><tbody></tbody></table></div></section>
+<section class="panel"><h2>原结构 A 的保留对照</h2><p id="legacy"></p><p class="small">原位置PD同时反馈负载侧位置和速度，在弹性传动上不满足独立降阶稳定性判据。修订B保持增益、输入和门槛，改用电机输出侧速度；完整结构A轨迹保存在原始证据，不能把降阶判据当作完整系统稳定性证明。</p></section><section class="panel"><h2>实际参数与冻结名义值</h2><p class="small">写入 FMU 的实际参数只在初始化前改变；主机 PI、解耦和转矩换算继续采用默认名义值。此表显示当前选择工况。</p><div class="scroll"><table id="parameters"><thead><tr><th>参数</th><th>实际值</th><th>名义值</th><th>单位</th></tr></thead><tbody></tbody></table></div></section>
 <section class="panel"><h2>可导出图表</h2><div class="figs">
 <a href="plots/01-mechanics.svg"><img src="plots/01-mechanics.png" alt="五工况负载角度与速度"></a>
 <a href="plots/02-electrical-reference.svg"><img src="plots/02-electrical-reference.png" alt="电流与固定尾差目标"></a>
@@ -42,6 +42,7 @@ const data=__DATA__,sel=document.querySelector('#case'),slider=document.querySel
 const fmt=x=>Number(x).toExponential(3);
 document.querySelector('#gate').textContent=data.passed?'五组位置伺服达标，不可达案例按预期失败':'存在非预期结果，请检查原始证据';
 document.querySelector('#summary').textContent='六组固定实验 · 九个植物状态 · 三本能量账 · '+data.boundary_checks.length+' 项接口检查';
+document.querySelector('#legacy').textContent='原结构实际结果：'+(data.legacy_feedback.passed?'短时目标达标':'未达标')+'；峰值位置误差 '+fmt(data.legacy_feedback.metrics.position_peak_error_rad)+' rad，尾差 '+fmt(data.legacy_feedback.metrics.position_tail_error_rad)+' rad。';
 for(const c of data.cases){sel.add(new Option(({nominal:'基准',reverse:'反向','loaded-board':'带载与板热',mismatch:'参数失配','mismatch-fine':'参数失配·细步',unreachable:'电压不足·预期失败'})[c.id],c.id));const tr=document.createElement('tr');for(const s of [c.id,c.passed?'达标':'未达标',c.expected_passed?'应达标':'应失败',fmt(c.metrics.position_tail_error_rad),fmt(c.metrics.current_peak_a),fmt(c.metrics.shaft_torque_peak_nm),fmt(c.peak_balance_j)]){const td=document.createElement('td');td.textContent=s;tr.append(td)}document.querySelector('#results tbody').append(tr)}
 for(const s of data.boundary_checks){const li=document.createElement('li');li.textContent=s;document.querySelector('#checks').append(li)}
 for(const key of ['code_commit','source_sha256','binary_sha256','fmu_sha256','compiler']){const p=document.createElement('p');p.textContent=key+': ';const code=document.createElement('code');code.textContent=data.metadata[key];p.append(code);document.querySelector('#provenance').append(p)}

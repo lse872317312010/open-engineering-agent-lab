@@ -1,5 +1,8 @@
 """Configurable pinned FMI plant, frozen nominal current PI and outer position PD."""
 
+import math
+from dataclasses import replace
+
 import numpy as np
 
 from oeal.backends import fmi_joint
@@ -43,13 +46,24 @@ def reference(t, s):
     return s["position_step_rad"]*progress, velocity
 
 
+def bounded_voltage(output, s):
+    """Keep rounded saturated commands strictly inside the declared circular port."""
+    norm = math.hypot(output.vd_v, output.vq_v)
+    interior = (s["vdc_v"]/math.sqrt(3))*(1-4e-15)
+    if norm > interior:
+        return replace(output, vd_v=output.vd_v*interior/norm,
+                       vq_v=output.vq_v*interior/norm)
+    return output
+
+
 def control(s, x, tick, state):
     q, v = reference(tick*s["control_period_s"], s)
     torque = s["outer_kp_nm_per_rad"]*(q-x[4])+s["outer_kd_nms_per_rad"]*(v-x[3]/10)
     # The nominal torque constant and all PI/feedforward parameters stay frozen.
     requested = torque/(10*1.5*7*.03)
-    return fmi_joint.control(dict(s, id_reference_a=0., iq_reference_a=requested,
-                                  step_time_s=0.), x, tick, state)
+    return bounded_voltage(fmi_joint.control(
+        dict(s, id_reference_a=0., iq_reference_a=requested, step_time_s=0.),
+        x, tick, state), s)
 
 
 def storage(x, p):

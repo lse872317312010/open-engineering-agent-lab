@@ -2,12 +2,16 @@
 
 import copy
 import json
+import math
 import os
 from pathlib import Path
 
 import pytest
 from jsonschema import ValidationError
 
+from oeal.backends.fmi_joint import pi_parameters
+from oeal.backends.fmi_servo import bounded_voltage
+from oeal.current_control import CurrentPIState, current_control_step
 from oeal.experiments import run_experiment
 from oeal.ir import document_hash, validate_document
 from oeal.studies import catalog, recompute
@@ -76,3 +80,18 @@ def test_actual_servo_audit_rejects_parameter_reference_and_state_tampering():
         changed["raw_sha256"] = document_hash(changed["streams"])
         with pytest.raises(ValueError):
             recompute(document, changed)
+
+
+def test_fmi_servo_saturated_port_rounding_stays_inside_physical_circle():
+    from oeal.studies import resolved_settings
+
+    s = resolved_settings(spec())
+    out = current_control_step(
+        pi_parameters(s), CurrentPIState(), reference_d_a=0., reference_q_a=3.,
+        measured_d_a=0., measured_q_a=0., period_s=s["control_period_s"],
+        feedforward_d_v=100., feedforward_q_v=100.)
+    safe = bounded_voltage(out, s)
+    assert math.hypot(safe.vd_v, safe.vq_v) <= s["vdc_v"]/math.sqrt(3)
+    assert abs(safe.vd_v-out.vd_v) < 1e-12
+    assert abs(safe.vq_v-out.vq_v) < 1e-12
+    assert safe.next_state == out.next_state

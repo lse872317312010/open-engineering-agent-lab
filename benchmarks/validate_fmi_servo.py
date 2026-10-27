@@ -95,8 +95,9 @@ def legacy_feedback(document):
         q, velocity = fmi_servo.reference(tick*s["control_period_s"], s)
         effort = (s["outer_kp_nm_per_rad"]*(q-x[4])
                   + s["outer_kd_nms_per_rad"]*(velocity-x[5]))
-        return fmi_joint.control(dict(s, id_reference_a=0., iq_reference_a=effort/3.15,
-                                     step_time_s=0.), x, tick, state)
+        return fmi_servo.bounded_voltage(fmi_joint.control(
+            dict(s, id_reference_a=0., iq_reference_a=effort/3.15, step_time_s=0.),
+            x, tick, state), s)
 
     rows, waves, context = fmi_joint.run(
         s, load_asset(OUT), guid=fmi_servo.GUID, ident=fmi_servo.IDENT,

@@ -58,7 +58,18 @@ def main():
     electric = {n:float(max(abs(suite.col(actual_c, suite.CONTROL_COLUMNS, n)
                                 -suite.col(control, suite.CONTROL_COLUMNS, n))))
                 for n in ("id_a", "iq_a", "motor_speed_rad_s", "vd_command_v", "vq_command_v")}
-    paired = dict(passed=bool(temperature <= 2e-7 and max(electric.values()) <= 2e-5),
+    fixed_audit, accepted = suite.audit_rhs(OUT / "fixed-asset-rhs.csv.gz", .02, False)
+    preview = np.genfromtxt(OUT / "radiation-feedback/coupling.csv", delimiter=",", names=True)
+    branch_error = float(np.max(abs(np.column_stack([
+        preview[n] for n in ("case_out_j", "convection_out_j", "radiation_out_j")])
+        -accepted[:, 16:19])))
+    ambient_error = float(max(abs(suite.col(actual_e, suite.ENERGY_COLUMNS, "ambient_j")
+                                  -suite.col(energy, suite.ENERGY_COLUMNS, "ambient_j"))))
+    paired = dict(passed=bool(temperature <= 2e-7 and max(electric.values()) <= 2e-5
+                              and branch_error <= 1e-7 and ambient_error <= 1e-7
+                              and fixed_audit["passed"]),
+                  branch_error_j=branch_error, ambient_error_j=ambient_error,
+                  fixed_rhs_audit=fixed_audit,
                   temperature_error_k=temperature, electric_errors=electric,
                   fixed_fmu=fixed_metadata)
     faults = []

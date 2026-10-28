@@ -19,19 +19,20 @@
 const DATA=__DATA__, names=['winding_c','core_c','case_c','junction_c','board_c','sink_c'], labels=['绕组','铁芯','壳体','结温','板','散热器'];
 const sel=document.querySelector('#case'), slider=document.querySelector('#time');let selected, timer=null;
 const fmt=(v,n=5)=>Number(v).toFixed(n), exp=v=>Number(v).toExponential(2);
+const parameter=v=>Number(Number(v).toPrecision(6)).toString();
 document.querySelector('#outcome').textContent=DATA.passed?'七组固定工况及独立审计通过；详细误差见下表。':'存在未通过项，请查看验收明细。';
 for(const c of DATA.cases){sel.add(new Option(c.id,c.id));document.querySelector('#results tbody').insertAdjacentHTML('beforeend','<tr><td>'+c.id+'</td><td>'+(c.passed?'通过':'失败')+'</td><td>'+exp(c.temperature_difference_k)+'</td><td>'+exp(c.branch_difference_j)+'</td><td>'+exp(c.thermal_peak_j)+'</td></tr>')}
 for(const n of ['01-temperatures','02-cooling','03-control','04-energy','05-validation'])document.querySelector('#plots').insertAdjacentHTML('beforeend','<figure style="margin:20px 0"><img src="plots/'+n+'.png" alt="'+n+'"><figcaption><a href="plots/'+n+'.svg">SVG</a> · <a href="plots/'+n+'.png">PNG</a></figcaption></figure>');
 document.querySelector('#meta').textContent=JSON.stringify({metadata:DATA.metadata,compatibility:DATA.compatibility,fine_comparisons:DATA.fine_comparisons,copper_feedback_minus_frozen_j:DATA.copper_feedback_minus_frozen_j},null,2);
 function render(){const row=selected.samples[Number(slider.value)], v=n=>row[selected.columns.indexOf(n)], source=v('source_w');
-document.querySelector('#capacities').textContent='六热容 C：'+selected.capacities_j_per_k.join(' / ')+' J/K';
-document.querySelector('#resistances').textContent='五内部热阻 R：'+selected.provider.link_resistances_k_per_w.join(' / ')+' K/W；壳体环境R：'+selected.provider.case_resistance_k_per_w+' K/W';
+document.querySelector('#capacities').textContent='六热容 C：'+selected.capacities_j_per_k.map(parameter).join(' / ')+' J/K';
+document.querySelector('#resistances').textContent='五内部热阻 R：'+selected.provider.link_resistances_k_per_w.map(parameter).join(' / ')+' K/W；壳体环境R：'+parameter(selected.provider.case_resistance_k_per_w)+' K/W';
 document.querySelector('#ambient').textContent='环境 '+selected.ambient_c+'°C';
 document.querySelector('#configuration').textContent='当前配置：环境 '+selected.ambient_c+'°C；六节点初温 '+selected.initial_temperatures_c.join(' / ')+'°C；持续 '+selected.duration_s+'s。';
 document.querySelector('#now').textContent=fmt(v('time_s'))+' s / '+selected.duration_s+' s';
 names.forEach((n,i)=>document.querySelector('#n'+i).textContent=fmt(v(n),3)+'°C');
 for(const [id,n,l] of [['fcase','case_w','壳体'],['fconv','convection_w','对流'],['frad','radiation_w','辐射']])document.querySelector('#'+id).textContent=l+' '+fmt(v(n),3)+'W';
-const cards=[['电驱',source<-.1?'回馈':'源供能','iq '+fmt(v('iq_a'),3)+' A / R '+fmt(v('actual_r_ohm'),6)+' Ω'],['散热边界',v('gc_w_k')>1/3+1e-6?'高于基准':v('gc_w_k')<1/3-1e-6?'低于基准':'基准Gc','Gc '+fmt(v('gc_w_k'),4)+' W/K / Gr '+selected.area_m2+' m²'],['三支路累计散热',fmt(v('case_out_j')+v('convection_out_j')+v('radiation_out_j'),5)+' J','壳体 '+fmt(v('case_out_j'))+' / 对流 '+fmt(v('convection_out_j'))+' / 辐射 '+fmt(v('radiation_out_j'))+' J'],...names.map((n,i)=>[labels[i],fmt(v(n),5)+' °C','初态 '+fmt((selected.initial_temperatures_c||Array(6).fill(80))[i],2)+' °C / C '+selected.capacities_j_per_k[i]+' J/K'])];
+const cards=[['电驱',source<-.1?'回馈':'源供能','iq '+fmt(v('iq_a'),3)+' A / R '+fmt(v('actual_r_ohm'),6)+' Ω'],['散热边界',v('gc_w_k')>1/3+1e-6?'高于基准':v('gc_w_k')<1/3-1e-6?'低于基准':'基准Gc','Gc '+fmt(v('gc_w_k'),4)+' W/K / Gr '+selected.area_m2+' m²'],['三支路累计散热',fmt(v('case_out_j')+v('convection_out_j')+v('radiation_out_j'),5)+' J','壳体 '+fmt(v('case_out_j'))+' / 对流 '+fmt(v('convection_out_j'))+' / 辐射 '+fmt(v('radiation_out_j'))+' J'],...names.map((n,i)=>[labels[i],fmt(v(n),5)+' °C','初态 '+fmt((selected.initial_temperatures_c||Array(6).fill(80))[i],2)+' °C / C '+parameter(selected.capacities_j_per_k[i])+' J/K'])];
 document.querySelector('#states').innerHTML=cards.map(([l,s,d])=>'<div class="card"><small>'+l+'</small><strong>'+s+'</strong><small>'+d+'</small></div>').join('');
 document.querySelector('#detail').textContent='控制器 '+(v('enabled')?'启用':'禁用')+'；电压限幅 '+(v('voltage_limited')?'激活':'未激活')+'；电流限幅 '+(v('current_limited')?'激活':'未激活')+'。源功率 '+fmt(source,3)+'W；铜耗 '+fmt(v('copper_w'),3)+'W；器件热 '+fmt(v('device_w'),3)+'W。热余额 '+exp(v('thermal_balance_j'))+'J。';
 }

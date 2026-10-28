@@ -13,6 +13,7 @@ from xml.etree import ElementTree
 import numpy as np
 from fmpy import extract, read_model_description
 from fmpy.fmi2 import FMU2Model
+from msl_cooling_drive_parameters import configuration
 from msl_cooling_drive_reference import BRANCHES, gc_at
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,8 +34,11 @@ class MSLCoolingDrive:
     energy_state_names = BRANCHES
     initial_temperatures_c = (80.,)*6
 
-    def __init__(self, destination, duration, area, varying=False):
-        self.area, self.varying = area, varying
+    def __init__(self, destination, duration, area, varying=False, *,
+                 ambient_c=25., initial_temperatures_c=None):
+        self.ambient_c, self.area, self.initial_temperatures_c = configuration(
+            ambient_c, area, initial_temperatures_c)
+        self.varying = varying
         archive = SOURCE / "OEALMSLCooling.fmu"
         with zipfile.ZipFile(archive) as z:
             model = z.read("resources/oeal-licenses/OEALMSLCooling.mo")
@@ -87,7 +91,8 @@ class MSLCoolingDrive:
         self.fmu.setupExperiment(startTime=0., stopTime=duration+100e-6, tolerance=1e-11)
         self.fmu.enterInitializationMode()
         self.fmu.setReal([self.variables["ambient_k"].valueReference,
-                          self.variables["radiation_area_m2"].valueReference], [298.15, area])
+                          self.variables["radiation_area_m2"].valueReference],
+                         [self.ambient_c+273.15, self.area])
         self.fmu.setReal([self.variables[n].valueReference for n in POWERS], [0.]*6)
         self.fmu.setReal([self.variables["convection_w_per_k"].valueReference], [1/3])
         self.fmu.exitInitializationMode()
@@ -97,7 +102,7 @@ class MSLCoolingDrive:
         initial = np.empty(10)
         self.fmu.getContinuousStates(initial.ctypes.data_as(PTR), 10)
         np.testing.assert_allclose(initial[self.index],
-                                   np.r_[[25.]*6, np.zeros(4)]+self.offsets, atol=1e-12)
+                                   np.r_[[self.ambient_c]*6, np.zeros(4)]+self.offsets, atol=1e-12)
         # Project synthetic hot initial state; all energy integrals remain zero.
         initial[self.index] = np.r_[self.initial_temperatures_c, np.zeros(4)]+self.offsets
         self.fmu.setContinuousStates(initial.ctypes.data_as(PTR), 10)
@@ -147,7 +152,7 @@ class MSLCoolingDrive:
 
     def describe(self):
         return dict(kind="fixed nonlinear MSL4.0.0 ModelExchange",
-                    area_m2=self.area, varying_gc=self.varying,
+                    area_m2=self.area, varying_gc=self.varying, ambient_c=self.ambient_c,
                     initial_temperatures_c=list(self.initial_temperatures_c),
                     state_names=self.fmi_state_names, canonical_indices=self.index,
                     canonical_offsets=self.offsets, binary_sha256=self.binary_hashes,

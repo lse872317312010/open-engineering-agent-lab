@@ -29,7 +29,7 @@ def save(path, names, a):
     old.csv_save(path, names, a)
 
 
-def audit_rhs(path, area, varying):
+def audit_rhs(path, area, varying, ambient_c=25.):
     maximum = np.zeros(11)
     power_error = state_sum = gc_error = 0.
     accepted, count, bad_route = [], 0, False
@@ -38,7 +38,7 @@ def audit_rhs(path, area, varying):
         nonlocal power_error, state_sum, gc_error, count, bad_route
         a = np.asarray(batch, dtype=float)
         assert np.all(np.isfinite(a))
-        expected = rates(a[:, 2:8], a[:, 8:14], a[:, 19], area)
+        expected = rates(a[:, 2:8], a[:, 8:14], a[:, 19], area, ambient_c)
         maximum[:] = np.maximum(maximum, np.max(abs(a[:, 20:31]-expected), axis=0))
         power_error = max(power_error, float(np.max(abs(
             a[:, 20:26] @ CAPACITIES+a[:, 27]-a[:, 8:14].sum(axis=1)))))
@@ -52,7 +52,7 @@ def audit_rhs(path, area, varying):
             wrong[0, 3] += wrong[0, 0]
             wrong[0, 0] = 0.
             bad_route = bool(np.max(abs(
-                rates(a[k:k+1, 2:8], wrong, a[k:k+1, 19], area)[:, :6]
+                rates(a[k:k+1, 2:8], wrong, a[k:k+1, 19], area, ambient_c)[:, :6]
                 - a[k:k+1, 20:26])) > 2e-7)
             save(path.with_name("fault-misrouted-copper.csv"), LOG_COLUMNS, a[k:k+1])
             save(path.with_name("fault-misrouted-heat.csv"),
@@ -99,30 +99,36 @@ def energy_audit(control, energy):
                 thermal_peak_j=float(max(abs(residual)))), local, residual
 
 
-def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    old.OUT = OUT
+def main(*, cases=CASES, base=BASE, destination=OUT, parameters=None,
+         scope="0.02-0.1s hot-start actual-drive coupling; no endurance or hardware"):
+    destination.mkdir(parents=True, exist_ok=True)
+    old.OUT = destination
+    parameters = {} if parameters is None else parameters
     compatibility = old.legacy_probe()
     compatibility["baseline_commit"] = "c4499fb66cfed99d289de9f7f36f895b319c5c62"
     reports, kept = [], {}
-    for name, changes, area, varying in CASES:
-        config = BASE | changes
-        target = OUT / name
+    for name, changes, area, varying in cases:
+        config = base | changes
+        settings = parameters.get(name, {})
+        target = destination / name
         target.mkdir(exist_ok=True)
         (target / "input.json").write_text(json.dumps(dict(
-            drive=config, area_m2=area, varying_gc=varying, initial_temperatures_c=[80.]*6),
+            drive=config, area_m2=area, varying_gc=varying,
+            initial_temperatures_c=settings.get("initial_temperatures_c", [80.]*6),
+            ambient_c=settings.get("ambient_c", 25.)),
             indent=2))
-        provider = MSLCoolingDrive(target / "rhs.csv.gz", config["duration_s"], area, varying)
+        provider = MSLCoolingDrive(target / "rhs.csv.gz", config["duration_s"], area, varying,
+                                   **settings)
         try:
             control, energy, fine = old.simulate(config, provider)
             metadata = provider.describe()
         finally:
             provider.close()
-        audit, accepted = audit_rhs(target / "rhs.csv.gz", area, varying)
+        audit, accepted = audit_rhs(target / "rhs.csv.gz", area, varying, provider.ambient_c)
         assert audit["rows"] == metadata["rhs_calls"]+metadata["accepted_checkpoints"]
         assert len(accepted) == len(control) == metadata["accepted_checkpoints"]
         np.testing.assert_allclose(accepted[:, 1], control[:, 0], atol=1e-14, rtol=0)
-        reference = PythonCooling(area, varying)
+        reference = PythonCooling(area, varying, **settings)
         paired_c, paired_e, paired_f = old.simulate(config, reference)
         save(target / "control.csv", CONTROL_COLUMNS, control)
         save(target / "energy.csv", ENERGY_COLUMNS, energy)
@@ -157,9 +163,10 @@ def main():
         np.testing.assert_allclose(accepted[:, 8], col(control, CONTROL_COLUMNS, "copper_w"),
                                    atol=1e-8, rtol=0)
         # Corruption copies test the existing gates, never change actual trajectories.
-        omitted = heat-(np.column_stack([get(n) for n in TEMPERATURES])-80) @ CAPACITIES \
+        omitted = heat-(np.column_stack([get(n) for n in TEMPERATURES])
+                          -accepted[0, 2:8]) @ CAPACITIES \
                   -accepted[:, 16:18].sum(axis=1)
-        wrong_celsius = area*SIGMA*(accepted[:, 7]**4-25**4)
+        wrong_celsius = area*SIGMA*(accepted[:, 7]**4-provider.ambient_c**4)
         missing_radiation = bool(max(abs(omitted)) > 1e-7) if area else None
         celsius_fault = bool(max(abs(accepted[:, 30]-wrong_celsius)) > 2e-7) if area else None
         missing_dc = energy.copy()
@@ -177,6 +184,9 @@ def main():
         peak = float(max(np.hypot(fine[:, 1], fine[:, 2])))
         tail = float(np.mean(abs(q[-max(1, len(q)//10):]-config["iq_reference_a"])))
         min_source = float(min(get("source_w")))
+        cold_start = bool(np.all(abs(accepted[0, 2:8]-provider.ambient_c) < 1e-12))
+        radiation_check = (min(accepted[:, 30]) >= -2e-7 and max(accepted[:, 30]) > 1e-6
+                           if cold_start else min(accepted[:, 30]) > 1)
         passed = bool(audit["passed"] and temp_error <= 2e-7
                       and max(paired_errors.values()) <= 2e-5 and branch_error <= 1e-7
                       and ambient_error <= 1e-7 and r_error <= 1e-10
@@ -184,7 +194,7 @@ def main():
                       and accounting["thermal_peak_j"] <= 1e-7 and peak <= 6.5 and tail <= .1
                       and missing_radiation is not False and celsius_fault is not False
                       and missing_dc_fault and frozen_fault is not False
-                      and (min(accepted[:, 30]) > 1 if area else np.max(abs(accepted[:, 30])) == 0)
+                      and (radiation_check if area else np.max(abs(accepted[:, 30])) == 0)
                       and (name != "regeneration" or min_source < -.1))
         if not config["thermal_feedback"]:
             passed = passed and max(abs(inferred-.3)) <= 1e-12
@@ -211,6 +221,10 @@ def main():
         stride = max(1, len(control)//240)
         indices = sorted(set(range(0, len(control), stride)) | {len(control)-1})
         case = dict(id=name, passed=bool(passed), config=config, area_m2=area, varying_gc=varying,
+                    ambient_c=provider.ambient_c,
+                    initial_temperatures_c=list(provider.initial_temperatures_c),
+                    winding_rise_k=float(winding[-1]-winding[0]),
+                    resistance_growth_ohm=float(all_r[-1]-all_r[0]),
                     rows=len(control), duration_s=config["duration_s"], rhs_audit=audit,
                     provider=metadata, temperature_difference_k=temp_error,
                     paired_errors=paired_errors, branch_difference_j=branch_error,
@@ -236,19 +250,22 @@ def main():
                    -col(kept["radiation-frozen"][1], ENERGY_COLUMNS, "copper_j")[-1])
     fine_pass = all(v <= (2e-7 if n in TEMPERATURES else 2e-5) for n,v in comparisons.items())
     source_paths = ("src/oeal/backends/energy.py", "src/oeal/backends/motulator.py",
-                    "benchmarks/msl_cooling_drive_adapter.py")
+                    "benchmarks/msl_cooling_drive_adapter.py",
+                    "benchmarks/msl_cooling_drive_reference.py",
+                    "benchmarks/msl_cooling_drive_parameters.py",
+                    "benchmarks/validate_msl_cooling_drive.py")
     summary = dict(passed=all(c["passed"] for c in reports) and fine_pass and abs(causal) >= 1e-5,
                    cases=reports, fine_comparisons=comparisons,
                    copper_feedback_minus_frozen_j=causal, compatibility=compatibility,
                    evidence_level="model_simulated", current_profile_count=7,
-                   scope="0.02-0.1s hot-start actual-drive coupling; no endurance or hardware",
+                   scope=scope,
                    metadata=dict(commit=subprocess.check_output(
                        ["git", "rev-parse", "HEAD"], text=True).strip(),
                        build=json.loads(
                            (ROOT / "outputs/msl-cooling/build-provenance.json").read_text()),
                        source_sha256={p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest()
                                       for p in source_paths}))
-    (OUT / "validation.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
+    (destination / "validation.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
     print("cooling-drive-summary: "+json.dumps({k:v for k,v in summary.items() if k != "cases"}),
           flush=True)
     assert summary["passed"], "fixed nonlinear drive cooling gate failed"

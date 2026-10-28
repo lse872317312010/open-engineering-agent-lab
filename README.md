@@ -409,3 +409,24 @@ python benchmarks/build_msl_cooling_drive_report.py
 [联合机制](docs/msl-cooling-drive-network.mmd) /
 [实际结果与报告下载](docs/stage-status.md)。
 默认25°C路径、旧线性FMU接口及七IR保持兼容。
+
+## 可配置环境、初温与秒级实际电驱
+
+真实MSL散热提供方支持ambient_c（−10..60°C）和六独立初温（−10..120°C）；
+默认仍为环境25°C、六初温80°C。
+冷启动实际电驱验证延长至1s，另含非均匀初态、冷热环境、
+真实PWM与回馈，并保留原七组短时热初态回归。
+配置及温度均为合成研究输入，真机由用户负责。
+
+沿用前节编译和固定motulator依赖，完整命令与基线检出见
+[专项工作流](.github/workflows/msl-configured-drive.yml)：
+
+```bash
+python benchmarks/build_msl_cooling.py
+python benchmarks/validate_msl_configured_drive.py
+python benchmarks/build_msl_configured_drive_report.py
+```
+
+[固定契约](docs/msl-configured-drive-contract.md) /
+[可配置联合机制](docs/msl-configured-drive-network.svg) /
+[结果及报告下载](docs/stage-status.md)。

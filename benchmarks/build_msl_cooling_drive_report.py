@@ -13,12 +13,14 @@ SOURCE = ROOT / "outputs/msl-cooling-drive"
 OUT = ROOT / "outputs/msl-cooling-drive-report"
 
 
-def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    plots = OUT / "plots"
+def main(*, source=SOURCE, output=OUT,
+         template="reports/msl-cooling-drive.html",
+         contract="docs/msl-cooling-drive-contract.md"):
+    output.mkdir(parents=True, exist_ok=True)
+    plots = output / "plots"
     plots.mkdir(exist_ok=True)
-    data = json.loads((SOURCE / "validation.json").read_text())
-    rows = {c["id"]:np.genfromtxt(SOURCE / c["id"] / "coupling.csv",
+    data = json.loads((source / "validation.json").read_text())
+    rows = {c["id"]:np.genfromtxt(source / c["id"] / "coupling.csv",
                                  delimiter=",", names=True) for c in data["cases"]}
     nominal = rows["radiation-feedback"]
     figures = []
@@ -26,7 +28,7 @@ def main():
     for n in ("winding_c", "core_c", "case_c", "junction_c", "board_c", "sink_c"):
         ax.plot(nominal["time_s"], nominal[n], label=n)
     ax.set(xlabel="Time (s)", ylabel="Temperature (degC)",
-           title="Actual drive losses, six synthetic 80 degC initial temperatures")
+           title="Actual drive losses, six configured initial temperatures")
     ax.legend(ncol=3)
     figures.append(("01-temperatures", fig))
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -75,7 +77,7 @@ def main():
     for ax in axes:
         ax.tick_params(axis="x", rotation=30)
     figures.append(("05-validation", fig))
-    with PdfPages(OUT / "report.pdf") as pdf:
+    with PdfPages(output / "report.pdf") as pdf:
         for name, fig in figures:
             fig.tight_layout()
             fig.savefig(plots / (name+".png"), dpi=170)
@@ -83,20 +85,20 @@ def main():
             pdf.savefig(fig)
             plt.close(fig)
     for case in data["cases"]:
-        shutil.copyfile(SOURCE / case["id"] / "coupling.csv", OUT / (case["id"]+".csv"))
+        shutil.copyfile(source / case["id"] / "coupling.csv", output / (case["id"]+".csv"))
     for path, target in [
         ("outputs/msl-cooling/OEALMSLCooling.fmu", "OEALMSLCooling.fmu"),
-        ("docs/msl-cooling-drive-contract.md", "contract.md"),
+        (contract, "contract.md"),
         ("research/licenses/MSL-4.0.0.txt", "MSL-BSD3.txt"),
         ("research/licenses/motulator-refinement.txt", "motulator-LICENSE.txt"),
         ("LICENSE", "LICENSE")]:
-        shutil.copyfile(ROOT / path, OUT / target)
-    shutil.copyfile(SOURCE / "validation.json", OUT / "report-data.json")
-    (OUT / "index.html").write_text((ROOT / "reports/msl-cooling-drive.html").read_text()
+        shutil.copyfile(ROOT / path, output / target)
+    shutil.copyfile(source / "validation.json", output / "report-data.json")
+    (output / "index.html").write_text((ROOT / template).read_text()
                                    .replace("__DATA__", json.dumps(data)))
-    (OUT / "README.txt").write_text(
+    (output / "README.txt").write_text(
         "解压打开index.html。五图PDF/PNG/SVG、七组全控制CSV、热FMU及固定验收契约。\n"
-        "0.02–0.1s实际电驱损耗联合仿真；六节点合成80°C初态，不是长时耐久。\n"
+        "实际电驱损耗联合仿真；环境和六节点初温见配置，不是长时耐久。\n"
         "原始包另含全部电磁细流、参考、RHS试探、故障副本和环境散列。\n")
     errors, network = [], []
     with sync_playwright() as p:
@@ -105,7 +107,7 @@ def main():
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.on("request", lambda r: network.append(r.url)
                 if r.url.startswith(("http://", "https://")) else None)
-        page.goto((OUT / "index.html").as_uri())
+        page.goto((output / "index.html").as_uri())
         assert page.locator("#case option").count() == 7
         assert page.locator("#results tbody tr").count() == 7
         assert page.evaluate("Array.from(document.images).every(i=>i.complete && i.naturalWidth>0)")
@@ -114,7 +116,11 @@ def main():
             page.locator("#time").focus()
             page.keyboard.press("Home")
             assert page.locator("#now").inner_text().startswith("0.00000 s")
-            assert "80.000" in page.locator("#n0").text_content()
+            for i, initial in enumerate(c.get("initial_temperatures_c", [80.]*6)):
+                assert f"{initial:.3f}" in page.locator(f"#n{i}").text_content()
+            if page.locator("#ambient").count():
+                assert f'{c["ambient_c"]:g}' in page.locator("#ambient").text_content()
+                assert f'{c["ambient_c"]:g}' in page.locator("#configuration").inner_text()
             page.keyboard.press("End")
             assert abs(float(page.locator("#now").inner_text().split()[0])-c["duration_s"]) < 1e-10
             assert page.locator("#states .card").count() == 9
@@ -134,19 +140,19 @@ def main():
         assert page.locator("#play").get_attribute("aria-pressed") == "true"
         page.locator("#play").click()
         assert page.locator("#play").get_attribute("aria-pressed") == "false"
-        page.screenshot(path=str(OUT / "ui-desktop.png"), full_page=True)
+        page.screenshot(path=str(output / "ui-desktop.png"), full_page=True)
         page.set_viewport_size(dict(width=390, height=844))
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        page.screenshot(path=str(OUT / "ui-mobile.png"), full_page=True)
+        page.screenshot(path=str(output / "ui-mobile.png"), full_page=True)
         version = browser.version
         browser.close()
     assert not errors and not network, (errors, network)
-    assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
+    assert (output / "report.pdf").read_bytes().startswith(b"%PDF")
     ui = dict(passed=True, browser=version, charts=5, page_errors=errors,
               external_requests=network, checks=["seven cases", "six node states",
                   "three real energy branches", "Gc high/low status", "keyboard endpoints",
                   "seven full CSVs", "play/pause", "390px", "PDF/PNG/SVG"])
-    (OUT / "ui-validation.json").write_text(json.dumps(ui, ensure_ascii=False, indent=2))
+    (output / "ui-validation.json").write_text(json.dumps(ui, ensure_ascii=False, indent=2))
     print("cooling-drive-ui: "+json.dumps(ui), flush=True)
 
 

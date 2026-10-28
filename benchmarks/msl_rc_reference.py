@@ -1,6 +1,5 @@
 """Independent RC parameter equations and matrix exponential, frozen before implementation."""
 import numpy as np
-from scipy.linalg import expm
 
 CAPACITY = np.array([60.,70.,200.,.5,25.,100.])
 RESISTANCE = np.array([.6,.4,2.,.8,1.2])
@@ -25,6 +24,8 @@ def rates(temperatures, heat, gc, area, ambient, capacities, resistances, case_r
 
 
 def linear_solution(t, initial, ambient, capacities, resistances, case_r, gc=1/3):
+    from scipy.linalg import expm
+
     # Exact zero-input, zero-radiation temperatures and three branch integrals.
     c = np.asarray(capacities)
     matrix = np.zeros((9, 9))

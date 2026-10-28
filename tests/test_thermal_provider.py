@@ -91,3 +91,29 @@ class ThermalProviderTests(unittest.TestCase):
         drive.oeal_energy.state.case_out_j = 1.
         with self.assertRaisesRegex(ValueError, "branch state sum"):
             drive.oeal_energy.rhs(0.)
+
+    def test_custom_capacities_drive_storage_and_power_gate_and_are_copied(self):
+        declared = np.array([120.,140.,400.,1.,50.,200.])
+
+        class Provider:
+            capacities_j_per_k = declared
+            initial_temperatures_c = (80.,)*6
+
+            def evaluate(self, _t, _temperatures, heat, *_args, **_kwargs):
+                return np.r_[np.asarray(heat)/declared, sum(heat), 0.]
+
+        drive = self.drive(Provider())
+        energy = drive.oeal_energy
+        self.assertAlmostEqual(energy.initial_storage["thermal_j"], 50105.)
+        energy.rhs(.001)  # A default-C power gate would reject this valid custom-C derivative.
+        declared[:] *= 2
+        np.testing.assert_array_equal(energy.capacities, [120.,140.,400.,1.,50.,200.])
+        with self.assertRaisesRegex(ValueError, "power balance"):
+            energy.rhs(.001)
+
+    def test_invalid_provider_capacities_are_rejected_before_integration(self):
+        from types import SimpleNamespace
+
+        for invalid in ([1.]*5, [0.]*6, [float("nan")]*6, [True]*6, ["2"]*6):
+            with self.assertRaises(ValueError):
+                self.drive(SimpleNamespace(capacities_j_per_k=invalid))

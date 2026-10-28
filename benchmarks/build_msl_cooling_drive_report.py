@@ -15,7 +15,8 @@ OUT = ROOT / "outputs/msl-cooling-drive-report"
 
 def main(*, source=SOURCE, output=OUT,
          template="reports/msl-cooling-drive.html",
-         contract="docs/msl-cooling-drive-contract.md"):
+         contract="docs/msl-cooling-drive-contract.md",
+         fmu="outputs/msl-cooling/OEALMSLCooling.fmu"):
     output.mkdir(parents=True, exist_ok=True)
     plots = output / "plots"
     plots.mkdir(exist_ok=True)
@@ -87,7 +88,7 @@ def main(*, source=SOURCE, output=OUT,
     for case in data["cases"]:
         shutil.copyfile(source / case["id"] / "coupling.csv", output / (case["id"]+".csv"))
     for path, target in [
-        ("outputs/msl-cooling/OEALMSLCooling.fmu", "OEALMSLCooling.fmu"),
+        (fmu, Path(fmu).name),
         (contract, "contract.md"),
         ("research/licenses/MSL-4.0.0.txt", "MSL-BSD3.txt"),
         ("research/licenses/motulator-refinement.txt", "motulator-LICENSE.txt"),
@@ -121,6 +122,14 @@ def main(*, source=SOURCE, output=OUT,
             if page.locator("#ambient").count():
                 assert f'{c["ambient_c"]:g}' in page.locator("#ambient").text_content()
                 assert f'{c["ambient_c"]:g}' in page.locator("#configuration").inner_text()
+            if page.locator("#capacities").count():
+                assert " / ".join(f"{x:g}" for x in c["capacities_j_per_k"]) in (
+                    page.locator("#capacities").inner_text())
+                assert " / ".join(
+                    f"{x:g}" for x in c["provider"]["link_resistances_k_per_w"]) in (
+                        page.locator("#resistances").inner_text())
+                assert f'{c["provider"]["case_resistance_k_per_w"]:g}' in (
+                    page.locator("#resistances").inner_text())
             page.keyboard.press("End")
             assert abs(float(page.locator("#now").inner_text().split()[0])-c["duration_s"]) < 1e-10
             assert page.locator("#states .card").count() == 9

@@ -1,0 +1,14 @@
+loadFile("../../outputs/msl-source/Complex.mo");
+getErrorString();
+loadFile("../../outputs/msl-source/ModelicaServices/package.mo");
+getErrorString();
+loadFile("../../outputs/msl-source/Modelica/package.mo");
+getErrorString();
+getVersion(Modelica);
+loadFile("../../models/modelica/OEALMSLParametric.mo");
+getErrorString();
+getComponents(OEALMSLParametric);
+checkModel(OEALMSLParametric);
+getErrorString();
+buildModelFMU(OEALMSLParametric, version="2.0", fmuType="me", fileNamePrefix="OEALMSLParametric");
+getErrorString();

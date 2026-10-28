@@ -1,0 +1,157 @@
+name: Configurable MSL RC and actual-capacity drive evidence
+on:
+  push:
+    branches: [main, codex/msl-rc-parameters]
+    paths: ['src/oeal/backends/energy.py', 'models/modelica/*Parametric*', 'models/modelica/export-msl-parametric.mos', 'benchmarks/*msl_rc*', 'benchmarks/*msl_parametric*', 'benchmarks/*msl_cooling_drive*', 'reports/msl-rc.html', 'tests/test_msl_rc*', 'tests/test_thermal_provider.py', '.github/workflows/msl-rc.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+concurrency:
+  group: msl-rc-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  coupling:
+    if: ${{ !contains(github.event.head_commit.message, '[report-only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: c4499fb66cfed99d289de9f7f36f895b319c5c62
+          path: outputs/msl-drive-base
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed host and independent reference environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+      - name: Lint and deterministic regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Export independent parametric and original fixed MSL assets
+        run: |
+          python benchmarks/build_msl_parametric.py
+          python benchmarks/build_msl_cooling.py
+      - name: Exact matrix exponential, parameter reads and C time/energy scaling
+        run: python benchmarks/validate_msl_rc_limits.py
+      - name: Actual-capacity storage, seven drive cases, full RHS and fixed-asset pairing
+        run: python benchmarks/validate_msl_rc.py
+      - name: Five figures, component parameters and Chrome interaction
+        run: python benchmarks/build_msl_rc_report.py
+      - name: Retain environment and full evidence manifest
+        if: always()
+        run: |
+          mkdir -p outputs/msl-rc
+          python -m pip freeze > outputs/msl-rc/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("msl-parametric", "msl-cooling", "msl-rc", "msl-rc-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file() and not any(x in p.parts for x in ("runtime", "package")):
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "msl-rc/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-rc-report
+          path: outputs/msl-rc-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-rc-raw-evidence
+          path: |
+            outputs/msl-parametric/
+            outputs/msl-cooling/
+            outputs/msl-rc/
+          if-no-files-found: error
+      - name: Enforce frozen physical and report gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assert json.loads(Path("outputs/msl-rc/linear-limits.json").read_text())["passed"]
+          assert json.loads(Path("outputs/msl-rc/validation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/msl-rc-report/ui-validation.json").read_text())["passed"]
+          PY
+  report:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[report-only]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: msl-rc-raw-evidence
+          run-id: 40618818207
+          github-token: ${{ github.token }}
+          path: outputs
+      - name: Install fixed report and regression environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+      - name: Lint and deterministic regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Verify science source and full raw manifest before Chrome report
+        run: python benchmarks/recover_msl_rc_report.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-rc-report
+          path: outputs/msl-rc-report/
+          if-no-files-found: warn
+      - name: Enforce source-bound science and report gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("outputs/msl-rc-report")
+          assert json.loads((root / "recovery-provenance.json").read_text())["passed"]
+          assert json.loads((root / "ui-validation.json").read_text())["passed"]
+          PY
+  tidy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged RC branch with a lease
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/msl-rc-parameters"
+          found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
+          if found:
+              sha = found.split()[0]
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
+              subprocess.run(["git", "push", "--force-with-lease=" + ref + ":" + sha, "origin", ":" + ref], check=True)
+          PY

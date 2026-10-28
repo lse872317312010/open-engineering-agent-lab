@@ -5,6 +5,7 @@ One auxiliary subsystem integrates physical heat and measured port powers.
 An explicitly declared equivalent DC shunt supplies extra device heating.
 """
 
+from numbers import Real
 from types import SimpleNamespace
 
 import numpy as np
@@ -46,6 +47,17 @@ class EnergySubsystem(Subsystem):
                              dtype=float)
         if initial.shape != (6,) or not np.all(np.isfinite(initial)):
             raise ValueError("thermal provider needs six finite initial temperatures")
+        self.custom_capacities = hasattr(thermal_provider, "capacities_j_per_k")
+        declared = np.asarray(getattr(thermal_provider, "capacities_j_per_k", CAPACITIES),
+                              dtype=object)
+        if (declared.shape != (6,) or any(
+                isinstance(v, (bool, np.bool_)) or not isinstance(v, Real) for v in declared)):
+            raise ValueError("thermal provider needs six real capacities")
+        self.capacities = np.array(declared, dtype=float, copy=True)
+        if (self.capacities.shape != (6,) or not np.all(np.isfinite(self.capacities))
+                or np.any(self.capacities <= 0)):
+            raise ValueError("thermal provider needs six finite positive capacities")
+        self.capacities.setflags(write=False)
         self.resistance_25 = float(drive.machine.par.R_s)
         self.inp, self.out = None, SimpleNamespace()
         self.state = SimpleNamespace(**{
@@ -70,7 +82,8 @@ class EnergySubsystem(Subsystem):
         kinetic = 0.5 * mechanics.J * float(mechanics.state.w_M.real) ** 2
         bus = self.drive.dc_bus
         capacitor = 0 if bus is None else 0.5 * bus.C_dc * float(bus.state.u_dc.real) ** 2
-        thermal = float(thermal_energy(self.temperatures, 25.0))
+        thermal = (float((self.temperatures-25.) @ self.capacities) if self.custom_capacities
+                   else float(thermal_energy(self.temperatures, 25.0)))
         return dict(magnetic_j=magnetic, kinetic_j=kinetic, bus_j=capacitor, thermal_j=thermal)
 
     def powers(self, t):
@@ -137,8 +150,8 @@ class EnergySubsystem(Subsystem):
             raise ValueError("thermal provider returned invalid thermal/energy derivatives")
         if abs(response[6]-sum(heat)) > 1e-8:
             raise ValueError("thermal provider input power disagrees with actual heat")
-        if abs(CAPACITIES @ response[:6]+response[7]-sum(heat)) > 1e-8:
-            raise ValueError("thermal provider violates fixed six-node power balance")
+        if abs(self.capacities @ response[:6]+response[7]-sum(heat)) > 1e-8:
+            raise ValueError("thermal provider violates six-node power balance")
         if self.provider_state_names and abs(sum(response[8:])-response[7]) > 1e-8:
             raise ValueError("thermal provider branch powers disagree with total ambient power")
         return response
@@ -187,7 +200,7 @@ class EnergySubsystem(Subsystem):
         description = {
             "boundary": "DC feed port + linear PMSM + rotor + six thermal nodes",
             "thermal_nodes": list(NAMES),
-            "capacities_j_per_k": CAPACITIES.tolist(),
+            "capacities_j_per_k": self.capacities.tolist(),
             "conductance_w_per_k": self.network.conductance.tolist(),
             "ambient_c": self.network.ambient_c,
             "rotor_inertia_kg_m2": mechanics.J,
@@ -206,6 +219,8 @@ class EnergySubsystem(Subsystem):
 
         if self.thermal_provider is not None:
             description["thermal_provider"] = self.thermal_provider.describe()
+            description["ambient_c"] = getattr(self.thermal_provider, "ambient_c", 25.)
+            description["conductance_role"] = "native fallback; thermal_provider is authoritative"
             description["thermal_semantics"] = "provider derivatives in upstream continuous solver"
         return description
 

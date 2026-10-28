@@ -119,8 +119,8 @@ def main(*, source=SOURCE, output=OUT,
             for i, initial in enumerate(c.get("initial_temperatures_c", [80.]*6)):
                 assert f"{initial:.3f}" in page.locator(f"#n{i}").text_content()
             if page.locator("#ambient").count():
-                assert str(c["ambient_c"]) in page.locator("#ambient").text_content()
-                assert str(c["ambient_c"]) in page.locator("#configuration").inner_text()
+                assert f'{c["ambient_c"]:g}' in page.locator("#ambient").text_content()
+                assert f'{c["ambient_c"]:g}' in page.locator("#configuration").inner_text()
             page.keyboard.press("End")
             assert abs(float(page.locator("#now").inner_text().split()[0])-c["duration_s"]) < 1e-10
             assert page.locator("#states .card").count() == 9

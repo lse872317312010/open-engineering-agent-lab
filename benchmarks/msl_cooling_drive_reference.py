@@ -1,5 +1,6 @@
 """Independent nonlinear cooling coupling reference, frozen before implementation."""
 import numpy as np
+from msl_cooling_drive_parameters import configuration
 from msl_cooling_reference import SIGMA
 from msl_thermal_reference import CAPACITY, EDGES
 
@@ -27,7 +28,7 @@ def gc_at(t, varying):
     return 1/3 + .25*np.sin(2*np.pi*t/.1) if varying else 1/3
 
 
-def rates(temperatures, heat, gc, area):
+def rates(temperatures, heat, gc, area, ambient_c=25.):
     temp = np.atleast_2d(temperatures)
     net = np.atleast_2d(heat).copy()
     for a, b, r in EDGES:
@@ -35,9 +36,9 @@ def rates(temperatures, heat, gc, area):
         net[:, a] -= q
         net[:, b] += q
     branch = np.column_stack([
-        (temp[:, 2]-25)/2,
-        np.asarray(gc)*(temp[:, 5]-25),
-        area*SIGMA*((temp[:, 5]+273.15)**4-298.15**4),
+        (temp[:, 2]-ambient_c)/2,
+        np.asarray(gc)*(temp[:, 5]-ambient_c),
+        area*SIGMA*((temp[:, 5]+273.15)**4-(ambient_c+273.15)**4),
     ])
     net[:, 2] -= branch[:, 0]
     net[:, 5] -= branch[:, 1]+branch[:, 2]
@@ -49,16 +50,19 @@ class PythonCooling:
     energy_state_names = BRANCHES
     initial_temperatures_c = (80.,)*6
 
-    def __init__(self, area, varying=False):
-        self.area, self.varying = area, varying
+    def __init__(self, area, varying=False, *, ambient_c=25., initial_temperatures_c=None):
+        self.ambient_c, self.area, self.initial_temperatures_c = configuration(
+            ambient_c, area, initial_temperatures_c)
+        self.varying = varying
         self.accepted = []
 
     def evaluate(self, t, temperatures, heat, input_j, ambient_j, *,
                  branch_energy_j, accepted=False):
         if accepted:
             self.accepted.append([t, *branch_energy_j])
-        return rates(temperatures, heat, gc_at(t, self.varying), self.area)[0]
+        return rates(temperatures, heat, gc_at(t, self.varying), self.area, self.ambient_c)[0]
 
     def describe(self):
         return dict(kind="independent Python port equations", area_m2=self.area,
+                    ambient_c=self.ambient_c,
                     initial_temperatures_c=list(self.initial_temperatures_c))

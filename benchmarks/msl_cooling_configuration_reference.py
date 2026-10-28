@@ -1,5 +1,6 @@
 """Independent configurable-boundary hand calculations, committed before adapter changes."""
 import math
+
 import numpy as np
 
 SIGMA = 2*math.pi**5*(1.380649e-23)**4/(15*(6.62607015e-34)**3*299792458**2)

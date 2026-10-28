@@ -430,3 +430,24 @@ python benchmarks/build_msl_configured_drive_report.py
 [固定契约](docs/msl-configured-drive-contract.md) /
 [可配置联合机制](docs/msl-configured-drive-network.svg) /
 [结果及报告下载](docs/stage-status.md)。
+
+## MSL热容/热阻配置与实际储热
+
+独立OEALMSLParametric FMU支持六热容、五内部热阻及壳体环境热阻配置，
+继续使用真实MSL组件。主机按实际C核算储能与功率，默认旧路径保持原算法。
+[参数与复现说明](docs/msl-rc-configuration.md) /
+[固定Gate](docs/msl-rc-contract.md) /
+[架构图](docs/msl-rc-network.svg) /
+[实际结果及报告下载](docs/stage-status.md)。
+
+```bash
+python benchmarks/build_msl_parametric.py
+python benchmarks/build_msl_cooling.py
+python benchmarks/validate_msl_rc_limits.py
+python benchmarks/validate_msl_rc.py
+python benchmarks/build_msl_rc_report.py
+```
+
+完整固定环境和基线检出见[工作流](.github/workflows/msl-rc.yml)。
+三组零输入矩阵指数与七组短时实际电驱分开验收，报告含实际C/R、组件状态和全量CSV。
+参数为合成研究输入，真机由用户负责。

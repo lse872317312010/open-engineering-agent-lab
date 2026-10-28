@@ -25,7 +25,8 @@ def main():
     changed = subprocess.check_output(["git", "diff", "--name-only", SCIENCE, "HEAD"],
                                       text=True).splitlines()
     unexpected = [p for p in changed if p not in ALLOWED and not p.startswith("docs/")]
-    assert not unexpected, ("full scientific run required for changed physics/dependencies", unexpected)
+    assert not unexpected, ("full scientific run required for changed physics/dependencies",
+                            unexpected)
     out = ROOT / "outputs"
     data = json.loads((out / "msl-rc/validation.json").read_text())
     assert data["passed"] and all(c["passed"] for c in data["cases"])

@@ -125,7 +125,8 @@ def main():
     assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
     report = dict(passed=True,browser=version,page_errors=errors,external_requests=network,
                   checks=["three meshes","actual polygons","node endpoints","full CSV downloads",
-                          "numeric node and heat states","390px","four figures/PDF","scope visible"])
+                          "numeric node and heat states","390px",
+                          "four figures/PDF","scope visible"])
     (OUT / "ui-validation.json").write_text(json.dumps(report,indent=2))
     print("p7-fea-ui: "+json.dumps(report),flush=True)
 

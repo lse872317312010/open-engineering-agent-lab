@@ -1,0 +1,91 @@
+name: MSL identification noise and source-error boundaries
+on:
+  push:
+    branches: [main, codex/msl-identification-robustness]
+    paths: ['benchmarks/*identification_robustness*', 'reports/msl-identification-robustness.html', 'tests/test_thermal_identification_scale.py', '.github/workflows/msl-identification-robustness.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+concurrency:
+  group: msl-identification-robustness-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  robustness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed scientific and browser environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+      - name: Lint and independent regression including scale ambiguity
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Export pinned real MSL asset and regenerate independent datasets
+        run: |
+          python benchmarks/build_msl_parametric.py
+          python benchmarks/generate_msl_identification.py
+      - name: Preserve original twelve-parameter and new-FMU prediction gates
+        run: |
+          python benchmarks/fit_msl_identification.py
+          python benchmarks/validate_msl_identification.py
+      - name: Generate the frozen twenty-case public training packets
+        run: python benchmarks/generate_msl_identification_robustness.py
+      - name: Training-only fits and immutable fitted hashes
+        run: python benchmarks/fit_msl_identification_robustness.py
+      - name: Independent holdout predictions and boundary evaluation
+        run: python benchmarks/validate_msl_identification_robustness.py
+      - name: Four-figure report and actual Chrome checks
+        run: python benchmarks/build_msl_identification_robustness_report.py
+      - name: Record environment and evidence hashes
+        if: always()
+        run: |
+          mkdir -p outputs/msl-identification-robustness
+          python -m pip freeze > outputs/msl-identification-robustness/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("msl-parametric", "msl-identification", "msl-identification-robustness",
+                         "msl-identification-robustness-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file() and not any(x in p.parts for x in ("runtime", "package")):
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "msl-identification-robustness/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-identification-robustness-report
+          path: outputs/msl-identification-robustness-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-identification-robustness-raw-evidence
+          path: |
+            outputs/msl-parametric/
+            outputs/msl-identification/
+            outputs/msl-identification-robustness/
+          if-no-files-found: error
+      - name: Enforce original, stress and UI gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in ("msl-identification/validation.json", "msl-identification-robustness/evaluation.json",
+                       "msl-identification-robustness-report/ui-validation.json"):
+              assert json.loads((Path("outputs") / path).read_text())["passed"], path
+          PY

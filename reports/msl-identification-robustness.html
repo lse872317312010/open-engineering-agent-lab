@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>热模型辨识 · 可靠边界</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1424;--panel:#152139;--text:#edf3ff;--muted:#aabbd4;--blue:#7baeff;--green:#71ddc1;--amber:#ffd18b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}
+main{max-width:1200px;margin:auto;padding:28px}h1{font-size:clamp(25px,4vw,40px);line-height:1.2}
+h2{font-size:23px}a{color:var(--blue)}p{color:var(--muted)}section,.card{background:var(--panel);border:1px solid #2b3e5a;border-radius:16px;padding:20px;margin:18px 0}
+.metrics,.states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.card{margin:0;padding:15px;min-width:0}.card b{display:block;font-size:25px}
+.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}select,button{font:inherit;color:var(--text);background:#213658;border:1px solid #50719b;border-radius:8px;padding:9px;max-width:100%}
+select{width:min(100%,420px)}input{width:100%;accent-color:var(--green)}:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.badge{color:var(--green)}.warn{color:var(--amber)}.muted{color:var(--muted)}.table{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:10px;text-align:left;border-bottom:1px solid #30425c}
+svg{width:100%;display:block}svg text{fill:var(--text);font:14px system-ui}svg .wire{stroke:#7595c1;stroke-width:3}svg rect{fill:#20365a;stroke:#7396cf}
+figure{margin:20px 0}img{width:100%;border-radius:12px;background:white}figcaption{color:var(--muted)}
+#detail{white-space:pre-wrap;overflow-wrap:anywhere}#trace{background:#0c1424;border-radius:12px}
+@media(max-width:650px){main{padding:14px}.metrics,.states{grid-template-columns:1fr 1fr}section{padding:15px}.card b{font-size:20px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+<main>
+<header><p>OEAL · P6 · model_simulated</p><h1>热模型辨识的可靠边界</h1>
+<p>同一训练工况，20 个固定扰动案例。参数冻结后，预测从未参与拟合的 60°C 留出工况。四个种子的重复试验用于检查敏感性，不表示总体置信区间。</p>
+<p class="warn">“优化器成功”不等于“参数可信”。下方适用性判据依赖已知合成真值，不能用于真实数据的自动故障诊断。</p></header>
+<div id="metrics" class="metrics"></div>
+<section><h2>从训练数据到独立评价</h2>
+<p>实际 MSL 生成干净温度 → 仅训练数据注入噪声/记录错误 → 独立进程有界拟合 → SHA256 冻结 → 独立 Radau 方程预测 → 对比实际 MSL 留出真值。全六温度可观测；本轮没有实现缺失传感器下的估计。</p>
+<p><a href="contract.md">固定契约</a> · <a href="report.pdf">四图 PDF</a> · <a href="summary.csv" download>全部案例指标 CSV</a> · <a href="report-data.json" download>完整评价数据</a></p>
+</section>
+<section><h2>逐案例检查</h2><div class="controls"><label for="case">训练扰动</label><select id="case"></select><a id="csv" download>完整留出 CSV</a><a id="fit" download>冻结拟合 JSON</a></div>
+<p id="status" role="status"></p><p id="detail"></p>
+<div class="table"><table id="parameters"><thead><tr><th>参数</th><th>合成真值</th><th>估计值</th><th>相对误差</th></tr></thead><tbody></tbody></table></div>
+</section>
+<section><h2>六节点运行机制与状态</h2>
+<p>节点存储热量 C·dT/dt；内部热流 (T₁−T₂)/R 沿温差传递。壳体经热阻散热，散热器经对流和 Kelvin 四次方辐射散热。下图显示留出预测温度；热流保留符号，负值表示反向传热。预测来自独立 Radau 方程。</p>
+<div id="runtime"><label for="time">留出时间 <output id="now"></output></label><input id="time" type="range" min="0" max="0" value="0">
+<div class="controls"><button id="play" aria-pressed="false">播放</button><span>环境 60°C · 初始六温度均 60°C</span></div>
+<svg viewBox="0 0 900 300" role="img" aria-label="六节点热容、热阻和环境散热连接">
+<path class="wire" d="M190 65H250M400 65H460M535 100V145H425V195M190 225H350M500 225H685V180M610 65H830M760 148H830" fill="none"/>
+<g><rect x="40" y="35" width="150" height="65" rx="12"/><text x="50" y="60">绕组</text><text id="n0" x="50" y="85"/></g>
+<g><rect x="250" y="35" width="150" height="65" rx="12"/><text x="260" y="60">铁芯</text><text id="n1" x="260" y="85"/></g>
+<g><rect x="460" y="35" width="150" height="65" rx="12"/><text x="470" y="60">壳体</text><text id="n2" x="470" y="85"/></g>
+<g><rect x="40" y="195" width="150" height="65" rx="12"/><text x="50" y="220">结温</text><text id="n3" x="50" y="245"/></g>
+<g><rect x="350" y="195" width="150" height="65" rx="12"/><text x="360" y="220">电路板</text><text id="n4" x="360" y="245"/></g>
+<g><rect x="610" y="115" width="150" height="65" rx="12"/><text x="620" y="140">散热器</text><text id="n5" x="620" y="165"/></g>
+<text x="780" y="95">环境</text><text x="780" y="115">60°C</text>
+</svg>
+<div id="states" class="states"></div>
+<svg id="trace" viewBox="0 0 900 230" role="img" aria-label="六节点温度误差随时间变化"></svg>
+<p class="muted">误差曲线与播放状态抽样显示约 241 点；下载 CSV 保留全部 6001 点。各曲线按同一纵轴自动缩放。</p>
+</div><p id="unavailable" class="warn" hidden>拟合被明确拒绝，未创建预测。没有参数时不显示运行状态。</p></section>
+<section><h2>全部案例结果</h2><p>绿色表示通过固定的合成适用性判据；黄色表示需要检查。整套试验 Gate 包含对退化/故障案例的预期拒绝，不要求 20 个案例全部适用。</p>
+<div class="table"><table id="results"><thead><tr><th>案例</th><th>求解</th><th>合成适用性</th><th>最大参数误差</th><th>最大节点 RMSE</th></tr></thead><tbody></tbody></table></div></section>
+<section><h2>误差与失效边界</h2>
+<figure><img src="plots/01-noise.png" alt="不同噪声下四个种子的最大参数误差"><figcaption>噪声档位与四个种子，逐点结果；不是置信区间。</figcaption></figure>
+<figure><img src="plots/02-parameters.png" alt="全部案例的十二参数相对误差热图"><figcaption>相对误差热图；拒绝拟合的行留空。</figcaption></figure>
+<figure><img src="plots/03-prediction.png" alt="不同扰动下留出温度预测误差"><figcaption>每节点 RMSE 与全局峰值；红线为固定门槛。</figcaption></figure>
+<figure><img src="plots/04-residual.png" alt="训练残差与留出预测误差对比"><figcaption>训练残差和独立预测误差不应混为一谈。</figcaption></figure>
+</section>
+<footer><p>仅合成数据与固定拓扑内的敏感性试验。偏置、未知热源、结构误差需要额外观测或可辨识性设计；稀疏传感器辨识、温度依赖和长时实际电驱仍待推进。物理标定由后续实测数据单独验收。</p></footer>
+<script>
+const D=__DATA__;
+const $=s=>document.querySelector(s), E=s=>document.createElement(s);
+const names=['绕组','铁芯','壳体','结温','电路板','散热器'];
+const labels=['C 绕组 (J/K)','C 铁芯 (J/K)','C 壳体 (J/K)','C 结温 (J/K)','C 电路板 (J/K)','C 散热器 (J/K)','R 绕组—铁芯 (K/W)','R 铁芯—壳体 (K/W)','R 壳体—板 (K/W)','R 结—板 (K/W)','R 板—散热器 (K/W)','R 壳—环境 (K/W)'];
+const aliases={'ideal':'无噪声','winding-bias':'绕组温度偏置 +2 K','common-bias':'全部温度偏置 +2 K','power-half':'功率记录减半','winding-power-zero':'绕组功率记录缺失为零','missing-core':'铁芯温度缺失','equilibrium':'恒温零输入','equilibrium-noisy':'恒温零输入 + 噪声'};
+const label=c=>aliases[c.id]||c.id.replace('noise-','白噪声 ');
+const fmt=x=>Number(x).toPrecision(4), pct=x=>(100*x).toFixed(2)+'%';
+function card(title,value,cls=''){let a=E('div');a.className='card '+cls;let t=E('span'),v=E('b');t.textContent=title;v.textContent=value;a.append(t,v);return a}
+$('#metrics').append(card('固定案例',D.cases.length),card('求解成功',D.cases.filter(c=>c.solver_succeeded).length),card('合成适用性通过',D.cases.filter(c=>c.suitable).length),card('全套试验 Gate',D.passed?'通过':'未通过'),card('重复低噪声检查','4 个种子'),card('数值交叉差异',D.numerical_temperature_difference_k.toExponential(2)+' K'));
+for(const c of D.cases){let o=E('option');o.value=c.id;o.textContent=label(c);$('#case').append(o);let r=E('tr');const vals=[label(c),c.solver_succeeded?'成功':'拒绝',c.suitable?'通过':'需检查',c.solver_succeeded?pct(c.max_parameter_relative_error):'—',c.solver_succeeded?fmt(Math.max(...c.rmse_by_node_k))+' K':'—'];for(const v of vals){let t=E('td');t.textContent=v;r.append(t)}r.className=c.suitable?'badge':'warn';$('#results tbody').append(r)}
+let current,timer=null;
+function stop(){if(timer!==null)clearInterval(timer);timer=null;$('#play').textContent='播放';$('#play').setAttribute('aria-pressed','false')}
+function draw(){
+const index=Number($('#time').value), row=current.samples[index], p=current.parameters;
+$('#now').textContent=row[0].toFixed(2)+' s';
+for(let i=0;i<6;i++)$('#n'+i).textContent=row[1+i].toFixed(3)+'°C';
+const edges=[[0,1],[1,2],[2,4],[3,4],[4,5]];
+$('#states').replaceChildren();
+for(let i=0;i<6;i++)$('#states').append(card(names[i]+' · C='+fmt(p[i])+' J/K',row[1+i].toFixed(3)+'°C'),card(names[i]+' · 热源',fmt(row[13+i])+' W'));
+for(let i=0;i<5;i++){const[a,b]=edges[i];$('#states').append(card(names[a]+' → '+names[b],fmt((row[1+a]-row[1+b])/p[6+i])+' W'))}
+const ambient=D.holdout.ambient_c,t=row[6];
+$('#states').append(card('壳体 → 环境',fmt((row[3]-ambient)/p[11])+' W'),card('对流 → 环境',fmt((t-ambient)/3)+' W'),card('辐射 → 环境',fmt(.02*5.6703744191844314e-8*((t+273.15)**4-(ambient+273.15)**4))+' W'));
+const svg=$('#trace');svg.replaceChildren();let max=1e-6;
+for(const r of current.samples)for(let j=0;j<6;j++)max=Math.max(max,Math.abs(r[1+j]-r[7+j]));
+const colors=['#7baeff','#71ddc1','#ffd18b','#f19bb9','#b5a3ff','#82ddff'];
+for(let j=0;j<6;j++){let line=document.createElementNS('http://www.w3.org/2000/svg','polyline');line.setAttribute('points',current.samples.map(r=>[50+r[0]/300*820,110-(r[1+j]-r[7+j])/max*80].join(',')).join(' '));line.setAttribute('fill','none');line.setAttribute('stroke',colors[j]);line.setAttribute('stroke-width','2');svg.append(line);let txt=document.createElementNS(svg.namespaceURI,'text');txt.setAttribute('x',50+j*135);txt.setAttribute('y',215);txt.textContent=names[j];txt.style.fill=colors[j];svg.append(txt)}
+let txt=document.createElementNS(svg.namespaceURI,'text');txt.setAttribute('x',15);txt.setAttribute('y',20);txt.textContent='误差 ±'+fmt(max)+' K · 0–300 s';svg.append(txt);
+let marker=document.createElementNS(svg.namespaceURI,'line');marker.setAttribute('x1',50+row[0]/300*820);marker.setAttribute('x2',50+row[0]/300*820);marker.setAttribute('y1',25);marker.setAttribute('y2',195);marker.setAttribute('stroke','#fff');svg.append(marker);
+}
+function select(){
+stop();current=D.cases.find(c=>c.id===$('#case').value);$('#parameters tbody').replaceChildren();
+$('#status').textContent=(current.solver_succeeded?'优化器成功':'拟合已拒绝')+' · '+(current.suitable?'合成适用性通过':'合成适用性未通过/未评价');
+$('#status').className=current.suitable?'badge':'warn';
+$('#detail').textContent=current.solver_succeeded?'rank='+current.fit.normalized_rank+'/12；condition='+fmt(current.fit.normalized_condition)+'；最大参数误差='+pct(current.max_parameter_relative_error)+'；留出峰值='+fmt(current.peak_error_k)+' K。此判断使用已知合成真值。':current.error;
+$('#runtime').hidden=!current.solver_succeeded;$('#unavailable').hidden=current.solver_succeeded;
+$('#csv').hidden=!current.solver_succeeded;$('#csv').href=current.prediction_csv||'#';
+$('#fit').href='fits/'+current.id+'.json';
+if(!current.solver_succeeded)return;
+for(let i=0;i<12;i++){let r=E('tr');for(const v of[labels[i],fmt(D.truth_parameters[i]),fmt(current.parameters[i]),pct(current.parameter_relative_errors[i])]){let t=E('td');t.textContent=v;r.append(t)}$('#parameters tbody').append(r)}
+$('#time').max=current.samples.length-1;$('#time').value=0;draw();
+}
+$('#case').addEventListener('change',select);$('#time').addEventListener('input',draw);
+$('#play').addEventListener('click',()=>{if(timer!==null){stop();return}if(+$('#time').value===+$('#time').max)$('#time').value=0;$('#play').textContent='暂停';$('#play').setAttribute('aria-pressed','true');timer=setInterval(()=>{if(+$('#time').value>=+$('#time').max){stop();return}$('#time').value=+$('#time').value+1;draw()},120)});
+select();
+</script></main></html>

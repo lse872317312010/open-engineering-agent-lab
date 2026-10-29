@@ -473,3 +473,15 @@ python benchmarks/build_msl_identification_report.py
 完整固定环境见[工作流](.github/workflows/msl-identification.yml)。
 报告含五图、十二参数、验证/留出六节点回放与完整CSV。
 适用范围为六温度全观测、已知热源和匹配结构的仿真内辨识；真机由用户负责。
+
+## 热辨识可靠边界：20组训练扰动
+
+[实际结果与复现](docs/msl-identification-robustness.md) /
+[固定契约](docs/msl-identification-robustness-contract.md) /
+[四图离线交互报告](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40834099841/artifacts/12880012724)。
+
+三档噪声各四个种子，另含温度偏置、热源记录误差、缺失观测及无激励案例。
+优化器成功与合成适用性分别显示：20组中18组返回参数，10组通过固定合成门槛。
+报告提供六节点状态/传热机制回放、十二参数、完整预测CSV及PDF。
+恒温噪声仍可能产生满秩，因此秩/条件数不能替代观测质量与独立预测检查。
+评价使用合成真值，不是实测故障检测器；完整命令及证据见上述说明。

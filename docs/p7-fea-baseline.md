@@ -1,7 +1,7 @@
 # P7-A 首个开放有限元基准
 
 状态：实现已提交PR #37，专项执行尚在GitHub runner队列，**未验证、未合并**。
-[运行入口](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40911466364)。
+[运行入口](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40913988075)。
 [实现前固定契约](p7-fea-baseline-contract.md) /
 [组件与许可决策](../research/reviews/p7-fea-baseline.md)。
 
@@ -50,3 +50,11 @@ python benchmarks/build_p7_fea_report.py
 这是P7-A的有限增量，不代表已完成所有候选评测。
 复杂CAD/STEP、Elmer/GetDP、FEMM/PYLEECAN、电机电磁、瞬态热、
 ROM/400Hz、ANSYS对照与实测精度继续列为待办。
+
+## 本次续推检查
+
+实际Gmsh CLI版本也须严格等于4.13.1，而非仅核对pip包版本；
+浏览器逐项核对节点温度/解析值/误差和源/反力/边界通量显示数值。
+场图说明修正为三顶点平均温度的单元填色。
+本次代码提交`d16833e23a4d838b0477985d7f7f5180d2b82af2`的[运行](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40913988075)仍在runner队列。
+旧运行被后续代码更新取代，不将排队或取消算通过；暂无场解/收敛验收结果。

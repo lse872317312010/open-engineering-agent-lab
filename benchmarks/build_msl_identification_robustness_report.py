@@ -69,6 +69,21 @@ def main():
            ylabel="Largest node independent holdout RMSE (K)",
            title="Residual is a training diagnostic, not a substitute for unused-case validation")
     figures.append(("04-residual", fig))
+    fig, ax = plt.subplots(figsize=(11, 6))
+    for c in successful:
+        q = c["quality"]
+        if q["status"] in ("unknown", "invalid"):
+            continue
+        ratio = min(np.asarray(q["span_k"])/np.asarray(q["threshold_k"]))
+        ax.scatter(ratio, max(c["rmse_by_node_k"]),
+                   color="teal" if c["suitable"] else "darkorange")
+        ax.annotate(c["id"], (ratio, max(c["rmse_by_node_k"])), fontsize=6)
+    ax.axvline(1., color="red", linestyle="--")
+    ax.axhline(.5, color="red", linestyle=":")
+    ax.set(xscale="log", yscale="log", xlabel="Minimum node span / declared noise threshold",
+           ylabel="Largest node holdout RMSE (K)",
+           title="Amplitude support is not a certificate of prediction accuracy")
+    figures.append(("05-quality", fig))
     with PdfPages(OUT / "report.pdf") as pdf:
         for name, fig in figures:
             fig.tight_layout()
@@ -84,18 +99,21 @@ def main():
     with (OUT / "summary.csv").open("w", newline="") as stream:
         writer = csv.writer(stream)
         writer.writerow(["case","noise_k","seed","solver_succeeded","synthetic_suitable",
-                         "max_parameter_relative_error","max_node_rmse_k","peak_k","error"])
+                         "max_parameter_relative_error","max_node_rmse_k","peak_k","error",
+                         "observation_status","observation_noise_source"])
         for c in cases:
             writer.writerow([c["id"],c["noise_k"],c["seed"],c["solver_succeeded"],c["suitable"],
                              c.get("max_parameter_relative_error",""),
                              max(c.get("rmse_by_node_k",[]), default=""),
-                             c.get("peak_error_k",""),c.get("error","")])
+                             c.get("peak_error_k",""),c.get("error",""),
+                             c["quality"]["status"],c["quality"].get("noise_source","")])
     template = ROOT / "reports/msl-identification-robustness.html"
     (OUT / "index.html").write_text(template.read_text().replace("__DATA__", json.dumps(data)))
     (OUT / "README.txt").write_text(
         "解压后打开 index.html。20组固定训练扰动，参数冻结后预测MSL留出真值。\n"
         "优化成功和合成适用性单独显示；适用性评价依赖合成真值，不是实测故障检测器。\n"
-        "含四图PDF/PNG/SVG、逐组完整300秒CSV、拟合JSON、指标CSV与冻结契约。\n")
+        "含五图PDF/PNG/SVG、逐组完整300秒CSV、拟合JSON、指标CSV与冻结契约。\n")
+    shutil.copyfile(ROOT / "docs/msl-quality-report-contract.md", OUT / "quality-contract.md")
     errors, network = [], []
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome")
@@ -110,6 +128,10 @@ def main():
         for c in cases:
             page.select_option("#case", c["id"])
             assert page.locator("#fit").get_attribute("href") == "fits/"+c["id"]+".json"
+            assert page.locator("#quality-status").get_attribute("data-status") == (
+                c["quality"]["status"])
+            expected_rows = 0 if c["quality"]["status"] == "invalid" else 6
+            assert page.locator("#quality-table tbody tr").count() == expected_rows
             if not c["solver_succeeded"]:
                 assert page.locator("#unavailable").is_visible()
                 assert not page.locator("#runtime").is_visible()
@@ -142,10 +164,11 @@ def main():
     assert not errors and not network, (errors, network)
     assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
     ui = dict(passed=True, browser=version, page_errors=errors, external_requests=network,
-              case_count=20, chart_count=4, successful_predictions=len(successful),
+              case_count=20, chart_count=5, successful_predictions=len(successful),
               checks=["all cases", "rejection hides runtime", "12 parameters", "six temperatures",
                       "20 mechanism cards", "full CSV downloads", "time endpoints", "play/pause",
-                      "390px without overflow", "four figures/PDF", "synthetic scope visible"])
+                      "390px without overflow", "five figures/PDF",
+                      "training observation status and six spans", "synthetic scope visible"])
     (OUT / "ui-validation.json").write_text(json.dumps(ui, indent=2))
     print("robustness-ui: "+json.dumps(ui), flush=True)
 

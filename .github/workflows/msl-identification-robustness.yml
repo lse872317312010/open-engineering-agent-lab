@@ -1,8 +1,8 @@
 name: MSL identification noise and source-error boundaries
 on:
   push:
-    branches: [main, codex/msl-identification-robustness]
-    paths: ['benchmarks/*identification_robustness*', 'reports/msl-identification-robustness.html', 'tests/test_thermal_identification_scale.py', '.github/workflows/msl-identification-robustness.yml']
+    branches: [main, codex/msl-identification-robustness, codex/msl-quality-report]
+    paths: ['src/oeal/thermal_observation.py', 'benchmarks/*identification_robustness*', 'reports/msl-identification-robustness.html', 'tests/test_thermal_identification_scale.py', '.github/workflows/msl-identification-robustness.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -44,7 +44,7 @@ jobs:
         run: python benchmarks/fit_msl_identification_robustness.py
       - name: Independent holdout predictions and boundary evaluation
         run: python benchmarks/validate_msl_identification_robustness.py
-      - name: Four-figure report and actual Chrome checks
+      - name: Five-figure report and actual Chrome checks
         run: python benchmarks/build_msl_identification_robustness_report.py
       - name: Record environment and evidence hashes
         if: always()

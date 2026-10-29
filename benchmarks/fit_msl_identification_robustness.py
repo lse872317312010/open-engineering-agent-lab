@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from oeal.thermal_identification import fit_network
+from oeal.thermal_observation import assess_temperature_observations
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "outputs/msl-identification-robustness"
@@ -23,12 +24,20 @@ def main():
         assert hashlib.sha256(public_path.read_bytes()).hexdigest() == spec["public_sha256"]
         data = np.loadtxt(packet, delimiter=",", skiprows=1)
         try:
+            quality = assess_temperature_observations(
+                data[:, 1:7], public.get("noise_sigma_k"))
+            quality["without_noise_prior_status"] = assess_temperature_observations(
+                data[:, 1:7])["status"]
+        except ValueError as error:
+            quality = dict(status="invalid", error=str(error))
+        try:
             fit = fit_network(data[:, 0], data[:, 1:7], data[:-1, 7:13],
                               public["ambient_c"], public["area_m2"],
                               public["convection_w_per_k"])
             result = dict(id=spec["id"], solver_succeeded=True, fit=fit)
         except ValueError as error:
             result = dict(id=spec["id"], solver_succeeded=False, error=str(error))
+        result["quality"] = quality
         result["opened_data_files"] = [str(packet.relative_to(OUT)),
                                       str(public_path.relative_to(OUT))]
         path = OUT / "fits" / (spec["id"]+".json")

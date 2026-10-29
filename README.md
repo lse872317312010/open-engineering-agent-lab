@@ -5,6 +5,8 @@
 
 项目总图、运行机制与源码映射：[项目架构](docs/architecture.md)（[SVG 总图](docs/architecture.svg)）。
 
+**新增研究目标（P7，尚未实现）：** 将开放有限元求解器与现有 PMSM/FOC、FMI、热网络、SIL 贯通，以同一台 PMSM 形成“电磁场提参→FOC 仿真→高保真热场→ROM/400 Hz 温度估计→控制 SIL”的可复现数字线程；按同等模型与误差条件对比开源组件与可合法获取的 ANSYS 求解器，不宣称已经完成有限元对标。[P7 专项路线图](docs/p7-open-fea-roadmap.md) · [总体路线图](docs/roadmap.md)。
+
 ## 验收约束
 
 按用户 2026-10-23 的要求：仿真环境中完成并通过固定指标即可交付，真机由用户负责。

@@ -1360,3 +1360,29 @@ Chrome156.0.8078.47实际核验20案例、18组全CSV下载、十二参数、
 结果为model_simulated，不是物理校准。
 本轮有限重复补充了上一轮单噪声种子的边界；无真值质量诊断、稀疏/未知源、
 温度依赖、长时实际电驱、传动参数及整机/事件交换继续保留。
+
+## 2026-10-30：接入20组MSL实验与交互报告（PR #36）
+
+训练进程使用训练温度与public.json的噪声先验计算quality；
+有效记录同时检查移除噪声先验后返回unknown。缺失温度记invalid。
+诊断与拟合JSON共同冻结SHA256，评价器只传递结果；
+不阻断原拟合、不筛掉失败预测，不改变原20组固定门槛。
+
+[专项运行40908576468](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40908576468)
+在`8349f2e070434a3c4718b89273645e9b0f50cc52`成功；lint和pytest147通过、8跳过、14警告。
+重新生成实际MSL数据，原新FMU参数/预测/能量基准和独立Radau留出检查均通过。
+20组中17组amplitude_supported、2组insufficient、1组invalid；
+两种恒温均幅度不足，缺失core无效，19个有效记录移除先验后均unknown。
+18组仍返回拟合，10组通过原合成适用性门槛。
+17组幅度支持中仍有7组不适用，说明该诊断不是充分可信性判据。
+
+[新版五图报告，15.8MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40908576468/artifacts/12912184941) /
+[完整原始证据，166.6MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40908576468/artifacts/12912738628)。
+解压打开index.html。分别显示训练观测、优化器和合成适用性；
+逐案例六行跨度/门槛/不足标记，无效记录显示原因；新增幅度/门槛与留出RMSE图。
+报告仍提供六节点运行机制、20项热源/热流卡、完整CSV、冻结JSON、PDF/PNG/SVG。
+Chrome156.0.8078.47检查全部20案例质量状态和表格、18组完整CSV下载、
+回放端点/播放暂停、390px布局；页面错误和外部请求为空。
+新版summary.csv增加观测状态和噪声来源。
+适用范围model_simulated；噪声先验为公开合成训练配置，不是从含动态测量中自动估计。
+P7仍按新增路线图推进，本次接入不代表已实现FE或ROM。

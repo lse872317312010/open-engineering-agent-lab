@@ -22,5 +22,28 @@ amplitude_supported（全部超过门槛）。缺失/非有限数据直接拒绝
 
 验证：固定种子恒温噪声、多通道独立噪声尺度、无噪声常温、
 被动冷却、常值偏移不变性、未知噪声、缺失传感器和无效输入。
-运行ruff check .与完整pytest，通过CI后再记录实际结果。
+运行ruff check .、专用pytest及原三版本unittest回归。
 P7新增计划保持planned；本功能不是FE/ROM、稀疏观测或通用故障检测器。
+
+## 使用与实际验证
+
+```python
+from oeal.thermal_observation import assess_temperature_observations
+quality = assess_temperature_observations(temperatures_c, noise_sigma_k=0.02)
+# temperatures_c: N×6，N>=100，单位°C；noise_sigma_k单位K。
+# quality["status"]: unknown / insufficient / amplitude_supported
+```
+
+检查所有六通道，返回P95-P05跨度、逐通道门槛及不足通道编号。
+此接口独立于fit_network，调用方自行展示诊断，既有拟合行为保持兼容。
+目前未将该新诊断接入旧交互报告；旧报告的合成真值判据保持原义。
+
+[专用工作流](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40906966646)
+在提交`0e7b017b77fb6ad2662803f357fc0bcf14302f8c`上lint通过、9项pytest全部通过。
+[三版本基础CI](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40906966643)成功；
+基础CI运行unittest，不能把它当作pytest函数测试已执行。
+首次验证另修复了tools/code_metrics.py继承的导入排序/未使用变量lint问题，
+不改变代码统计行为。
+
+这仍只是基于调用方噪声先验的幅度必要筛查，不是充分可辨识性证明。
+后续应在完整20组MSL案例中联动展示幅度诊断与独立留出结果，再评测噪声建模。

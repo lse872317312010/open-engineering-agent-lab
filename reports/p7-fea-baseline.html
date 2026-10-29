@@ -27,7 +27,7 @@ svg,img{width:100%;display:block}figure{margin:18px 0}figcaption{color:#b8c9e2}.
 <label for="node">节点编号 <output id="node-id"></output></label><input id="node" type="range" min="0" value="0">
 <div id="node-state" class="cards"></div>
 <svg id="field" viewBox="0 0 620 470" role="img" aria-label="实际三角形网格节点温度场"></svg>
-<p>节点颜色按 25–35°C 固定映射；白圈标记当前节点。完整二维网格可通过 MSH/VTU 下载。</p>
+<p>单元颜色按三顶点平均温度在 25–35°C 固定映射；白圈标记当前节点。完整二维网格可通过 MSH/VTU 下载。</p>
 </section>
 <section><h2>三档独立验收</h2><div class="table"><table id="results"><thead><tr><th>分段</th><th>节点/三角形</th><th>L2相对误差</th><th>H1半范相对误差</th><th>重建通量误差</th></tr></thead><tbody></tbody></table></div>
 <p id="orders"></p><p>收敛误差按全单元高斯积分计算，不只对比节点。两次网格生成均检查原始字节 SHA256 一致。</p></section>

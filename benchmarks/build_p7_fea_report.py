@@ -98,6 +98,20 @@ def main():
             page.keyboard.press("End")
             assert int(page.locator("#node-id").inner_text()) == c["nodes"]-1
             assert page.locator("#node-state .card").count() == 4
+            field = fields[str(c["n"])]
+            for node in (0,c["nodes"]-1):
+                page.locator("#node").evaluate(
+                    "(e,v)=>{e.value=v;e.dispatchEvent(new Event('input'));}", node)
+                expected = [field["temperature_c"][node],field["exact_c"][node],
+                            field["temperature_c"][node]-field["exact_c"][node]]
+                actual = page.locator("#node-state .card b").all_text_contents()[1:]
+                for text,value in zip(actual,expected,strict=True):
+                    displayed = float(text.split()[0])
+                    assert abs(displayed-value) <= max(1e-7,abs(value)*6e-5)
+            for selector,key in (("#source","source_w"),("#reaction","reaction_w"),
+                                 ("#flux","direct_boundary_flux_w")):
+                displayed = float(page.locator(selector).text_content().split()[0])
+                assert abs(displayed-c[key]) <= max(1e-7,abs(c[key])*6e-5)
             with page.expect_download() as download:
                 page.locator("#csv").click()
             assert len(Path(download.value.path()).read_text().splitlines()) == c["nodes"]+1
@@ -111,7 +125,7 @@ def main():
     assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
     report = dict(passed=True,browser=version,page_errors=errors,external_requests=network,
                   checks=["three meshes","actual polygons","node endpoints","full CSV downloads",
-                          "node state","390px","four figures/PDF","scope visible"])
+                          "numeric node and heat states","390px","four figures/PDF","scope visible"])
     (OUT / "ui-validation.json").write_text(json.dumps(report,indent=2))
     print("p7-fea-ui: "+json.dumps(report),flush=True)
 

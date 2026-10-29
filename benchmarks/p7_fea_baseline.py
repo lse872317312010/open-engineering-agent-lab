@@ -173,6 +173,9 @@ def execute(n):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    cli_version = subprocess.check_output(
+        ["gmsh","-version"], text=True, stderr=subprocess.STDOUT).strip()
+    assert cli_version == "4.13.1", "actual Gmsh executable must match the frozen version"
     results = [execute(n) for n in (8,16,32)]
     l2_rates = [float(np.log2(a["l2_relative"]/b["l2_relative"]))
                 for a,b in zip(results[:-1], results[1:], strict=True)]
@@ -190,8 +193,7 @@ def main():
                   l2_orders=l2_rates, h1_orders=h1_rates,
                   evidence_level="model_simulated", source_kind="analytic",
                   scope="manufactured 2D steady thermal FE; partial P7-A",
-                  versions=versions, gmsh_cli_version=subprocess.check_output(
-                      ["gmsh","-version"], text=True, stderr=subprocess.STDOUT).strip(),
+                  versions=versions, gmsh_cli_version=cli_version,
                   commit=subprocess.check_output(["git","rev-parse","HEAD"], text=True).strip(),
                   host=dict(platform=platform.platform(), cpu=platform.processor(),
                             cpu_info=Path("/proc/cpuinfo").read_text(),

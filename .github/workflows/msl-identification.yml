@@ -1,0 +1,103 @@
+name: MSL twelve-parameter synthetic identification and heldout prediction
+on:
+  push:
+    branches: [main, codex/msl-identification]
+    paths: ['src/oeal/thermal_identification.py', 'benchmarks/*identification*', 'reports/msl-identification.html', 'tests/test_thermal_identification*', '.github/workflows/msl-identification.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+concurrency:
+  group: msl-identification-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  identification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed scientific, report and regression environment
+        run: |
+          python -m pip install -r benchmarks/p6-requirements.txt
+          python -m pip install -e ".[dev]"
+          python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+      - name: Lint and independent integral/regression checks
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Export the pinned real MSL parametric asset
+        run: python benchmarks/build_msl_parametric.py
+      - name: Generate separate train, validation and holdout experiments
+        run: python benchmarks/generate_msl_identification.py
+      - name: Fit only the public noisy training packet and freeze parameters
+        run: python benchmarks/fit_msl_identification.py
+      - name: New FMU predictions, independent Radau and unused-data gates
+        run: python benchmarks/validate_msl_identification.py
+      - name: Five-figure offline report and Chrome interaction
+        run: python benchmarks/build_msl_identification_report.py
+      - name: Retain environment and full evidence manifest
+        if: always()
+        run: |
+          mkdir -p outputs/msl-identification
+          python -m pip freeze > outputs/msl-identification/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("msl-parametric", "msl-identification", "msl-identification-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file() and not any(x in p.parts for x in ("runtime", "package")):
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "msl-identification/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-identification-report
+          path: outputs/msl-identification-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msl-identification-raw-evidence
+          path: |
+            outputs/msl-parametric/
+            outputs/msl-identification/
+          if-no-files-found: error
+      - name: Enforce frozen identification, prediction and UI gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assert json.loads(Path("outputs/msl-identification/generation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/msl-identification/validation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/msl-identification-report/ui-validation.json").read_text())["passed"]
+          PY
+  tidy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove only the merged identification branch with a lease
+        run: |
+          python - <<'PY'
+          import subprocess
+          ref = "refs/heads/codex/msl-identification"
+          found = subprocess.check_output(["git", "ls-remote", "--heads", "origin", ref], text=True).strip()
+          if found:
+              sha = found.split()[0]
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
+              subprocess.run(["git", "push", "--force-with-lease=" + ref + ":" + sha, "origin", ":" + ref], check=True)
+          PY

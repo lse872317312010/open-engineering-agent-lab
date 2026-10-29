@@ -451,3 +451,25 @@ python benchmarks/build_msl_rc_report.py
 完整固定环境和基线检出见[工作流](.github/workflows/msl-rc.yml)。
 三组零输入矩阵指数与七组短时实际电驱分开验收，报告含实际C/R、组件状态和全量CSV。
 参数为合成研究输入，真机由用户负责。
+
+## 六节点热参数合成辨识
+
+从真实MSL热激励数据估计六C、五内部R和Rcase：
+训练测量带0.02K合成噪声，SciPy有界积分最小二乘仅使用train；
+参数冻结后在独立验证和60°C留出上加载新FMU预测，并与Radau核对。
+[固定契约](docs/msl-identification-contract.md) /
+[方法与复现](docs/msl-identification.md) /
+[隔离架构](docs/msl-identification-network.svg) /
+[实际结果及报告](docs/stage-status.md)。
+
+```bash
+python benchmarks/build_msl_parametric.py
+python benchmarks/generate_msl_identification.py
+python benchmarks/fit_msl_identification.py
+python benchmarks/validate_msl_identification.py
+python benchmarks/build_msl_identification_report.py
+```
+
+完整固定环境见[工作流](.github/workflows/msl-identification.yml)。
+报告含五图、十二参数、验证/留出六节点回放与完整CSV。
+适用范围为六温度全观测、已知热源和匹配结构的仿真内辨识；真机由用户负责。

@@ -28,7 +28,7 @@ def main():
         assert before == frozen_case["frozen_fit_sha256"]
         fitted = json.loads(fit_path.read_text())
         result = dict(**spec, solver_succeeded=fitted["solver_succeeded"],
-                      frozen_fit_sha256=before, suitable=False)
+                      frozen_fit_sha256=before, suitable=False, quality=fitted["quality"])
         if not fitted["solver_succeeded"]:
             result["error"] = fitted["error"]
         else:
@@ -99,6 +99,16 @@ def main():
                   numerical_solver_agreement=numerical <= 2e-6,
                   all_predictions_complete=all(c.get("prediction_rows") == len(clean)
                                               for c in cases if c["solver_succeeded"]))
+    quality_checks = dict(
+        all_cases_have_quality=all("quality" in c for c in cases),
+        equilibria_insufficient=all(indexed[n]["quality"]["status"] == "insufficient"
+                                   for n in ("equilibrium", "equilibrium-noisy")),
+        missing_core_invalid=indexed["missing-core"]["quality"]["status"] == "invalid",
+        low_noise_supported=all(indexed[n]["quality"]["status"] == "amplitude_supported"
+                                for n in required),
+        missing_prior_unknown=all(c["quality"]["without_noise_prior_status"] == "unknown"
+                                 for c in cases if c["quality"]["status"] != "invalid"))
+    checks.update(quality_checks)
     report = dict(passed=all(checks.values()), checks=checks, cases=cases,
                   numerical_temperature_difference_k=numerical,
                   holdout=holdout, truth=truth(), truth_parameters=expected.tolist(),

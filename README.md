@@ -487,3 +487,14 @@ python benchmarks/build_msl_identification_report.py
 报告提供六节点状态/传热机制回放、十二参数、完整预测CSV及PDF。
 恒温噪声仍可能产生满秩，因此秩/条件数不能替代观测质量与独立预测检查。
 评价使用合成真值，不是实测故障检测器；完整命令及证据见上述说明。
+
+## 训练观测与预测可信性分层报告
+
+[五图交互报告](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40908576468/artifacts/12912184941) /
+[诊断规则与实际验证](docs/thermal-observation-quality.md) /
+[接入固定契约](docs/msl-quality-report-contract.md)。
+
+20组MSL训练扰动分别显示观测幅度诊断、优化器状态与合成适用性。
+六通道跨度及门槛可查；恒温噪声提示幅度不足。
+17组幅度支持中仍有7组独立评价不适用，不把幅度支持当作参数可信。
+报告可离线回放六节点状态/热流，附全量CSV、拟合JSON、PDF及图像。

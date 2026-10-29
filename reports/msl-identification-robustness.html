@@ -26,7 +26,10 @@ figure{margin:20px 0}img{width:100%;border-radius:12px;background:white}figcapti
 <p><a href="contract.md">固定契约</a> · <a href="report.pdf">四图 PDF</a> · <a href="summary.csv" download>全部案例指标 CSV</a> · <a href="report-data.json" download>完整评价数据</a></p>
 </section>
 <section><h2>逐案例检查</h2><div class="controls"><label for="case">训练扰动</label><select id="case"></select><a id="csv" download>完整留出 CSV</a><a id="fit" download>冻结拟合 JSON</a></div>
-<p id="status" role="status"></p><p id="detail"></p>
+<p id="status" role="status"></p>
+<p id="quality-status" role="status"></p><p id="quality-detail"></p>
+<p class="warn">观测幅度支持只表示超过调用方噪声先验门槛，不保证可辨识或预测准确；功率错误与常值偏置仍需独立检查。缺少噪声先验时返回未知。</p>
+<div class="table"><table id="quality-table"><thead><tr><th>节点</th><th>P95−P05 / K</th><th>门槛 / K</th><th>幅度检查</th></tr></thead><tbody></tbody></table></div><p id="detail"></p>
 <div class="table"><table id="parameters"><thead><tr><th>参数</th><th>合成真值</th><th>估计值</th><th>相对误差</th></tr></thead><tbody></tbody></table></div>
 </section>
 <section><h2>六节点运行机制与状态</h2>
@@ -50,6 +53,7 @@ figure{margin:20px 0}img{width:100%;border-radius:12px;background:white}figcapti
 <section><h2>全部案例结果</h2><p>绿色表示通过固定的合成适用性判据；黄色表示需要检查。整套试验 Gate 包含对退化/故障案例的预期拒绝，不要求 20 个案例全部适用。</p>
 <div class="table"><table id="results"><thead><tr><th>案例</th><th>求解</th><th>合成适用性</th><th>最大参数误差</th><th>最大节点 RMSE</th></tr></thead><tbody></tbody></table></div></section>
 <section><h2>误差与失效边界</h2>
+<figure><img src="plots/05-quality.png" alt="温度观测幅度与独立预测误差对照"><figcaption>幅度支持不等于参数可信；噪声先验来自公开训练配置。图中只显示有有效跨度且已返回参数的案例。</figcaption></figure>
 <figure><img src="plots/01-noise.png" alt="不同噪声下四个种子的最大参数误差"><figcaption>噪声档位与四个种子，逐点结果；不是置信区间。</figcaption></figure>
 <figure><img src="plots/02-parameters.png" alt="全部案例的十二参数相对误差热图"><figcaption>相对误差热图；拒绝拟合的行留空。</figcaption></figure>
 <figure><img src="plots/03-prediction.png" alt="不同扰动下留出温度预测误差"><figcaption>每节点 RMSE 与全局峰值；红线为固定门槛。</figcaption></figure>
@@ -90,6 +94,12 @@ function select(){
 stop();current=D.cases.find(c=>c.id===$('#case').value);$('#parameters tbody').replaceChildren();
 $('#status').textContent=(current.solver_succeeded?'优化器成功':'拟合已拒绝')+' · '+(current.suitable?'合成适用性通过':'合成适用性未通过/未评价');
 $('#status').className=current.suitable?'badge':'warn';
+const q=current.quality, qnames={unknown:'噪声先验未知',invalid:'观测数据无效',insufficient:'观测幅度不足',amplitude_supported:'观测幅度得到支持'};
+$('#quality-status').textContent='训练观测：'+qnames[q.status];
+$('#quality-status').dataset.status=q.status;
+$('#quality-detail').textContent=q.error||('噪声来源：'+q.noise_source+'；策略：'+q.policy+'；不使用参数真值或留出数据。');
+$('#quality-table tbody').replaceChildren();
+if(q.span_k)for(let i=0;i<6;i++){let r=E('tr');const threshold=q.threshold_k?.[i];for(const v of[names[i],fmt(q.span_k[i]),threshold==null?'未知':fmt(threshold),threshold==null?'未知':q.insufficient_channels.includes(i)?'不足':'支持']){let t=E('td');t.textContent=v;r.append(t)}$('#quality-table tbody').append(r)}
 $('#detail').textContent=current.solver_succeeded?'rank='+current.fit.normalized_rank+'/12；condition='+fmt(current.fit.normalized_condition)+'；最大参数误差='+pct(current.max_parameter_relative_error)+'；留出峰值='+fmt(current.peak_error_k)+' K。此判断使用已知合成真值。':current.error;
 $('#runtime').hidden=!current.solver_succeeded;$('#unavailable').hidden=current.solver_succeeded;
 $('#csv').hidden=!current.solver_succeeded;$('#csv').href=current.prediction_csv||'#';

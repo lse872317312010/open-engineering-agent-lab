@@ -5,13 +5,13 @@ Runs offline. Counts source files on HEAD and the last commit before the weekly 
 No metrics leave this repository; GitHub Actions artifacts belong to the caller repo.
 """
 import argparse
-from datetime import datetime, timedelta, timezone
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path, PurePosixPath
 
 EXT = {
     ".py", ".pyi", ".rs", ".c", ".h", ".cc", ".cpp", ".cxx", ".hpp",
@@ -86,7 +86,7 @@ def count_files(root, paths):
     for path in paths:
         groups.setdefault(PurePosixPath(path).suffix.lower(), []).append(path)
     result = {}
-    for extension, group in sorted(groups.items()):
+    for _extension, group in sorted(groups.items()):
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt") as file:
             for name in group:
                 if "\n" in name or "\r" in name:

@@ -1,0 +1,19 @@
+name: Thermal observation quality
+on:
+  push:
+    branches: [main, codex/thermal-observation-quality]
+    paths: ['src/oeal/thermal_observation.py', 'tests/test_thermal_observation.py', '.github/workflows/thermal-observation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  observation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[dev]"
+      - run: ruff check .
+      - run: python -m pytest tests/test_thermal_observation.py -v

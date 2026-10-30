@@ -498,3 +498,13 @@ python benchmarks/build_msl_identification_report.py
 六通道跨度及门槛可查；恒温噪声提示幅度不足。
 17组幅度支持中仍有7组独立评价不适用，不把幅度支持当作参数可信。
 报告可离线回放六节点状态/热流，附全量CSV、拟合JSON、PDF及图像。
+
+## P7-A：真实有限元基准
+
+[方法与实际结果](docs/p7-fea-baseline.md) /
+[四图交互报告（2.84MB）](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40980679597/artifacts/12944601783) /
+[固定验收契约](docs/p7-fea-baseline-contract.md)。
+
+Gmsh真实网格→scikit-fem稳态导热→独立制造解，三档全场误差接近二阶收敛，
+最细温升L2相对误差0.2701%。报告可切换网格、查看节点温度/误差和热源—边界散热机制，
+附MSH/VTU/CSV及PDF/PNG/SVG。仅P7-A部分数值基准，不代表电机FE或实物热精度。

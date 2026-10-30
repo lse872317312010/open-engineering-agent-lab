@@ -1,6 +1,6 @@
 # P7：开放有限元与电机—控制—热—固件数字研发闭环（研究计划）
 
-> 提出：2026-10-29；状态：**计划/待评测，非已实现能力**。
+> 提出：2026-10-29；状态：**总体计划推进中；首个P7-A制造解基准已独立验证，其他子项仍待评测**。
 > 上位目标：[总路线图](roadmap.md) · [现有软件架构](architecture.md) · [证据索引](stage-status.md) · [仿真交付范围](acceptance-scope.md)。
 > 定位：与 ANSYS / Maxwell / Mechanical / Fluent 的**可证实、限定场景对比**，不是承诺全面替代 ANSYS，也不是重新开发通用有限元求解器。
 
@@ -35,6 +35,7 @@ P7 必须作为**独立、可选、版本钉住的后端路径**逐项加入；�
 | 网格 | Gmsh（Python API） | P7-A | 单元质量、网格密度、收敛和边界标记 |
 | PMSM 2D 电磁 | PYLEECAN + FEMM | P7-B | 2D 非线性磁路、磁链/转矩/反电势；FEMM Windows/兼容环境依赖 |
 | 电磁 3D/多物理 | Elmer / GetDP | P7-C 候选 | 非线性材料、旋转、涡流、热场、并行性能及工作流成本 |
+| 纯物理FEM验证 | Gmsh + scikit-fem | P7-A首个基准 | 已验证原创二维稳态制造解；不代表实物热场或Elmer集成 |
 | 热场 / 固液共轭换热 | Elmer；OpenFOAM（后续） | P7-C | 导热与温度相关参数优先；CFD 延后 |
 | 结构与模态 | Code_Aster / CalculiX | P7-E | 接触、变形、模态与网格转换 |
 | 控制及电机系统 | 现有 OEAL / motulator / FMI | 复用 | 不平行复制既有被控对象和求解器 |
@@ -134,3 +135,11 @@ flowchart LR
 状态标注统一采用：`planned` → `reproduced` → `independently_verified` → `SIL_verified`，`physical_measured` 只能由实际测量证据产生；不可自动跨级升级。
 
 本文件只规划集成方向和验收规则；**提交本计划不代表已运行有限元求解器、验证 ANSYS 对比、完成 ROM 400 Hz 性能测试或取得真实结温实测。**
+
+## 9. 首个实施证据（2026-10-30）
+
+[首个真实有限元基准](p7-fea-baseline.md)已通过固定网格/场误差/能量与报告验收，
+使用Gmsh4.13.1 CLI、scikit-fem11.0.0和meshio5.3.5。
+scikit-fem是新增的有限采用候选，原Elmer/GetDP/FEMM路线保留。
+细网格温升L2相对误差0.2701%，三档接近二阶；完整证据见上述说明。
+仅该制造解基准标记independently_verified；不将其扩展为整体Gate A或P7完成。

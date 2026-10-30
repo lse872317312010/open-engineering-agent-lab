@@ -1,0 +1,58 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P7 开放有限元基准</title><style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0d1627;color:#eaf2ff;font:16px/1.6 system-ui}
+main{max-width:1150px;margin:auto;padding:25px}section{background:#18263e;border:1px solid #324865;border-radius:16px;padding:20px;margin:20px 0}
+h1{font-size:clamp(25px,4vw,40px)}p{color:#b8c9e2}a{color:#91bdff}select,button{font:inherit;padding:9px;background:#263e60;color:white;border:1px solid #718db4;border-radius:8px;max-width:100%}
+input{width:100%;accent-color:#75dbc1}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.card{padding:15px;background:#203552;border-radius:12px;min-width:0;overflow-wrap:anywhere}.card b{display:block;font-size:22px}
+svg,img{width:100%;display:block}figure{margin:18px 0}figcaption{color:#b8c9e2}.table{overflow:auto}table{border-collapse:collapse;white-space:nowrap;width:100%}th,td{padding:10px;border-bottom:1px solid #405773;text-align:left}
+.warn{color:#ffd394}svg text{font:15px system-ui;fill:#eaf2ff}:focus-visible{outline:3px solid #75dbc1}
+@media(max-width:650px){main{padding:14px}section{padding:14px}.cards{grid-template-columns:1fr 1fr}}
+</style><main>
+<p>OEAL · P7-A 部分基准 · model_simulated / analytic</p><h1>从网格到真实有限元解</h1>
+<p>Gmsh 生成三档网格，scikit-fem 装配线性三角形导热方程，独立解析解检查误差、收敛和能量。</p>
+<p class="warn">本轮是原创制造解的数学验证，不是实物温度精度、电机电磁场、ANSYS 比较或 ROM 验证。</p>
+<section><h2>系统机制</h2>
+<svg viewBox="0 0 1000 145" role="img" aria-label="体积热源通过板内导热向四边恒温边界散热">
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="#75dbc1"/></marker></defs>
+<g fill="#263e60" stroke="#718db4"><rect x="10" y="15" width="270" height="110" rx="12"/><rect x="360" y="15" width="270" height="110" rx="12"/><rect x="710" y="15" width="280" height="110" rx="12"/></g>
+<g stroke="#75dbc1" stroke-width="3" marker-end="url(#arrow)"><path d="M280 70H355"/><path d="M630 70H705"/></g>
+<text x="25" y="45">正弦体积热源 q (W/m³)</text><text x="25" y="75">源积分：<tspan id="source"/></text>
+<text x="375" y="45">板内导热 −k∇²T=q</text><text x="375" y="75">k=2 W/(m K)，厚 0.01 m</text><text x="375" y="105">0.1 m × 0.1 m · 稳态</text>
+<text x="725" y="45">四边恒温 25°C</text><text x="725" y="75">反力散热：<tspan id="reaction"/></text><text x="725" y="105">直接梯度通量：<tspan id="flux"/></text>
+</svg><p>稳态无热量积累。Dirichlet 反力给出离散能量账；直接边界梯度通量另行计算并检查收敛，二者不混用。</p>
+</section>
+<section><h2>检查网格与节点</h2><label for="mesh">每边分段数 </label><select id="mesh"></select>
+<p><a id="csv" download>节点完整 CSV</a> · <a id="msh" download>原始 MSH</a> · <a id="vtu" download>温度场 VTU</a> · <a href="report.pdf">四图 PDF</a> · <a href="validation.json">全部指标</a> · <a href="contract.md">固定契约</a></p>
+<div id="metrics" class="cards"></div>
+<label for="node">节点编号 <output id="node-id"></output></label><input id="node" type="range" min="0" value="0">
+<div id="node-state" class="cards"></div>
+<svg id="field" viewBox="0 0 620 470" role="img" aria-label="实际三角形网格节点温度场"></svg>
+<p>单元颜色按三顶点平均温度在 25–35°C 固定映射；白圈标记当前节点。完整二维网格可通过 MSH/VTU 下载。</p>
+</section>
+<section><h2>三档独立验收</h2><div class="table"><table id="results"><thead><tr><th>分段</th><th>节点/三角形</th><th>L2相对误差</th><th>H1半范相对误差</th><th>重建通量误差</th></tr></thead><tbody></tbody></table></div>
+<p id="orders"></p><p>收敛误差按全单元高斯积分计算，不只对比节点。两次网格生成均检查原始字节 SHA256 一致。</p></section>
+<section><h2>场与误差证据</h2>
+<figure><img src="plots/01-fields.png" alt="三档网格有限元温度场"><figcaption>实际有限元场，温度色标统一。</figcaption></figure>
+<figure><img src="plots/02-errors.png" alt="三档有限元温度误差"><figcaption>节点误差便于观察；验收使用单元内积分误差。</figcaption></figure>
+<figure><img src="plots/03-convergence.png" alt="L2和H1收敛趋势"><figcaption>二阶温度、一阶梯度的预期趋势。</figcaption></figure>
+<figure><img src="plots/04-energy.png" alt="源、反力散热与边界梯度直接通量"><figcaption>同时展示精确积分与独立梯度重建的差异。</figcaption></figure>
+</section><p>这是 P7-A 的第一个可选有限元基准。复杂 CAD、Elmer/GetDP、PMSM 电磁、非线性材料、瞬态热、ROM 和 400 Hz 接口仍待独立验证。</p>
+<script>
+const D=__DATA__,F=__FIELDS__,$=s=>document.querySelector(s),E=s=>document.createElement(s),NS='http://www.w3.org/2000/svg';
+const fmt=x=>Number(x).toPrecision(5);
+function card(label,value){const a=E('div'),b=E('b');a.className='card';a.textContent=label;b.textContent=value;a.append(b);return a}
+for(const c of D.cases){let o=E('option');o.value=c.n;o.textContent=c.n+' 段 · '+c.triangles+' 三角形';$('#mesh').append(o);const r=E('tr');for(const v of[c.n,c.nodes+' / '+c.triangles,fmt(c.l2_relative),fmt(c.h1_relative),fmt(c.direct_flux_relative_error)]){let t=E('td');t.textContent=v;r.append(t)}$('#results tbody').append(r)}
+$('#orders').textContent='L2阶数：'+D.l2_orders.map(fmt).join(' / ')+'；H1阶数：'+D.h1_orders.map(fmt).join(' / ');
+let current,c;
+function draw(){
+const k=+$('#node').value,p=current.points[k],t=current.temperature_c[k],truth=current.exact_c[k];
+$('#node-id').textContent=k;$('#node-state').replaceChildren(card('坐标 (m)',p.map(fmt).join(', ')),card('有限元温度',fmt(t)+' °C'),card('解析温度',fmt(truth)+' °C'),card('节点误差',fmt(t-truth)+' K'));
+const svg=$('#field');svg.replaceChildren();
+for(const tri of current.triangles){let e=document.createElementNS(NS,'polygon');e.setAttribute('points',tri.map(i=>[60+current.points[i][0]*4000,430-current.points[i][1]*4000].join(',')).join(' '));const heat=Math.max(0,Math.min(1,tri.reduce((v,i)=>v+current.temperature_c[i],0)/30-2.5));e.setAttribute('fill','hsl('+(220-200*heat)+' 75% 53%)');e.setAttribute('stroke','#14223c');e.setAttribute('stroke-width','.35');svg.append(e)}
+let circle=document.createElementNS(NS,'circle');circle.setAttribute('cx',60+p[0]*4000);circle.setAttribute('cy',430-p[1]*4000);circle.setAttribute('r',5);circle.setAttribute('fill','none');circle.setAttribute('stroke','white');circle.setAttribute('stroke-width','2');svg.append(circle);
+}
+function select(){c=D.cases.find(r=>r.n===+$('#mesh').value);current=F[String(c.n)];$('#node').max=c.nodes-1;$('#node').value=0;$('#metrics').replaceChildren(card('单元质量最小值',fmt(c.min_quality)),card('L2相对误差',fmt(c.l2_relative)),card('自由方程残差',fmt(c.normalized_free_residual)),card('反力能量相对余额',fmt(c.reaction_balance_relative)),card('真实网格重现',c.mesh_reproduced?'通过':'失败'),card('本档验收',c.passed?'通过':'失败'));
+$('#source').textContent=fmt(c.source_w)+' W';$('#reaction').textContent=fmt(c.reaction_w)+' W';$('#flux').textContent=fmt(c.direct_boundary_flux_w)+' W';
+$('#csv').href='n'+c.n+'/nodes.csv';$('#msh').href='n'+c.n+'/plate.msh';$('#vtu').href='n'+c.n+'/field.vtu';draw()}
+$('#mesh').addEventListener('change',select);$('#node').addEventListener('input',draw);select();
+</script></main></html>

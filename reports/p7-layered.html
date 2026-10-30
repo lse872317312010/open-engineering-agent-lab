@@ -1,0 +1,41 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>分区有限元与热流连续性</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0d1728;color:#ecf4ff;font:16px/1.6 system-ui}main{max-width:1160px;margin:auto;padding:24px}section{background:#19283f;border:1px solid #344d70;border-radius:16px;padding:20px;margin:20px 0}h1{font-size:clamp(25px,4vw,40px)}p{color:#b6c9e3}a{color:#96c1ff}select{font:inherit;padding:9px;background:#243b5a;color:white;border-radius:8px;max-width:100%}input{width:100%;accent-color:#7bddc7}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.card{padding:14px;border-radius:10px;background:#243953;overflow-wrap:anywhere;min-width:0}.card b{display:block;font-size:21px}img,svg{width:100%;display:block}figure{margin:20px 0}.table{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:10px;text-align:left;border-bottom:1px solid #405876}.warn{color:#ffd29a}:focus-visible{outline:3px solid #7bddc7}@media(max-width:650px){main{padding:14px}section{padding:14px}.cards{grid-template-columns:1fr 1fr}}
+</style><main><p>OEAL · P7-A 部分基准 · model_simulated / analytic</p><h1>两种材料如何传热</h1>
+<p>真实分区网格、P1有限元与独立分段二次解析解。共享界面保持温度连续；两侧梯度不同，热流需要分别核验。</p>
+<p class="warn">理想接触、常参数、二维稳态验证。没有接触热阻、真实器件几何、瞬态或实测精度声明。</p>
+<section><h2>工况与机制</h2><label for="case">工况 </label><select id="case"></select> <label for="mesh">每区横向分段 </label><select id="mesh"><option>8</option><option>16</option><option>32</option></select>
+<p id="mechanism"></p><div id="heat" class="cards"></div>
+<p>左右边界以向外为正，负值表示环境向板内供热。界面两侧均以向右为正。上下边界为自然绝热条件。</p>
+<div id="metrics" class="cards"></div>
+<p><a id="csv" download>节点 CSV</a> · <a id="interface" download>界面通量 CSV</a> · <a id="msh" download>MSH</a> · <a id="vtu" download>VTU</a> · <a href="report.pdf">四图 PDF</a> · <a href="validation.json">完整指标</a> · <a href="contract.md">固定契约</a></p></section>
+<section><h2>实际网格与节点状态</h2><label for="node">节点 <output id="now"></output></label><input id="node" type="range" min="0" value="0"><div id="state" class="cards"></div>
+<svg id="field" viewBox="0 0 650 480" role="img" aria-label="双材料实际三角形网格、界面与节点"></svg>
+<p>界面为 x=0.04m 的竖线；单元按三节点平均温度填色，当前工况采用自适应温度范围。白圈标记所选节点。</p></section>
+<section><h2>全部网格结果</h2><div class="table"><table id="results"><thead><tr><th>工况</th><th>分段</th><th>L2误差</th><th>H1误差</th><th>界面通量跳差/功率尺度</th></tr></thead><tbody></tbody></table></div>
+<p>误差以全单元积分求得；图中的节点误差和温度连续性不能替代热流连续性验收。零源串联热阻patch另行检查。</p></section>
+<section><h2>场、解析对照与收敛</h2>
+<figure><img src="plots/01-fields.png" alt="三场景最细网格温度场"></figure>
+<figure><img src="plots/02-profile.png" alt="有限元与独立解析中心线温度对照"></figure>
+<figure><img src="plots/03-convergence.png" alt="三场景三网格L2和H1误差收敛"></figure>
+<figure><img src="plots/04-flux.png" alt="各网格能量与界面重建通量差"></figure>
+</section><p>材料取值是合成研究输入。工程分区/接触热阻、温度依赖、电磁损耗映射、瞬态、ROM与实测验证仍待推进。</p>
+<script>
+const D=__DATA__,F=__FIELDS__,$=s=>document.querySelector(s),E=s=>document.createElement(s),NS='http://www.w3.org/2000/svg';
+const labels={layered:'异质导热', 'uniform-k':'相同导热率参考','hot-ambient':'热环境反向供热'},fmt=x=>Number(x).toPrecision(6);
+function card(name,value){let e=E('div'),b=E('b');e.className='card';e.textContent=name;b.textContent=value;e.append(b);return e}
+for(const id of Object.keys(D.convergence)){let o=E('option');o.value=id;o.textContent=labels[id];$('#case').append(o)}
+for(const c of D.cases){let r=E('tr');for(const v of[labels[c.id],c.n,fmt(c.l2_relative),fmt(c.h1_relative),fmt(c.flux_errors.interface_jump)]){let t=E('td');t.textContent=v;r.append(t)}$('#results tbody').append(r)}
+let c,f;
+function draw(){let i=+$('#node').value,p=f.points[i],t=f.temperature_c[i],exact=f.exact_c[i];$('#now').textContent=i;$('#state').replaceChildren(card('坐标 (m)',p.map(fmt).join(', ')),card('有限元温度',fmt(t)+' °C'),card('解析温度',fmt(exact)+' °C'),card('误差',fmt(t-exact)+' K'));
+const svg=$('#field');svg.replaceChildren();const low=Math.min(...f.temperature_c),high=Math.max(...f.temperature_c);
+for(const tri of f.triangles){let e=document.createElementNS(NS,'polygon');e.setAttribute('points',tri.map(i=>[60+f.points[i][0]*4000,430-f.points[i][1]*4000].join(',')).join(' '));const mean=tri.reduce((v,i)=>v+f.temperature_c[i],0)/3;e.setAttribute('fill','hsl('+(220-200*(mean-low)/(high-low||1))+' 70% 52%)');e.setAttribute('stroke','#182a45');e.setAttribute('stroke-width','.3');svg.append(e)}
+let line=document.createElementNS(NS,'line');for(const [k,v] of Object.entries({x1:220,x2:220,y1:30,y2:430,stroke:'#fff','stroke-width':2}))line.setAttribute(k,v);svg.append(line);
+let circle=document.createElementNS(NS,'circle');for(const [k,v] of Object.entries({cx:60+p[0]*4000,cy:430-p[1]*4000,r:5,fill:'none',stroke:'#fff','stroke-width':2}))circle.setAttribute(k,v);svg.append(circle)}
+function select(){c=D.cases.find(x=>x.id===$('#case').value&&x.n===+$('#mesh').value);f=F[c.id+'-'+c.n];const p=c.config;
+$('#mechanism').textContent='左恒温 '+p.left_c+'°C → 区1 k='+p.k1+' W/(m K) / s='+p.s1+' W/m³ → 完美接触界面 → 区2 k='+p.k2+' / s='+p.s2+' → 右对流 h='+p.h+' W/(m² K)，环境 '+p.ambient_c+'°C。厚度0.01m，上下绝热。';
+$('#heat').replaceChildren(card('源热量',fmt(c.source_w)+' W'),card('左边向外散热',fmt(c.left_out_w)+' W'),card('右对流向外散热',fmt(c.right_out_w)+' W'),card('界面左侧向右',fmt(c.interface_left_right_w)+' W'),card('界面右侧向右',fmt(c.interface_right_right_w)+' W'),card('解析界面向右',fmt(c.expected.interface_right_w)+' W'));
+$('#metrics').replaceChildren(card('全场L2相对误差',fmt(c.l2_relative)),card('梯度H1相对误差',fmt(c.h1_relative)),card('能量相对余额',fmt(c.balance_relative)));
+const root=c.id+'/n'+c.n+'/';$('#csv').href=root+'nodes.csv';$('#interface').href=root+'interface.csv';$('#msh').href=root+'plate.msh';$('#vtu').href=root+'field.vtu';$('#node').max=c.nodes-1;$('#node').value=0;draw()}
+$('#case').addEventListener('change',select);$('#mesh').addEventListener('change',select);$('#node').addEventListener('input',draw);select();
+</script></main></html>

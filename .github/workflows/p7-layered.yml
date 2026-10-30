@@ -1,0 +1,82 @@
+name: P7 layered thermal interfaces and mixed boundaries
+on:
+  push:
+    branches: [main, codex/p7-layered-thermal]
+    paths: ['benchmarks/p7_layered*', 'benchmarks/build_p7_layered*', 'reports/p7-layered.html', 'tests/test_p7_layered*', '.github/workflows/p7-layered.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+concurrency:
+  group: p7-layered-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  manufactured-fe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install separate FE environment and retain wheel provenance
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa
+          mkdir -p outputs/p7-layered
+          python -m pip install --report outputs/p7-layered/pip-install.json -r benchmarks/p7-fea-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Lint, analytic reference and complete pytest regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Real Gmsh meshes, FE solve, independent convergence and heat gates
+        run: |
+          python benchmarks/p7_fea_baseline.py
+          python benchmarks/p7_layered.py
+      - name: Offline field report and browser validation
+        run: python benchmarks/build_p7_layered_report.py
+      - name: Retain environment and complete evidence manifest
+        if: always()
+        run: |
+          mkdir -p outputs/p7-fea-baseline
+          python -m pip freeze > outputs/p7-layered/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("p7-fea-baseline", "p7-layered", "p7-layered-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file():
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "p7-layered/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-layered-report
+          path: outputs/p7-layered-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-layered-raw-evidence
+          path: |
+            outputs/p7-fea-baseline/
+            outputs/p7-layered/
+          if-no-files-found: error
+      - name: Enforce actual FE and UI gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("p7-fea-baseline/validation.json", "p7-layered/validation.json",
+                       "p7-layered-report/ui-validation.json"):
+              assert json.loads((Path("outputs") / name).read_text())["passed"], name
+          PY

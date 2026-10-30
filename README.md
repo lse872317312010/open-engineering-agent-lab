@@ -508,3 +508,14 @@ python benchmarks/build_msl_identification_report.py
 Gmsh真实网格→scikit-fem稳态导热→独立制造解，三档全场误差接近二阶收敛，
 最细温升L2相对误差0.2701%。报告可切换网格、查看节点温度/误差和热源—边界散热机制，
 附MSH/VTU/CSV及PDF/PNG/SVG。仅P7-A部分数值基准，不代表电机FE或实物热精度。
+
+## 双材料有限元与混合热边界
+
+[方法与实际结果](docs/p7-layered.md) /
+[四图交互报告（3.72MB）](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40983494657/artifacts/12945314205) /
+[固定契约](docs/p7-layered-contract.md)。
+
+三工况×三网格，真实材料标签、恒温/对流/绝热边界与解析对照。
+报告区分温度误差、能量余额和界面两侧热流差，保留环境反向入热，
+提供全部MSH/VTU/节点和界面CSV。
+局部热流仍有离散误差；当前为理想二维稳态基准，不是实物热模型或ROM。

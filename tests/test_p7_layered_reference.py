@@ -6,12 +6,12 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 from p7_layered_reference import (  # noqa: E402
-    A,
     CASES,
     HEIGHT,
-    L,
     PATCH,
     THICKNESS,
+    A,
+    L,
     constants,
     gradient_x,
     powers,

@@ -11,12 +11,12 @@ from pathlib import Path
 import meshio
 import numpy as np
 from p7_layered_reference import (
-    A,
     CASES,
     HEIGHT,
-    L,
     PATCH,
     THICKNESS,
+    A,
+    L,
     gradient_x,
     norms,
     powers,

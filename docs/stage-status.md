@@ -1482,3 +1482,34 @@ Chrome156.0.8078.47实际验九组合单元/功率/温度来源、
 [原始证据5.53MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40986556408/artifacts/12946599489)。
 RT系数、facet DOF映射、原场、实际网格、VTU/CSV、环境与散列归档。
 model_simulated/source_kind analytic，不是新温度后端、独立求解器交叉验证或实测精度。
+
+## 2026-10-30：BDM1兼顾守恒与全域通量精度
+
+[冻结契约](p7-bdm-contract.md) /
+[实际数据/方法/成本](p7-bdm.md) /
+[空间与边界语义核验](../research/reviews/p7-bdm-flux.md)。
+实际提交`db2685db3d20dae871079a30b75ccd63d43e943b`，
+[专项40989152180](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40989152180)成功。
+
+同一原P1温度和实际Gmsh网格，保留P1/RT0/BDM1全部三方结果。
+九组合BDM1全域通量L2均小于两基线各自一半；
+最细异质材料P1=1.70416%、RT0=2.41554%、BDM1=0.019874%。
+界面实际逐高斯点局部RMS约0.041211%，守恒及原温度冻结保持。
+三档BDM全域阶数1.9790–1.9938，仅本制造解的实际结果，不推广一般工程精度。
+
+BDM每facet两个法向DOF，保留原P1右边温的线性Robin分布；
+RT0只保留面平均。物理数据来源相同，边界表示能力不同，不能说只改内部空间。
+用实际边L2质量矩阵投影和法向矩权重核对，不将DOF直接当积分/密度。
+独立几何收支、完整法向迹、反向环境入热、故障翻转和零源patch均通过。
+每facet界面四个高斯点，保留线性变化而不只看平均。
+
+lint及pytest144通过/20跳过；同头CI/P1/P5/P6/ARM成功，仍为既有范围。
+原均匀FE、分区P1和RT0完整回归；新数值/浏览器首轮通过，门槛未调整。
+Chrome156.0.8078.47验九组合数值、三方改善提示、全部CSV行数/下载、
+端点/390px/四图PDF，无页面错误或外部请求。
+
+[四图交互报告9.44MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40989152180/artifacts/12947609522) /
+[原始证据12.06MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40989152180/artifacts/12948531115)。
+BDM通量DOF816/3168/12480，为RT0两倍；记录单次端到端壁钟而不作实时性保证。
+系数、双facet-DOF映射、矩权重、完整迹/逐点CSV、VTU及环境散列齐备。
+这仍是可选通量后处理/部分P7-A，不是新温度后端、实物热场或整体P7完成。

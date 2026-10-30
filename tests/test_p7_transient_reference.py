@@ -24,8 +24,11 @@ def test_scalar_modal_against_independent_quadrature():
     for rate in (.2, 2., 20.):
         times = np.array([0., .1, 2., 8., 12., 16.])
         actual = modal_response([rate], [3.], times)[:, 0]
-        expected = [quad(lambda s:3*np.exp(-rate*(t-s))*float(pulse(s)),
-                         0, min(t, 8), epsabs=1e-12)[0] for t in times]
+        expected = []
+        for t in times:
+            value = quad(lambda s, r=rate, end=t:3*np.exp(-r*(end-s))*float(pulse(s)),
+                         0, min(t, 8), epsabs=1e-12)[0]
+            expected.append(value)
         np.testing.assert_allclose(actual, expected, rtol=1e-9, atol=1e-12)
 
 

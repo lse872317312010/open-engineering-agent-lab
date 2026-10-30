@@ -3,8 +3,8 @@ import hashlib
 import json
 import platform
 import resource
-import time
 import subprocess
+import time
 from pathlib import Path
 
 import meshio

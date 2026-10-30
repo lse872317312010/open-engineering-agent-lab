@@ -4,4 +4,4 @@ gmsh==4.13.1
 scikit-fem==11.0.0
 meshio==5.3.5
 matplotlib==3.10.1
-playwright==1.51.1
+playwright==1.55.0

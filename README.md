@@ -519,3 +519,14 @@ Gmsh真实网格→scikit-fem稳态导热→独立制造解，三档全场误差
 报告区分温度误差、能量余额和界面两侧热流差，保留环境反向入热，
 提供全部MSH/VTU/节点和界面CSV。
 局部热流仍有离散误差；当前为理想二维稳态基准，不是实物热模型或ROM。
+
+## RT0守恒通量后处理
+
+[方法与独立验收](docs/p7-conservative.md) /
+[四图交互报告（7.07MB）](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40986556408/artifacts/12947825322) /
+[固定契约](docs/p7-conservative-contract.md)。
+
+保留原P1温度，增加逐单元守恒与界面局部通量评价。
+异质材料最细局部界面RMS由17.11%降至0.0412%，
+但九组全域通量L2均比原梯度更大，报告显著披露这一取舍，不全面替换原通量。
+可查看单元通量/源/余额、原/新误差，下载cell/facet/interface CSV、VTU和RT系数。

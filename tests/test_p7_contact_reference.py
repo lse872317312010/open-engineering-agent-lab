@@ -9,10 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 from p7_contact_reference import (  # noqa: E402
     CASES,
     HEIGHT,
-    PATCH,
-    THICKNESS,
     LENGTH,
+    PATCH,
     SPLIT,
+    THICKNESS,
     constants,
     powers,
     temperature,

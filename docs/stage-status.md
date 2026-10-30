@@ -1445,3 +1445,40 @@ Chrome156.0.8078.47实际验九组合、节点/有符号热流、
 [四图交互报告3.72MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40983494657/artifacts/12945314205) /
 [原始证据1.28MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40983494657/artifacts/12945362991)。
 原始MSH/VTU/CSV、配置、环境/性能/版本/散列齐备；model_simulated/source_kind analytic。
+
+## 2026-10-30：RT0局部守恒通量后处理
+
+[固定契约](p7-conservative-contract.md) /
+[方法、实际数据与取舍](p7-conservative.md) /
+[RT空间上游核验](../research/reviews/p7-conservative-flux.md)。
+实际执行`a22f95c8ee2c1219e5fe2d025a12f9ab49450d83`，
+[专项40986556408](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40986556408)成功。
+
+不修改原P1温度/梯度，原文件与数组冻结hash核对；实际MSH重现并验证节点对齐。
+scikit-fem最低阶H(div) RT0与SciPy约束投影，逐单元div(q)=s；
+右边界来自原P1边温，上下绝热，解析解只用于独立评价。
+独立几何面积/有向facet重算收支、基函数迹/DOF/朝向检查、
+翻转内部facet故障、原边界功率及反向入热均通过。
+
+最细异质材料局部界面RMS由17.1116%降至0.041237%，改善99.759%；
+同k参考0.000726%、热环境0.002936%，均按局部解析幅值归一化。
+不能拿它与前轮两侧差22.90%混用。
+九组合最大单元余额/功率尺度约3.92e-16，内部法向差约1.44e-13W/m²。
+均值精确部分来自区域源/右边界积分约束，不能作为独立精度证明。
+
+重要取舍：九组合RT0全域通量L2均高于原梯度；
+异质n32由1.7042%变为2.4155%，全域RT0仍约一阶收敛。
+因此只增加守恒后处理能力，不全面替换原通量。
+后续优先更丰富的通量空间，同时保留局部守恒和全域精度要求。
+
+lint、完整pytest142通过/20跳过，原两类FE基准完整回归；
+同头CI/P1/P5/P6/ARM成功，仍为既有覆盖范围。
+Chrome156.0.8078.47实际验九组合单元/功率/温度来源、
+全部cell/facet/interface CSV下载、端点/390px/PDF及全域误差提示，
+页面错误与外部请求为空。
+首次lint导入排序修正后通过；报告揭示全域取舍后完整复跑，物理门槛未放宽。
+
+[四图交互报告7.07MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40986556408/artifacts/12947825322) /
+[原始证据5.53MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40986556408/artifacts/12946599489)。
+RT系数、facet DOF映射、原场、实际网格、VTU/CSV、环境与散列归档。
+model_simulated/source_kind analytic，不是新温度后端、独立求解器交叉验证或实测精度。

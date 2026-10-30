@@ -203,7 +203,8 @@ def execute(case,n):
                   interface_left=abs(qleft-expected["interface_right_w"])/scale,
                   interface_right=abs(qright-expected["interface_right_w"])/scale,
                   interface_jump=abs(qleft-qright)/scale)
-    result = dict(id=case["id"],config=case,n=n,nodes=int(mesh.nvertices),triangles=int(mesh.nelements),
+    result = dict(id=case["id"],config=case,n=n,nodes=int(mesh.nvertices),
+                  triangles=int(mesh.nelements),
                   l2_relative=l2_error,h1_relative=h1_error,free_residual=free_residual,
                   source_w=source_power,left_out_w=reaction,right_out_w=robin,
                   direct_left_out_w=direct[4],direct_right_out_w=direct[2],

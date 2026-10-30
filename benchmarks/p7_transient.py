@@ -171,9 +171,11 @@ def execute(n, dt, capacity_scale=1.):
         and metrics["final_stored_j"] < metrics["pulse_end_stored_j"]
         and metrics["cooling_out_j"] > 0
         and (dt > .05 or metrics["continuous_source_error_j"] <= 1e-4))
-    np.savetxt(folder / "timeseries.csv", rows, delimiter=",", comments="", header=",".join(COLUMNS))
+    np.savetxt(folder / "timeseries.csv", rows, delimiter=",", comments="",
+               header=",".join(COLUMNS))
     node_csv = np.column_stack([
-        np.repeat(times, len(data["weights"])), np.tile(np.arange(len(data["weights"])), len(times)),
+        np.repeat(times, len(data["weights"])),
+        np.tile(np.arange(len(data["weights"])), len(times)),
         np.tile(data["points"], (len(times), 1)), (states+25).ravel()])
     np.savetxt(folder / "nodes.csv", node_csv, delimiter=",", comments="",
                header="time_s,node_id,x_m,y_m,temperature_c")

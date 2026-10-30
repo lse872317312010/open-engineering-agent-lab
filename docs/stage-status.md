@@ -1386,3 +1386,34 @@ Chrome156.0.8078.47检查全部20案例质量状态和表格、18组完整CSV下
 新版summary.csv增加观测状态和噪声来源。
 适用范围model_simulated；噪声先验为公开合成训练配置，不是从含动态测量中自动估计。
 P7仍按新增路线图推进，本次接入不代表已实现FE或ROM。
+
+## 2026-10-30：P7-A首个真实有限元制造解基准（PR #37）
+
+[方法/逐档结果与复现](p7-fea-baseline.md) /
+[实现前冻结契约](p7-fea-baseline-contract.md) /
+[许可与组件决策](../research/reviews/p7-fea-baseline.md)。
+实际执行头`d63fe27f0e4e936410ea82261ae0589a07e9b1fa`，
+[专项40980679597](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40980679597)成功。
+
+真实Gmsh4.13.1 CLI三档带标签网格与scikit-fem11.0.0 P1稳态导热求解，
+SciPy1.15.3和meshio5.3.5；旧RC模型未重新命名为FE。
+128/512/2048三角形的全场L2相对误差4.2266%/1.0755%/0.2701%，
+阶数1.9745/1.9935；H1半范相对误差19.4378%/9.7926%/4.9056%。
+边界/单位/面积/质量检查、三档两次MSH字节重现通过。
+细网格源与反力约1.6W，直接梯度散热1.594866W、相对误差0.32085%；
+自由方程归一化残差1.1346e-13。离散余额不代表实测精度。
+
+首次安装因误写Playwright1.51.1失败；修正为既有1.55.0后全量重跑，
+不改方程或门槛。lint通过，pytest137通过/20跳过；
+FE环境未安装部分可选电驱/FMI后端，跳过不计通过。
+CI40980679542及P1/P5/P6、ARM相关已有成功记录；长辅助流水线另行保留。
+
+[四图交互报告2.84MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40980679597/artifacts/12944601783) /
+[原始证据0.34MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40980679597/artifacts/12944547040)。
+实际Chrome156.0.8078.47核对三网格真实图元、节点/热量数值、CSV下载、
+390px与图/PDF；无页面错误、无外部请求。
+报告包含热源→导热→恒温边界机制、节点查看、MSH/VTU/CSV/PDF/PNG/SVG。
+本Python累计峰值RSS83044KiB、子进程99476KiB，壁钟定义见方法说明；
+不作实时性或商业软件性能比较。
+本基准状态independently_verified、证据model_simulated/source_kind analytic，
+仅P7-A部分增量；电磁、工程分区/接触、瞬态、ROM与ANSYS对照尚未完成。

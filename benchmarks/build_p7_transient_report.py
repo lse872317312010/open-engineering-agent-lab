@@ -110,7 +110,7 @@ def main():
                 r = rows[step]
                 for selector, expected in (
                     ("#state b", r[2:6]), ("#mechanism b", r[6:10]),
-                    ("#energy b", r[[13, 12, 14, 15]])):
+                    ("#energy b", r[[13, 10, 11, 12, 14, 15]])):
                     for text, value in zip(
                             page.locator(selector).all_text_contents(), expected, strict=True):
                         assert abs(float(text.split()[0])-value) <= max(1e-9, abs(value)*6e-6)

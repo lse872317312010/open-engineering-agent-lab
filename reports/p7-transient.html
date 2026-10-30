@@ -32,7 +32,8 @@ svg text{fill:#dbe7f7;font:13px system-ui}.note{border-left:4px solid #eda35f;pa
 <text x="490" y="60">接触热阻 Rc</text><text x="490" y="84">qI = (TL−TR)/Rc</text>
 <text x="690" y="60">材料二 · 储热</text><text x="690" y="84">Cv2 · 体源二</text>
 <text x="900" y="60">右环境 25°C</text><text x="900" y="84">h · ΔT 对流</text></g></svg>
-<p>两区体源按8s平滑脉冲变化，8–16s关闭；上下绝热。接触层自身无储能。
+<p>两区体积热容为1000 / 2000 J/(m³ K)，总容量0.16 J/K；Rc=0.1 m² K/W。
+两区体源按8s平滑脉冲变化，8–16s关闭；上下绝热。接触层自身无储能。
 下方功率均为上一步区间平均，源开关状态按当前时刻显示；时间0时区间功率为0。</p>
 <div id="mechanism" class="grid"></div><p id="phase" class="good"></p>
 <div id="energy" class="grid"></div><p id="balance"></p></section>
@@ -66,7 +67,8 @@ function draw(){
  cards('mechanism',[['两区源 · 区间平均',fmt(r[6])+' W'],['左向外 · 区间平均',fmt(r[7])+' W'],
  ['右向外 · 区间平均',fmt(r[8])+' W'],['接触 · '+(r[9]>=0?'向右':'向左')+' / 平均',fmt(r[9])+' W']]);
  $("phase").textContent=r[0]>=8?'冷却阶段 · 当前热源关闭':r[0]===0?'初始平衡 · 热源将逐步增加':'加热阶段 · 当前源比例 '+fmt(r[1]);
- cards('energy',[['累计输入',fmt(r[13])+' J'],['两区储能变化',fmt(r[12])+' J'],
+ cards('energy',[['累计输入',fmt(r[13])+' J'],['材料一储能变化',fmt(r[10])+' J'],
+ ['材料二储能变化',fmt(r[11])+' J'],['两区储能变化',fmt(r[12])+' J'],
  ['累计左散热',fmt(r[14])+' J'],['累计右散热',fmt(r[15])+' J']]);
  $("balance").textContent='全局 / 左区 / 右区能量余额 J：'+r.slice(17,20).map(fmt).join(' / ');
  const x=v=>60+v/.1*790,y=v=>250-(v-25)/(f.high-25)*210;

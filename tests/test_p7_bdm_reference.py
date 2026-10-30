@@ -16,8 +16,10 @@ def test_real_bdm_basis_spans_directional_affine_flux_rt0_cannot_span():
     points = np.array([[.1,.2,.4],[.1,.5,.2]])
     actual = sum(coefficients[i]*element.lbasis(points,i)[0] for i in range(6))
     np.testing.assert_allclose(actual,exact(points),atol=1e-12)
-    # RT0 derivative tensor b*I cannot simultaneously have diagonal entries3 and4.
-    assert 3. != 4.
+    rt0 = skfem.ElementTriRT0()
+    rt_matrix = np.column_stack([rt0.lbasis(vertices,i)[0].ravel() for i in range(3)])
+    rt_coefficients = np.linalg.lstsq(rt_matrix,exact(vertices).ravel(),rcond=None)[0]
+    assert np.linalg.norm(rt_matrix @ rt_coefficients-exact(vertices).ravel()) > .1
 
 
 def test_reference_edge_linear_trace_and_its_integral_use_actual_bdm_basis():

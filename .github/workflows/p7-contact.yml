@@ -1,0 +1,83 @@
+name: P7 finite contact resistance FE
+on:
+  push:
+    branches: [main, codex/p7-contact-heat]
+    paths: ['benchmarks/p7_contact*', 'benchmarks/build_p7_contact*', 'reports/p7-contact.html', 'tests/test_p7_contact*', '.github/workflows/p7-contact.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+concurrency:
+  group: p7-contact-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contact-fe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned optional FE environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa
+          mkdir -p outputs/p7-contact
+          python -m pip install --report outputs/p7-contact/pip-install.json -r benchmarks/p7-fea-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Lint and complete pytest regression
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Real meshes, previous FE baselines and finite contact gates
+        run: |
+          python benchmarks/p7_fea_baseline.py
+          python benchmarks/p7_layered.py
+          python benchmarks/p7_contact.py
+      - name: Offline report and actual Chrome interaction
+        run: python benchmarks/build_p7_contact_report.py
+      - name: Environment and SHA256 manifest
+        if: always()
+        run: |
+          python -m pip freeze > outputs/p7-contact/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("p7-fea-baseline", "p7-layered", "p7-contact", "p7-contact-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file():
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "p7-contact/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-contact-report
+          path: outputs/p7-contact-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-contact-raw-evidence
+          path: |
+            outputs/p7-fea-baseline/
+            outputs/p7-layered/
+            outputs/p7-contact/
+          if-no-files-found: error
+      - name: Enforce actual FE and browser gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("p7-fea-baseline/validation.json", "p7-layered/validation.json",
+                       "p7-contact/validation.json", "p7-contact-report/ui-validation.json"):
+              assert json.loads((Path("outputs") / name).read_text())["passed"], name
+          PY

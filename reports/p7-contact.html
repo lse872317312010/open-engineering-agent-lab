@@ -1,0 +1,82 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width"><title>接触热阻 · 系统运行报告</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0c1425;color:#e7eef9}
+body{max-width:1160px;margin:auto;padding:24px}h1{font-size:clamp(25px,5vw,42px)}
+p{line-height:1.8;color:#bccce2}section{margin:24px 0;padding:20px;background:#142139;border-radius:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.card{padding:16px;background:#1c3050;border-radius:12px}.card b{display:block;margin-top:10px;font-size:21px}
+select,a{background:#243b60;color:#e1f3ff;padding:10px;border-radius:8px;border:1px solid #48658b}
+label{display:inline-block;margin:6px}svg,img{width:100%;height:auto}.wrap{overflow:auto}
+table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:10px;border-bottom:1px solid #344965}
+.good{color:#71e4ba}.note{border-left:4px solid #efa958;padding-left:14px}
+svg text{font:12px system-ui;fill:#dbe8fb}a{display:inline-block;margin:5px;text-decoration:none}
+*{box-sizing:border-box}code{overflow-wrap:anywhere}
+</style>
+<header><p>OPEN ENGINEERING · P7 / CONTACT</p><h1>看清界面如何传热</h1>
+<p>双材料稳态有限元 · 独立界面温度 · 有符号热流 · 三档网格</p>
+<p class="note">原创理想二维基准，参数并非实测。接触层无厚度、无储能；未覆盖压力依赖、辐射、瞬态或真实器件结温。</p></header>
+<section><label>工况 <select id="case"></select></label><label>网格 <select id="mesh">
+<option>8</option><option>16</option><option selected>32</option></select></label>
+<p id="config"></p><div class="grid" id="powers"></div></section>
+<section><h2>系统模块与运行机制</h2>
+<p>左恒温边界 ⇄ 材料区一 ⇄ 有限接触热阻 ⇄ 材料区二 ⇄ 右环境对流。上下边界绝热。
+两区各有体热源。连接处的实际传热方向由下方带符号功率确定。</p>
+<div class="grid" id="mechanism"></div><p id="balance"></p>
+<p>接触关系 qI=(TL−TR)/Rc；正值向右，负值向左。Rc 为面比热阻 m² K/W。
+温度跳变属于物理模型，两侧节点独立。</p></section>
+<section><h2>温度与界面跳变</h2><svg id="profile" viewBox="0 0 900 300" role="img"
+aria-label="两区温度节点及解析参考"></svg>
+<p>圆点为全部二维节点投影到x轴；实线为各材料解析参考，不跨界面连接。CSV保留沿y变化。</p>
+<div id="downloads"></div></section>
+<section><h2>十二组合完整结果</h2><div class="wrap"><table id="results"><thead><tr>
+<th>工况 / n</th><th>温升L2</th><th>节点峰差 K</th><th>界面局部RMS</th><th>能量余额/尺度</th>
+</tr></thead><tbody></tbody></table></div>
+<p>温度、界面局部误差与代数守恒分别评价；界面积分准确不意味着全域导数通量精确。</p></section>
+<section><h2>可导出科学图表</h2>
+<img src="plots/01-convergence.png" alt="温度网格收敛">
+<img src="plots/02-contact.png" alt="温度和界面跳变">
+<img src="plots/03-sensitivity.png" alt="接触热阻灵敏度与区域能量收支">
+<a href="report.pdf" download>三图 PDF</a><a href="validation.json" download>验证 JSON</a>
+<a href="contract.md" download>冻结契约</a></section>
+<footer><p>Gmsh4.13.1 / scikit-fem11.0.0。model_simulated / analytic。
+未完成P7-C工程热模型或P7-D降阶。<code id="commit"></code></p></footer>
+<script>
+const data=__DATA__,fields=__FIELDS__,$=id=>document.getElementById(id),fmt=x=>Number(x).toPrecision(6);
+$("case").innerHTML=[...new Set(data.cases.map(c=>c.id))].map(n=>'<option>'+n+'</option>').join('');
+function cards(el,rows){$(el).innerHTML=rows.map(r=>'<div class="card">'+r[0]+'<b>'+r[1]+'</b></div>').join('');}
+function draw(){
+ const c=data.cases.find(c=>c.id===$("case").value&&c.n===Number($("mesh").value));
+ const f=fields[c.id+'-'+c.n];
+ $("config").textContent='Rc = '+c.config.rc+' m² K/W；独立温度DOF '+c.nodes+'；三角形 '+c.triangles;
+ cards('powers',[['左向外功率',fmt(c.left_out_w)+' W'],['右向外功率',fmt(c.right_out_w)+' W'],
+ ['界面向右功率',fmt(c.interface_right_w)+' W'],['平均界面温差',fmt(c.jump_mean_k)+' K']]);
+ cards('mechanism',[['材料一 · 生热',fmt(c.region_sources_w[0])+' W'],
+ ['接触 · '+(c.interface_right_w>=0?'向右传热':'向左传热'),fmt(c.interface_right_w)+' W'],
+ ['材料二 · 生热',fmt(c.region_sources_w[1])+' W'],
+ ['右环境 · '+(c.right_out_w>=0?'吸收热量':'提供热量'),fmt(c.right_out_w)+' W']]);
+ $("balance").textContent='全局 / 左区 / 右区余额 W：'+c.balances_w.map(fmt).join(' / ')+'；'+(c.passed?'通过':'失败');
+ $("balance").className=c.passed?'good':'note';
+ const temps=f.nodes.map(r=>r[4]),lo=Math.min(...temps)-1,hi=Math.max(...temps)+1;
+ const x=v=>65+v/.1*790,y=v=>250-(v-lo)/(hi-lo)*210;
+ let svg='<path d="M65 30V250H855" fill="none" stroke="#8296b5"/>';
+ svg+='<text x="65" y="20">T (°C)</text><text x="795" y="285">x (m)</text>';
+ [0,.04,.1].forEach(v=>{svg+='<text x="'+x(v)+'" y="275">'+v+'</text>';});
+ [lo,hi].forEach(v=>{svg+='<text x="5" y="'+y(v)+'">'+v.toFixed(2)+'</text>';});
+ for(const tag of [10,20]){
+  const exact=f.reference.filter(r=>r[0]===tag).map(r=>x(r[1])+','+y(r[2])).join(' ');
+  svg+='<polyline points="'+exact+'" fill="none" stroke="'+(tag===10?'#71e4ba':'#ffcb79')+'" stroke-width="2"/>';
+ }
+ for(const r of f.nodes)svg+='<circle cx="'+x(r[2])+'" cy="'+y(r[4])+'" r="1.6" fill="'+(r[1]===10?'#71e4ba':'#ffcb79')+'"/>';
+ $("profile").innerHTML=svg;
+ const base=c.id+'/n'+c.n+'/';
+ $("downloads").innerHTML=[['nodes.csv','全部节点 CSV','nodes'],['interface.csv','界面 CSV','interface'],
+ ['field.vtu','分裂网格 VTU','vtu'],['matrix.npz','稀疏矩阵','matrix'],['field.npz','解与映射','field']]
+ .map(r=>'<a id="'+r[2]+'" download href="'+base+r[0]+'">'+r[1]+'</a>').join('');
+}
+$("results").querySelector('tbody').innerHTML=data.cases.map(c=>'<tr><td>'+c.id+' / '+c.n+'</td><td>'+
+ fmt(100*c.l2_relative)+'%</td><td>'+fmt(c.peak_node_error_k)+'</td><td>'+
+ fmt(100*c.interface_rms_relative)+'%</td><td>'+fmt(c.balance_relative)+'</td></tr>').join('');
+$("commit").textContent='代码 '+data.commit;
+$("case").onchange=draw;$("mesh").onchange=draw;draw();
+</script></html>

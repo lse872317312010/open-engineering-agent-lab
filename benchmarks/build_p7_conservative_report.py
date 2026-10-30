@@ -96,6 +96,9 @@ def main():
                 if r.url.startswith(("http://","https://")) else None)
         page.goto((OUT / "index.html").as_uri())
         assert page.locator("#results tbody tr").count() == 9
+        assert page.locator("#tradeoff").is_visible()
+        worse = sum(c["rt_flux_l2_relative"] > c["p1_flux_l2_relative"] for c in data["cases"])
+        assert int(page.locator("#tradeoff").get_attribute("data-worse")) == worse
         assert page.evaluate("Array.from(document.images).every(i=>i.complete&&i.naturalWidth>0)")
         for c in data["cases"]:
             page.select_option("#case",c["id"])
@@ -139,7 +142,8 @@ def main():
               combinations=9,
               checks=["numeric powers","unchanged P1 source","cell flux/source/balance",
                                      "negative ambient flow","all cell/facet/interface CSVs",
-                                     "keyboard endpoints","390px","four figures/PDF"])
+                                     "keyboard endpoints","390px","four figures/PDF",
+                                     "global error tradeoff visible"])
     (OUT / "ui-validation.json").write_text(json.dumps(ui,indent=2))
     print("p7-conservative-ui: "+json.dumps(ui),flush=True)
 

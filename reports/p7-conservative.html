@@ -4,7 +4,7 @@
 <p>原P1温度保持原样，scikit-fem RT0空间重建法向连续的热流。约束每个单元的源与边界收支，同时独立对比解析热流。</p>
 <p class="warn">这是原温度场的通量后处理，不是独立温度后端。右边界数据来自原P1温度；解析解只参与评价。</p>
 <section><h2>场景与机制</h2><label for="case">工况 </label><select id="case"></select> <label for="mesh">分段 </label><select id="mesh"><option>8</option><option>16</option><option>32</option></select>
-<p id="mechanism"></p><div id="power" class="cards"></div><p>左右边界以向外为正，界面以向右为正。内部法向连续是RT0空间性质，准确度仍由局部解析误差和全域误差判断。</p>
+<p id="mechanism"></p><div id="power" class="cards"></div><p>左右边界以向外为正，界面以向右为正。内部法向连续是RT0空间性质，准确度仍由局部解析误差和全域误差判断。</p><p id="tradeoff" class="warn">界面精度与局部守恒改善，不代表全域精度全面提高。原梯度数据完整保留。</p>
 <div id="quality" class="cards"></div>
 <p><a id="cells" download>全部单元 CSV</a> · <a id="facets" download>全部facet CSV</a> · <a id="interface" download>界面对比 CSV</a> · <a id="vtu" download>通量 VTU</a> · <a href="report.pdf">四图 PDF</a> · <a href="validation.json">完整结果</a> · <a href="contract.md">固定契约</a></p></section>
 <section><h2>逐单元检查</h2><label for="cell">单元 <output id="now"></output></label><input id="cell" type="range" min="0" value="0"><div id="state" class="cards"></div>
@@ -24,6 +24,7 @@ const labels={layered:'异质材料','uniform-k':'同k参考','hot-ambient':'热
 function card(name,value){let e=E('div'),b=E('b');e.className='card';e.textContent=name;b.textContent=value;e.append(b);return e}
 for(const id of Object.keys(D.convergence)){let o=E('option');o.value=id;o.textContent=labels[id];$('#case').append(o)}
 for(const c of D.cases){let r=E('tr');for(const v of[labels[c.id],c.n,fmt(c.p1_interface_rms_relative),fmt(c.interface_rms_relative),fmt(c.rt_flux_l2_relative),fmt(c.cell_balance_over_scale)]){let t=E('td');t.textContent=v;r.append(t)}$('#results tbody').append(r)}
+const worse=D.cases.filter(c=>c.rt_flux_l2_relative>c.p1_flux_l2_relative).length;$('#tradeoff').dataset.worse=worse;$('#tradeoff').textContent='本轮 '+worse+' / '+D.cases.length+' 组的RT0全域通量L2误差高于原P1梯度；界面精度与局部守恒改善，不代表全域精度全面提高。原梯度数据完整保留。';
 let c,f;
 function draw(){const i=+$('#cell').value,row=f.cells[i];$('#now').textContent=i;$('#state').replaceChildren(card('原P1单元平均温度',fmt(row[5])+' °C'),card('RT平均qₓ',fmt(row[3])+' W/m²'),card('RT平均qᵧ',fmt(row[4])+' W/m²'),card('体积源',fmt(row[6])+' W/m³'),card('RT散度',fmt(row[7])+' W/m³'),card('几何独立余额',fmt(row[9])+' W'));
 const svg=$('#field');svg.replaceChildren();const values=f.cells.map(r=>r[3]),low=Math.min(...values),high=Math.max(...values);
@@ -32,7 +33,7 @@ for(let k=0;k<f.triangles.length;k++){const tri=f.triangles[k];let e=document.cr
 function select(){c=D.cases.find(x=>x.id===$('#case').value&&x.n===+$('#mesh').value);f=F[c.id+'-'+c.n];
 $('#mechanism').textContent='左恒温 '+c.config.left_c+'°C / 右环境 '+c.config.ambient_c+'°C，k='+c.config.k1+' / '+c.config.k2+' W/(m K)。原温度不变 → 右边界通量来自P1边温 → RT0全域约束投影 → 独立几何守恒与解析误差审计。';
 $('#power').replaceChildren(card('热源功率',fmt(c.source_w)+' W'),card('左向外功率',fmt(c.left_out_w)+' W'),card('右向外功率',fmt(c.right_out_w)+' W'),card('RT界面向右功率',fmt(c.rt_interface_right_w)+' W'),card('解析界面向右功率',fmt(c.exact_interface_right_w)+' W'),card('原温度文件冻结',c.temperature_unchanged?'未改变':'失败'));
-$('#quality').replaceChildren(card('原较差侧界面RMS',fmt(c.p1_interface_rms_relative)),card('RT界面局部RMS',fmt(c.interface_rms_relative)),card('RT全域通量L2误差',fmt(c.rt_flux_l2_relative)),card('几何局部余额/尺度',fmt(c.cell_balance_over_scale)),card('内部法向最大差',fmt(c.normal_jump_w_m2)+' W/m²'),card('翻转facet故障余额',fmt(c.fault_max_balance_w)+' W'));
+$('#quality').replaceChildren(card('原较差侧界面RMS',fmt(c.p1_interface_rms_relative)),card('RT界面局部RMS',fmt(c.interface_rms_relative)),card('原梯度全域通量L2误差',fmt(c.p1_flux_l2_relative)),card('RT全域通量L2误差',fmt(c.rt_flux_l2_relative)),card('几何局部余额/尺度',fmt(c.cell_balance_over_scale)),card('内部法向最大差',fmt(c.normal_jump_w_m2)+' W/m²'),card('翻转facet故障余额',fmt(c.fault_max_balance_w)+' W'));
 const path=c.id+'/n'+c.n+'/';$('#cells').href=path+'cells.csv';$('#facets').href=path+'facets.csv';$('#interface').href=path+'interface.csv';$('#vtu').href=path+'flux.vtu';$('#cell').max=c.triangles-1;$('#cell').value=0;draw()}
 $('#case').addEventListener('change',select);$('#mesh').addEventListener('change',select);$('#cell').addEventListener('input',draw);select();
 </script></main></html>

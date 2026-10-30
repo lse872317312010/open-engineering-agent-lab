@@ -15,14 +15,22 @@ from p7_contact_reference import (
     HEIGHT,
     LENGTH,
     PATCH,
-    SPLIT,
     THICKNESS,
     powers,
     temperature,
 )
 from p7_layered import mesh_case
 from scipy.sparse import block_diag, coo_matrix, save_npz
-from skfem import Basis, BilinearForm, ElementTriP1, FacetBasis, LinearForm, MeshTri, condense, solve
+from skfem import (
+    Basis,
+    BilinearForm,
+    ElementTriP1,
+    FacetBasis,
+    LinearForm,
+    MeshTri,
+    condense,
+    solve,
+)
 from skfem.helpers import dot, grad
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -231,7 +239,8 @@ def main():
                   commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
                   versions={p:importlib.metadata.version(p) for p in
                             ("gmsh", "scikit-fem", "meshio", "scipy", "numpy")},
-                  host=dict(platform=platform.platform(), cpu_info=Path("/proc/cpuinfo").read_text(),
+                  host=dict(platform=platform.platform(),
+                            cpu_info=Path("/proc/cpuinfo").read_text(),
                             peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                             children_peak_rss_kib=resource.getrusage(
                                 resource.RUSAGE_CHILDREN).ru_maxrss))

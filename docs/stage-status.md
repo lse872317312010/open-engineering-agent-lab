@@ -1417,3 +1417,31 @@ CI40980679542及P1/P5/P6、ARM相关已有成功记录；长辅助流水线另�
 不作实时性或商业软件性能比较。
 本基准状态independently_verified、证据model_simulated/source_kind analytic，
 仅P7-A部分增量；电磁、工程分区/接触、瞬态、ROM与ANSYS对照尚未完成。
+
+## 2026-10-30：双材料与混合热边界FE基准
+
+[固定契约](p7-layered-contract.md) /
+[方法、局部误差与复现](p7-layered.md)。
+实际执行`eb92d1d932698d8822d5bc9dc9fbeb752890a2d9`，
+[专项40983494657](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40983494657)成功。
+
+Gmsh真实双区域/共享界面，surface10/20赋材料与源；
+左恒温、右Robin、上下绝热。异质、同k与热环境三场景×三网格，
+原正弦制造解先行回归，另验零源串联热阻patch与材料标签交换故障。
+最细温度L2误差0.011052%/0.001229%/0.010429%，峰值节点误差最大0.009636K；
+三档温度阶数1.9896–1.9984，梯度阶数0.9951–0.9988。
+能量最大相对余额1.4277e-13；热环境右向外功率-0.0338095W，保留反向入热。
+
+局部热流未宣称精确连续：layered/n32两侧差0.00250788W，
+占契约功率尺度1.5674%，占局部解析界面功率幅值22.8981%。
+温度/能量与局部通量误差分开记录，后者是下一步改进项。
+这是理想二维稳态、完美接触基准，不代表工程热场/P7-C或实物精度。
+
+lint及pytest140通过/20跳过；同执行头CI/P1/P5/P6/ARM成功。
+修复导入排序、NumPy整数序列化及行长后完整复跑，未放宽物理门槛。
+Chrome156.0.8078.47实际验九组合、节点/有符号热流、
+节点和界面完整CSV下载、键盘端点、390px与四图PDF；无页面错误或外部请求。
+
+[四图交互报告3.72MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40983494657/artifacts/12945314205) /
+[原始证据1.28MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/40983494657/artifacts/12945362991)。
+原始MSH/VTU/CSV、配置、环境/性能/版本/散列齐备；model_simulated/source_kind analytic。

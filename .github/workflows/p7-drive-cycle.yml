@@ -1,0 +1,107 @@
+name: P7 two-second braking cooling and warm continuation
+on:
+  push:
+    branches: [main, codex/p7-drive-cycle]
+    paths: ['benchmarks/p7_drive_cycle*', 'benchmarks/p7_cycle_reference.py', 'benchmarks/build_p7_drive_cycle*', 'reports/p7-drive-cycle.html', 'tests/test_p7_cycle_reference.py', '.github/workflows/p7-drive-cycle.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+concurrency:
+  group: p7-drive-cycle-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frozen-rom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned FE and pyMOR environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa
+          mkdir -p outputs/p7-rom outputs/p7-param-rom outputs/p7-multirate outputs/p7-drive-cycle
+          python -m pip install --report outputs/p7-drive-cycle/pip-install.json -r benchmarks/p7-multirate-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Ruff and complete pytest
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Existing FE and transient frozen regressions
+        run: |
+          python benchmarks/p7_fea_baseline.py
+          python benchmarks/p7_layered.py
+          python benchmarks/p7_contact.py
+          python benchmarks/p7_transient.py
+      - name: Generate training and public matrices
+        run: python benchmarks/p7_rom.py generate
+      - name: Fit training only and freeze hashes in a separate process
+        run: python benchmarks/p7_rom.py fit
+      - name: Generate unseen full trajectories and validate frozen ROM
+        run: python benchmarks/p7_rom.py validate
+      - name: Parameter training only
+        run: python benchmarks/p7_param_rom.py generate
+      - name: Fit affine ROM and freeze training hashes
+        run: python benchmarks/p7_param_rom.py fit
+      - name: Unseen Rc, guarded inference and public step latency
+        run: python benchmarks/p7_param_rom.py validate
+      - name: Actual motulator coupled clocks and causal loss-window audit
+        run: python benchmarks/p7_multirate_drive.py
+      - name: Two-second duty cycle with brake cooling and off-window continuation
+        run: python benchmarks/p7_drive_cycle.py
+      - name: Light phase report and complete-data browser checks
+        run: python benchmarks/build_p7_drive_cycle_report.py
+      - name: Environment and hashes
+        if: always()
+        run: |
+          python -m pip freeze > outputs/p7-drive-cycle/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("p7-drive-cycle", "p7-drive-cycle-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file():
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "p7-drive-cycle/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-drive-cycle-report
+          path: outputs/p7-drive-cycle-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-drive-cycle-raw-evidence
+          path: |
+            outputs/p7-drive-cycle/
+            outputs/p7-multirate/validation.json
+            outputs/p7-param-rom/validation.json
+            outputs/p7-param-rom/model/
+            outputs/p7-param-rom/train/
+            outputs/p7-rom/validation.json
+            outputs/p7-transient/validation.json
+            outputs/p7-contact/validation.json
+            outputs/p7-layered/validation.json
+            outputs/p7-fea-baseline/validation.json
+          if-no-files-found: error
+      - name: Enforce all gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("p7-fea-baseline", "p7-layered", "p7-contact", "p7-transient", "p7-rom", "p7-param-rom", "p7-multirate", "p7-drive-cycle"):
+              assert json.loads((Path("outputs") / name / "validation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/p7-drive-cycle-report/ui-validation.json").read_text())["passed"]
+          PY

@@ -1,0 +1,93 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width"><title>负载循环 · 制动冷却与连续性</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0c1526;color:#e9f2ff}body{max-width:1180px;margin:auto;padding:22px}
+h1{font-size:clamp(27px,5vw,44px)}p{line-height:1.8;color:#bfd1e8}
+section{padding:20px;margin:22px 0;border-radius:18px;background:#16263e}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.card{padding:15px;background:#223c5a;border-radius:12px}.card b{display:block;margin-top:8px;font-size:20px}
+select,button,a{font:inherit;background:#294b71;color:#edf6ff;border:1px solid #567a9f;padding:10px;border-radius:8px}
+a{display:inline-block;margin:5px;text-decoration:none}label{display:inline-block;margin:6px}input,svg,img{width:100%;height:auto}
+input{accent-color:#79debd}svg text{fill:#dfedff;font:13px system-ui}
+.wrap{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:10px;border-bottom:1px solid #345577}
+.note{border-left:4px solid #efb46f;padding-left:14px}.good{color:#7ee0bb}*{box-sizing:border-box}code{overflow-wrap:anywhere}
+</style>
+<header><p>OPEN ENGINEERING · DRIVE CYCLE</p><h1>从两段负载，到制动停转与余热冷却</h1>
+<p>2秒有限时域 · 20kHz控制 · 400/800Hz热模型 · 暖状态暂停继续</p>
+<p class="note">等效热板与实际开源电驱模型的合成仿真；不是耐久、实物温度或wall-clock实时验证。
+冷却时电流控制仍启用，外部粘性制动器耗散另记，不冒充关栅故障停机。</p></header>
+<section><h2>运行机制与阶段</h2><svg viewBox="0 0 1000 120" role="img" aria-label="四个运行阶段与状态保持">
+<path d="M100 60H900" stroke="#759abb" stroke-width="3"/>
+<g fill="#28486b" stroke="#79dfbb"><rect x="10" y="22" width="210" height="75" rx="12"/>
+<rect x="265" y="22" width="210" height="75" rx="12"/><rect x="520" y="22" width="210" height="75" rx="12"/>
+<rect x="775" y="22" width="210" height="75" rx="12"/></g><g text-anchor="middle">
+<text x="115" y="53">静止待机</text><text x="115" y="78">初态25°C / Iq=0</text>
+<text x="370" y="53">第一段负载</text><text x="370" y="78">Iq .20A / 载荷 .015Nm</text>
+<text x="625" y="53">第二段负载</text><text x="625" y="78">Iq .28A / 载荷 .035Nm</text>
+<text x="880" y="53">外部制动与冷却</text><text x="880" y="78">Iq=0 / 热状态继续演化</text></g></svg>
+<p>铜/桥真实损耗按窗口送入板，制动耗散在机械侧另记；零热源窗口也推进热状态。
+续跑案例在0.43765s和0.90385s暂停，同一仿真对象继续，未闭合窗口、PI积分和热状态均保留。</p></section>
+<section><label>工况 <select id="case"></select></label><button id="play" aria-pressed="false">播放</button>
+<label for="time">抽样回放</label><input id="time" type="range" min="0" step="1" value="0">
+<p id="now"></p><p id="phase" class="good"></p>
+<p>页面每25控制tick加所有关键边界抽样显示；完整20kHz数据在CSV，抽样不是仿真步长。</p>
+<div id="electrical" class="grid"></div></section>
+<section><h2>热状态与余热去向</h2><div id="thermal" class="grid"></div><div id="energy" class="grid"></div>
+<p id="balance"></p><p>不手工把实际电流或损耗清零；制动后由模型自然衰减。
+平均热源显示最近已关闭窗口，控制样本显示当前保持温度。</p>
+<div id="downloads"></div><a id="raw" href="__RUN_URL__" target="_blank" rel="noopener">完整RHS与全场原始证据 · GitHub运行页</a>
+<p>轻量报告含全部控制/热CSV和图表；RHS gzip、FE/ROM场、快速状态及冻结训练/矩阵在独立原始包。</p></section>
+<section><h2>结果与连续性</h2><div class="wrap"><table id="results"><thead><tr>
+<th>工况</th><th>控制/热更新</th><th>1→2s新增热 J</th><th>末/1s储能</th><th>最终速度 rad/s</th>
+</tr></thead><tbody></tbody></table></div><p id="continuity"></p>
+<p>同对象续跑不是进程checkpoint序列化恢复。
+声明的连续性误差只覆盖本轮工况和两个暂停点，不是任意中断/模型切换保证。</p></section>
+<section><h2>四组科学图表</h2><img src="plots/01-cycle.png" alt="电流、负载和外部制动后的速度">
+<img src="plots/02-cooling.png" alt="两区温度和冷却"><img src="plots/03-energy.png" alt="热板能量和独立机械耗散">
+<img src="plots/04-continuation.png" alt="分段续跑与连续运行误差">
+<a href="report.pdf" download>四图 PDF</a><a href="validation.json" download>完整验证 JSON</a>
+<a href="contract.md" download>固定契约</a><a href="raw-file-hashes.json" download>原始RHS/场文件 SHA256</a></section>
+<footer><p>motulator固定commit / 上轮平滑方向刷新适配保持 · model_simulated / synthetic。
+<code id="commit"></code></p></footer>
+<script>
+const data=__DATA__,controls=__CONTROLS__,thermal=__THERMAL__,$=id=>document.getElementById(id),fmt=x=>Number(x).toPrecision(6);
+const labels={'cycle-feedback':'400Hz · 反馈连续运行','cycle-frozen':'400Hz · 冻结实际R',
+'cycle-fine':'800Hz · 热更新细化','cycle-chunked':'400Hz · 两次暖状态暂停/继续'};
+const phases=['静止待机','第一段负载','第二段负载','外部粘性制动与冷却'];
+let timer=null;
+function cards(el,a){$(el).innerHTML=a.map(r=>'<div class="card">'+r[0]+'<b>'+r[1]+'</b></div>').join('');}
+function pause(){if(timer)clearInterval(timer);timer=null;$("play").textContent='播放';$("play").setAttribute('aria-pressed','false');}
+function choose(){pause();$("time").max=controls[$("case").value].length-1;$("time").value=0;draw();}
+function draw(){
+ const c=data.cases.find(c=>c.id===$("case").value),r=controls[c.id][Number($("time").value)];
+ const t=thermal[c.id][Math.floor(r.tick/c.ratio)];
+ $("now").textContent=fmt(r.time_s)+' s / 2 s · 原始控制tick '+r.tick+' / 40000 · 已闭合热窗 '+r.thermal_updates;
+ $("phase").textContent=phases[r.phase_code]+' · 控制保持启用'+(r.command_issued?'':' · 终点无新控制命令');
+ cards('electrical',[['实际Iq / 参考',fmt(r.iq_a)+' / '+fmt(r.iq_reference_a)+' A'],
+ ['机械速度',fmt(r.speed_rad_s)+' rad/s'],['实际电阻',fmt(r.resistance_ohm)+' Ω'],
+ ['保持负载 / 阻尼',fmt(r.held_load_nm)+' Nm / '+fmt(r.held_brake_nms)+' Nms']]);
+ cards('thermal',[['左区保持温度',fmt(r.held_left_c)+' °C'],['右区保持温度',fmt(r.held_right_c)+' °C'],
+ ['温度年龄',r.temperature_age_ticks+' ticks'],['最近闭合窗口总热源',fmt(t.mean_left_w+t.mean_right_w)+' W']]);
+ cards('energy',[['累计真实铜 / 桥热',fmt(r.copper_j)+' / '+fmt(r.device_j)+' J'],
+ ['板储能变化',fmt(t.stored_left_j+t.stored_right_j)+' J'],
+ ['累计板边界散热',fmt(t.left_out_j+t.right_out_j)+' J'],
+ ['机械侧耗散（不入板）',fmt(r.friction_j)+' J']]);
+ $("balance").textContent='电端余额 '+fmt(r.electrical_balance_j)+' J；热全局/左/右余额 '+
+ [t.global_balance_j,t.left_balance_j,t.right_balance_j].map(fmt).join(' / ')+' J';
+ $("downloads").innerHTML=[['control.csv','完整20kHz控制 CSV','control'],['thermal.csv','完整热窗口 CSV','windows'],
+ ['native-controller.csv','原生PI控制 CSV','native']].map(a=>'<a id="'+a[2]+'" download href="'+c.id+'/'+a[0]+'">'+a[1]+'</a>').join('');
+}
+$("case").innerHTML=data.cases.map(c=>'<option value="'+c.id+'">'+labels[c.id]+'</option>').join('');
+$("results").querySelector('tbody').innerHTML=data.cases.map(c=>'<tr><td>'+labels[c.id]+'</td><td>'+
+c.control_commands+' / '+(c.thermal_rows-1)+'</td><td>'+fmt(c.tail_heat_j)+'</td><td>'+
+fmt(c.cooling_storage_ratio)+'</td><td>'+fmt(c.final_speed_rad_s)+'</td></tr>').join('');
+$("continuity").textContent='分段/连续逐控制状态最大SI数值差 '+fmt(data.chunk_control_max_error)+
+'；热窗最大差 '+fmt(data.chunk_thermal_max_error)+'；暂停点PI/热状态最大差 '+fmt(data.checkpoint_max_error)+
+'。400→800Hz均温峰差 '+fmt(data.fine_mean_error_k)+' K。';
+$("commit").textContent='代码 '+data.commit;
+$("case").onchange=choose;$("time").oninput=draw;
+$("play").onclick=()=>{if(timer){pause();return;}if(Number($("time").value)===Number($("time").max))$("time").value=0;
+$("play").textContent='暂停';$("play").setAttribute('aria-pressed','true');timer=setInterval(()=>{
+if(Number($("time").value)>=Number($("time").max)){pause();return;}$("time").value=Number($("time").value)+1;draw();},80);};
+choose();
+</script></html>

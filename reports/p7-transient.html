@@ -1,0 +1,95 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width"><title>瞬态热场 · 从加热到冷却</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0c1425;color:#e9f1ff}
+body{max-width:1200px;margin:auto;padding:22px}h1{font-size:clamp(27px,5vw,44px)}
+p{line-height:1.8;color:#c0cfe3}section{background:#142239;border-radius:18px;padding:20px;margin:22px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+.card{background:#203653;border-radius:12px;padding:15px}.card b{display:block;font-size:21px;margin-top:8px}
+select,button,a{font:inherit;background:#274267;border:1px solid #526c8d;color:#e9f4ff;border-radius:8px;padding:9px}
+a{display:inline-block;margin:5px;text-decoration:none}label{display:inline-block;margin:5px}
+input[type=range]{width:100%;accent-color:#67dfb7}svg,img{width:100%;height:auto}
+.wrap{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:10px;border-bottom:1px solid #344f70}
+svg text{fill:#dbe7f7;font:13px system-ui}.note{border-left:4px solid #eda35f;padding-left:14px}
+.good{color:#79e5bc}*{box-sizing:border-box}code{overflow-wrap:anywhere}
+</style>
+<header><p>OPEN ENGINEERING / TRANSIENT FE</p><h1>从热源输入，到储热与冷却</h1>
+<p>一致质量矩阵 · 双材料接触热阻 · 九组合 · 空间与时间误差分开核验</p>
+<p class="note">理想二维离散的一维物理场；容量与热源为合成值。未覆盖真实器件、工程电磁损耗、ROM或400Hz性能。</p></header>
+<section><label>网格 <select id="mesh"><option>8</option><option>16</option><option selected>32</option></select></label>
+<label>时间步 / s <select id="dt"><option>0.2</option><option>0.1</option><option selected>0.05</option></select></label>
+<button id="play" aria-pressed="false">播放</button><p id="now"></p>
+<label for="time">时间回放</label><input id="time" type="range" min="0" value="0" step="1">
+<div id="state" class="grid"></div></section>
+<section><h2>系统模块与运行状态</h2>
+<svg viewBox="0 0 1000 130" role="img" aria-label="源、材料储热、接触与环境的连接机制">
+<path d="M150 65H850" stroke="#6d94bb" stroke-width="3"/>
+<g fill="#274267" stroke="#71d9b8"><rect x="10" y="25" width="160" height="80" rx="14"/>
+<rect x="210" y="25" width="160" height="80" rx="14"/><rect x="410" y="25" width="160" height="80" rx="14"/>
+<rect x="610" y="25" width="160" height="80" rx="14"/><rect x="810" y="25" width="180" height="80" rx="14"/></g>
+<g text-anchor="middle"><text x="90" y="60">左恒温 25°C</text><text x="90" y="84">瞬态反力散热</text>
+<text x="290" y="60">材料一 · 储热</text><text x="290" y="84">Cv1 · 体源一</text>
+<text x="490" y="60">接触热阻 Rc</text><text x="490" y="84">qI = (TL−TR)/Rc</text>
+<text x="690" y="60">材料二 · 储热</text><text x="690" y="84">Cv2 · 体源二</text>
+<text x="900" y="60">右环境 25°C</text><text x="900" y="84">h · ΔT 对流</text></g></svg>
+<p>两区体积热容为1000 / 2000 J/(m³ K)，总容量0.16 J/K；Rc=0.1 m² K/W。
+两区体源按8s平滑脉冲变化，8–16s关闭；上下绝热。接触层自身无储能。
+下方功率均为上一步区间平均，源开关状态按当前时刻显示；时间0时区间功率为0。</p>
+<div id="mechanism" class="grid"></div><p id="phase" class="good"></p>
+<div id="energy" class="grid"></div><p id="balance"></p></section>
+<section><h2>当前温度场</h2><svg id="field" viewBox="0 0 900 300" role="img" aria-label="全部节点温度沿x轴投影"></svg>
+<p>圆点保留全部二维节点，绿色/橙色分别为两区。界面两侧温度独立。
+纵轴全程固定，避免回放时自动缩放误导升温幅度。</p><div id="downloads"></div></section>
+<section><h2>误差与守恒证据</h2><p id="reference"></p><div class="wrap"><table id="results"><thead><tr>
+<th>n / dt</th><th>能量最大余额 J</th><th>连续源积分误差 J</th><th>终点储能 J</th>
+</tr></thead><tbody></tbody></table></div>
+<p>模态参考使用相同FE矩阵，只验证时间步进；独立有限体积验证当前y不变空间基准。
+Richardson空间误差为两时间步外推估计，实际CN误差同时保留。</p></section>
+<section><h2>四组科学图表</h2>
+<img src="plots/01-time.png" alt="平均温度随时间变化"><img src="plots/02-energy.png" alt="源能、储能与散热能">
+<img src="plots/03-convergence.png" alt="分开的空间与时间收敛"><img src="plots/04-flux.png" alt="热流及故障能量余额">
+<a href="report.pdf" download>四图 PDF</a><a href="validation.json" download>完整验证 JSON</a>
+<a href="contract.md" download>冻结契约</a></section>
+<footer><p>Gmsh4.13.1 / scikit-fem11.0.0 / SciPy1.15.3。model_simulated / synthetic。
+<code id="commit"></code></p></footer>
+<script>
+const data=__DATA__,fields=__FIELDS__,$=id=>document.getElementById(id),fmt=x=>Number(x).toPrecision(6);
+let timer=null,selected=null;
+function cards(el,rows){$(el).innerHTML=rows.map(r=>'<div class="card">'+r[0]+'<b>'+r[1]+'</b></div>').join('');}
+function pause(){if(timer)clearInterval(timer);timer=null;$("play").textContent='播放';$("play").setAttribute('aria-pressed','false');}
+function choose(){pause();selected=data.cases.find(c=>c.n===Number($("mesh").value)&&c.dt_s===Number($("dt").value));
+ $("time").max=selected.rows-1;$("time").value=0;draw();}
+function draw(){
+ const c=selected,f=fields[c.id],i=Number($("time").value),r=f.rows[i],u=f.temperatures[i];
+ $("now").textContent=fmt(r[0])+' s / 16 s · '+c.nodes+' 温度DOF · dt='+c.dt_s+' s';
+ cards('state',[['材料一平均温度',fmt(r[2])+' °C'],['材料二平均温度',fmt(r[3])+' °C'],
+ ['界面左温度',fmt(r[4])+' °C'],['界面右温度',fmt(r[5])+' °C']]);
+ cards('mechanism',[['两区源 · 区间平均',fmt(r[6])+' W'],['左向外 · 区间平均',fmt(r[7])+' W'],
+ ['右向外 · 区间平均',fmt(r[8])+' W'],['接触 · '+(r[9]>=0?'向右':'向左')+' / 平均',fmt(r[9])+' W']]);
+ $("phase").textContent=r[0]>=8?'冷却阶段 · 当前热源关闭':r[0]===0?'初始平衡 · 热源将逐步增加':'加热阶段 · 当前源比例 '+fmt(r[1]);
+ cards('energy',[['累计输入',fmt(r[13])+' J'],['材料一储能变化',fmt(r[10])+' J'],
+ ['材料二储能变化',fmt(r[11])+' J'],['两区储能变化',fmt(r[12])+' J'],
+ ['累计左散热',fmt(r[14])+' J'],['累计右散热',fmt(r[15])+' J']]);
+ $("balance").textContent='全局 / 左区 / 右区能量余额 J：'+r.slice(17,20).map(fmt).join(' / ');
+ const x=v=>60+v/.1*790,y=v=>250-(v-25)/(f.high-25)*210;
+ let svg='<path d="M60 25V250H850" fill="none" stroke="#8296b5"/><text x="60" y="18">T (°C)</text>';
+ svg+='<text x="12" y="250">25</text><text x="5" y="45">'+f.high.toFixed(2)+'</text><text x="800" y="285">x (m)</text>';
+ [0,.04,.1].forEach(v=>{svg+='<text x="'+x(v)+'" y="274">'+v+'</text>';});
+ for(let j=0;j<u.length;j++)svg+='<circle cx="'+x(f.points[j][0])+'" cy="'+y(u[j])+'" r="1.6" fill="'+
+ (j<f.offset?'#73e8bf':'#ffc978')+'"/>';
+ $("field").innerHTML=svg;
+ $("downloads").innerHTML=[['timeseries.csv','完整时间序列 CSV','series'],['nodes.csv','全部时刻节点 CSV','nodes'],
+ ['mass.npz','一致质量矩阵','mass'],['stiffness.npz','刚度矩阵','stiffness'],['field.npz','全场与节点权重','raw']]
+ .map(a=>'<a id="'+a[2]+'" download href="'+c.id+'/'+a[0]+'">'+a[1]+'</a>').join('');
+}
+$("results").querySelector('tbody').innerHTML=data.cases.map(c=>'<tr><td>'+c.n+' / '+c.dt_s+'</td><td>'+
+ fmt(c.max_balance_j)+'</td><td>'+fmt(c.continuous_source_error_j)+'</td><td>'+fmt(c.final_stored_j)+'</td></tr>').join('');
+$("reference").textContent='时间阶数 '+data.time_orders.map(fmt).join(' / ')+'；空间阶数 '+data.space_orders.map(fmt).join(' / ')+
+ '；FV细化相对差 '+fmt(data.fv_refinement_relative)+'。双容量/双时间缩放温差 '+fmt(data.scaling_temperature_error_k)+' K。';
+$("commit").textContent='代码 '+data.commit;
+$("mesh").onchange=choose;$("dt").onchange=choose;$("time").oninput=draw;
+$("play").onclick=()=>{if(timer){pause();return;}if(Number($("time").value)===Number($("time").max))$("time").value=0;
+ $("play").textContent='暂停';$("play").setAttribute('aria-pressed','true');timer=setInterval(()=>{
+ if(Number($("time").value)>=Number($("time").max)){pause();return;}$("time").value=Number($("time").value)+1;draw();},100);};
+choose();
+</script></html>

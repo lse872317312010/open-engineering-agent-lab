@@ -30,3 +30,10 @@ def dq_from_abc(abc, angle_rad):
     alpha, beta = (2*a-b-c)/3, (b-c)/np.sqrt(3)
     return np.array([alpha*np.cos(angle_rad)+beta*np.sin(angle_rad),
                      -alpha*np.sin(angle_rad)+beta*np.cos(angle_rad)])
+
+
+def maxwell_torque(phi, bx, by, radius_m, depth_m=.04):
+    """Total-field circular Maxwell stress, uniform angular nodes, SI."""
+    br = bx*np.cos(phi)+by*np.sin(phi)
+    bt = -bx*np.sin(phi)+by*np.cos(phi)
+    return float(depth_m*radius_m**2/MU0*2*np.pi*np.mean(br*bt))

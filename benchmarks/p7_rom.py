@@ -140,6 +140,8 @@ def fit():
     fr = basis.T@public["forcing"][free]
     orthogonality = float(np.max(abs(mr-np.eye(len(mr)))))
     assert len(mr) <= 14 and orthogonality <= 1e-9
+    assert np.allclose(mr, mr.T, atol=1e-9, rtol=1e-12)
+    assert np.allclose(kr, kr.T, atol=1e-9, rtol=1e-12)
     assert min(np.linalg.eigvalsh(mr)) > 0 and min(np.linalg.eigvalsh(kr)) > 0
     np.savez_compressed(target / "rom.npz", basis=basis, mass=mr, stiffness=kr, forcing=fr,
                         singular_values=singular,

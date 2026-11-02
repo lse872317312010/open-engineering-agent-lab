@@ -152,7 +152,8 @@ def main():
                 t = thermal[c["id"]][tick//c["ratio"]]
                 for selector, expected in (
                     ("#thermal b", [r["held_left_c"], r["held_right_c"],
-                                     r["temperature_age_ticks"], t["mean_left_w"]+t["mean_right_w"]]),
+                                     r["temperature_age_ticks"],
+                                     t["mean_left_w"]+t["mean_right_w"]]),
                     ("#energy b", [t["stored_left_j"]+t["stored_right_j"],
                                     t["left_out_j"]+t["right_out_j"], r["friction_j"]])):
                     texts = page.locator(selector).all_text_contents()

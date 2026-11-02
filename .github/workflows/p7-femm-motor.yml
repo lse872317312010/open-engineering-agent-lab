@@ -15,6 +15,9 @@ jobs:
     timeout-minutes: 35
     env:
       FEMM_EXE: C:\femm42\bin\femm.exe
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      OPENBLAS_NUM_THREADS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,8 +26,9 @@ jobs:
       - name: Install fixed Python environment
         run: |
           New-Item -ItemType Directory -Force outputs/p7-femm | Out-Null
-          python -m pip install numpy==1.26.4 scipy==1.15.3 matplotlib==3.10.1 pyfemm==0.1.3 pywin32==311 playwright==1.55.0
+          python -m pip install numpy==1.26.4 scipy==1.15.3 matplotlib==3.10.1 pyfemm==0.1.3 pywin32==311 playwright==1.55.0 psutil==7.0.0
           python -m pip install -e ".[dev]"
+          python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
       - name: Download official FEMM and retain installer provenance
         run: |
           $url = 'https://www.femm.info/doku/lib/exe/fetch.php?media=upload:files:femm42bin_x64_21apr2019.exe'
@@ -43,6 +47,10 @@ jobs:
           $proc = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=C:\femm42' -Wait -PassThru
           if ($proc.ExitCode -ne 0) { throw "Installer failed: $($proc.ExitCode)" }
           if (!(Test-Path $env:FEMM_EXE)) { throw "FEMM executable not installed" }
+          $actualExe = (Get-FileHash $env:FEMM_EXE -Algorithm SHA256).Hash.ToLower()
+          if ($actualExe -ne '5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21') {
+            throw "FEMM runtime executable digest changed"
+          }
           & $env:FEMM_EXE /regserver
           (Get-Item $env:FEMM_EXE).VersionInfo | Format-List | Out-File outputs/p7-femm/executable-version.txt
       - name: Ruff and full pytest
@@ -51,11 +59,19 @@ jobs:
           python -m pytest
       - name: Actual COM solve and independent bounded cylinder
         run: python benchmarks/p7_femm_probe.py
+      - name: Actual three-phase PM motor static extraction and mapped FOC
+        run: python benchmarks/p7_femm_motor.py
       - name: Archive environment and source identity
         if: always()
         run: |
           python -m pip freeze | Out-File outputs/p7-femm/environment.txt
           git rev-parse HEAD | Out-File outputs/p7-femm/source-commit.txt
+          Get-CimInstance Win32_Processor | Format-List | Out-File outputs/p7-femm/host-cpu.txt
+          $licenses = Join-Path $env:GITHUB_WORKSPACE 'outputs/p7-femm/installed-licenses'
+          New-Item -ItemType Directory -Force $licenses | Out-Null
+          Get-ChildItem C:\femm42 -Recurse -File | Where-Object {
+            $_.Name -match 'licen[cs]e|copyright'
+          } | ForEach-Object { Copy-Item $_.FullName (Join-Path $licenses $_.Name) -Force }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

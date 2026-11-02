@@ -131,7 +131,7 @@ def execute(case, n, mesh_data):
     (folder / "parameters.json").write_text(json.dumps(parameters, indent=2))
     energy_scale = abs(2*energy)
     result = dict(
-        id=case["id"], n=n, current_a=current, nodes=basis.N, triangles=len(mesh.t.T),
+        id=case["id"], n=n, current_a=current, nodes=int(basis.N), triangles=len(mesh.t.T),
         min_quality=quality, az_l2_relative=error_a, b_l2_relative=error_b,
         inductance_h=measured_l, analytic_inductance_h=expected_l,
         inductance_relative_error=abs(measured_l/expected_l-1),

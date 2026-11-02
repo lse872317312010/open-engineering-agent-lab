@@ -12,16 +12,19 @@ OUT = Path(__file__).resolve().parents[1] / "outputs/p7-femm/stress-probe"
 
 
 def batch(count, radius):
-    # Native Lua returns a numeric CSV string; COM's lua2matlab wraps it as a vector.
-    expression = (
-        '(function() local s="" for k=0,'+str(count-1)+' do '
-        'local p=k*'+repr(2*np.pi/count)+' '
-        'local a,bx,by=mo_getpointvalues('+repr(radius*1000)+'*cos(p),'
-        +repr(radius*1000)+'*sin(p)) '
-        's=s..format("%.17g,%.17g,",bx,by) end '
-        'return strsub(s,1,strlen(s)-1) end)()')
-    values = np.array(femm.callfemm(expression), dtype=float).reshape(count, 2)
+    # Use official raw COM call2femm for statements, without expression wrapping/eval.
     phi = np.arange(count)*2*np.pi/count
+    xs, ys = radius*1000*np.cos(phi), radius*1000*np.sin(phi)
+    script = 'xs={'+','.join(femm.num(v) for v in xs)+'};'
+    script += 'ys={'+','.join(femm.num(v) for v in ys)+'};'
+    script += ('s="" for k=1,'+str(count)+' do '
+               'local a,bx,by=mo_getpointvalues(xs[k],ys[k]) '
+               's=s..format("%.17g,%.17g,",bx,by) end actxprint(s)')
+    response = femm.HandleToFEMM.call2femm(script)
+    if response.startswith("error"):
+        raise RuntimeError(response)
+    values = np.fromstring(response.rstrip(",\\r\\n "), sep=",").reshape(count, 2)
+    assert np.all(np.isfinite(values))
     return values, maxwell_torque(phi, values[:, 0], values[:, 1], radius, DEPTH_M)
 
 
@@ -35,8 +38,10 @@ def main():
         row, _ = solve_point(OUT / "qplus", 0., abc_from_dq(0., .5, 0.), 2.)
         femm.opendocument(str((OUT / "qplus/motor.ans").resolve()))
         result = dict(weighted_nm=row["torque_weighted_nm"], modes={})
-        for mode in ("off", "on"):
-            femm.mo_smooth(mode)
+        for mode in ("off", "on", "on-reload"):
+            femm.mo_smooth("off" if mode == "off" else "on")
+            if mode == "on-reload":
+                femm.mo_reload()
             direct, torque = gap_samples(360)
             actual, batch_torque = batch(360, .021)
             error = float(np.max(abs(actual-direct[:, 1:3])))

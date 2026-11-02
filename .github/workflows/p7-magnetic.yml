@@ -2,7 +2,7 @@ name: P7 magnetostatic field and inductance
 on:
   push:
     branches: [main, codex/p7-magnetic]
-    paths: ['benchmarks/p7_magnetic*', 'benchmarks/build_p7_magnetic*', 'reports/p7-magnetic.html', 'tests/test_p7_magnetic*', '.github/workflows/p7-magnetic.yml']
+    paths: ['benchmarks/p7_magnetic*', 'benchmarks/p7-magnetic*', 'benchmarks/p7_layered*', 'benchmarks/p7-fea-requirements.txt', 'benchmarks/build_p7_magnetic*', 'reports/p7-magnetic.html', 'tests/test_p7_magnetic*', '.github/workflows/p7-magnetic.yml']
   workflow_dispatch:
 permissions:
   contents: read

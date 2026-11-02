@@ -100,6 +100,7 @@ def main():
         page.on("request", lambda r:network.append(r.url)
                 if r.url.startswith(("http://", "https://")) else None)
         page.goto((OUT / "index.html").as_uri())
+        assert not errors, errors
         assert page.locator("#results tbody tr").count() == 12
         assert page.locator("#mesh-comparison tbody tr").count() == 12
         assert "失败" in page.locator("#mesh-comparison").inner_text()

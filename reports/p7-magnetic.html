@@ -71,7 +71,7 @@ Az着色采用三顶点均值，完整节点值与单元场分别在CSV，不进
 const data=__DATA__,fields=__FIELDS__,$=x=>document.getElementById(x),fmt=x=>Number(x).toPrecision(7);
 const names={air:'空气对称μ',contrast:'右区5μ0',reverse:'反向电流',double:'双倍电流'};
 function active(){return data.cases.find(c=>c.id===$('case').value&&c.n===Number($('mesh').value));}
-function field(){return fields[$('case').value+'/'+$('mesh').value];}
+function field(){return fields[$('case').value+'/n'+$('mesh').value];}
 function cards(id,a){$(id).innerHTML=a.map(x=>'<div class="card">'+x[0]+'<b>'+x[1]+'</b></div>').join('');}
 function choose(){
  const c=active(),f=field();$('node').max=c.nodes-1;$('cell').max=c.triangles-1;

@@ -282,6 +282,30 @@ def thermal_references(controller, rc, folder):
     return metrics
 
 
+def refresh_loss_direction(drive):
+    """Use upstream smooth sign with current-state refresh, without moving gate events."""
+    if drive.machine.par.G_c != 0:
+        raise ValueError("direction refresh requires the declared Gc=0 current-state model")
+    converter = drive.converter
+    converter.sign = lambda i:2/np.pi*np.arctan(i/.02)
+    upstream_gates, upstream_outputs = converter.set_gate_signals, drive.set_outputs
+    cached = {}
+
+    def remember_gates(gates, blanking):
+        cached["gates"] = np.array(gates, copy=True)
+        cached["blanking"] = np.array(blanking, copy=True)
+        upstream_gates(gates, blanking)
+
+    def continuous_outputs(t):
+        upstream_outputs(t)
+        if cached:
+            upstream_gates(cached["gates"], cached["blanking"])
+            upstream_outputs(t)
+
+    converter.set_gate_signals = remember_gates
+    drive.set_outputs = continuous_outputs
+
+
 def execute(name, rc, ratio, feedback, regeneration):
     started = time.perf_counter()
     folder = OUT / name
@@ -290,6 +314,7 @@ def execute(name, rc, ratio, feedback, regeneration):
                   pwm=False, delay=False, device_drop_v=.1, bandwidth_per_s=2000.,
                   current_limit_a=.5, thermal_feedback=False, load_nm=-.1 if regeneration else .02)
     drive, base = make_drive(config)
+    refresh_loss_direction(drive)
     ledger = LossLedger(drive)
     drive.subsystems.append(ledger)
     drive._outgoing[ledger] = []
@@ -352,6 +377,7 @@ def execute(name, rc, ratio, feedback, regeneration):
         and (not regeneration or metrics["minimum_source_w"] < -.01))
     (folder / "input.json").write_text(json.dumps(
         dict(config=config, rc=rc, ratio=ratio, feedback=feedback,
+             current_sign_regularization_a=.02, current_sign_refresh="continuous outputs",
              regeneration=regeneration, initial_c=25.), indent=2))
     (folder / "result.json").write_text(json.dumps(metrics, indent=2))
     print("p7-multirate-case: "+json.dumps(metrics), flush=True)

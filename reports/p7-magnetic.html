@@ -54,6 +54,13 @@ Az着色采用三顶点均值，完整节点值与单元场分别在CSV，不进
 真正的精度检查另外使用独立解析场、解析L及三网格收敛。自身能量一致不代表器件精度。</p>
 <div class="wrap"><table id="results"><thead><tr><th>工况/间隔</th><th>Az L2</th><th>B L2</th><th>L相对差</th>
 <th>判定</th></tr></thead><tbody></tbody></table></div><p id="faults"></p></section>
+<section><h2>保留原方向网格的失败</h2>
+<p>原固定对角线网格的高μ工况n8，界面两侧H最大差5.37555%超过5%，整轮判为失败。
+本报告改用交替对角线，原物理/标签/间隔/节点数/P1空间和全部门槛不变；
+旧默认网格hash逐档复现，原热基准回归。下表同时列出旧/新界面差，未删除失败。</p>
+<div class="wrap"><table id="mesh-comparison"><thead><tr><th>工况/间隔</th>
+<th>旧H迹差</th><th>交替H迹差</th><th>旧判定</th><th>交替判定</th></tr></thead><tbody></tbody></table></div>
+<a href="https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41397483081/artifacts/13119269087" target="_blank" rel="noopener">原失败完整证据</a></section>
 <section><h2>四组图表与完整数据</h2>
 <img src="plots/01-fields.png" alt="磁矢势和材料中的磁场"><img src="plots/02-convergence.png" alt="A磁场及电感收敛">
 <img src="plots/03-scaling.png" alt="电流反向和倍增时磁链能量及电感"><img src="plots/04-interface.png" alt="界面双侧H与解析迹">
@@ -115,6 +122,11 @@ fmt(c.az_l2_relative)+'</td><td>'+fmt(c.b_l2_relative)+'</td><td>'+fmt(c.inducta
 $('faults').textContent='固定故障副本：翻转B相对差 '+fmt(data.faults.reversed_b_relative)+
 '；漏深度电感相对差 '+fmt(data.faults.missing_depth_l_relative)+
 '；错误回流的规范敏感差 '+fmt(data.faults.wrong_return_gauge_relative)+'。三项均超出拒绝线，未修改实际方程。';
+$('mesh-comparison').querySelector('tbody').innerHTML=data.cases.map(c=>{
+ const o=data.original_grid.cases.find(o=>o.id===c.id&&o.n===c.n);
+ return '<tr><td>'+names[c.id]+' / '+c.n+'</td><td>'+fmt(o.interface_h_gap_relative)+
+ '</td><td>'+fmt(c.interface_h_gap_relative)+'</td><td>'+(o.passed?'通过':'失败')+
+ '</td><td>'+(c.passed?'通过':'失败')+'</td></tr>';}).join('');
 $('commit').textContent=data.commit;
 $('case').onchange=choose;$('mesh').onchange=choose;$('quantity').onchange=paint;
 $('node').oninput=inspect;$('cell').oninput=inspect;choose();

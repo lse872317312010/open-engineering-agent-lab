@@ -34,7 +34,9 @@ jobs:
           ruff check .
           python -m pytest
       - name: Existing thermal FE regression
-        run: python benchmarks/p7_fea_baseline.py
+        run: |
+          python benchmarks/p7_fea_baseline.py
+          python benchmarks/p7_layered.py
       - name: Magnetostatic solve, independent analytic field and inductance gates
         run: python benchmarks/p7_magnetic.py
       - name: Offline field report and browser validation
@@ -69,6 +71,7 @@ jobs:
           path: |
             outputs/p7-magnetic/
             outputs/p7-fea-baseline/validation.json
+            outputs/p7-layered/validation.json
           if-no-files-found: error
       - name: Enforce actual FE and UI gates
         if: always()
@@ -76,6 +79,6 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          for name in ("p7-fea-baseline/validation.json", "p7-magnetic/validation.json", "p7-magnetic-report/ui-validation.json"):
+          for name in ("p7-fea-baseline/validation.json", "p7-layered/validation.json", "p7-magnetic/validation.json", "p7-magnetic-report/ui-validation.json"):
               assert json.loads((Path("outputs") / name).read_text())["passed"], name
           PY

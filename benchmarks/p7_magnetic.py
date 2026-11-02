@@ -11,7 +11,7 @@ from pathlib import Path
 
 import meshio
 import numpy as np
-from p7_layered import mesh_case
+from p7_layered import geometry, mesh_case
 from p7_magnetic_reference import CASES, DEPTH, HEIGHT, LENGTH, SPLIT, exact, inductance, norms
 from scipy.sparse import save_npz
 from skfem import Basis, BilinearForm, ElementTriP1, Functional, LinearForm, condense, solve
@@ -166,8 +166,18 @@ def main():
     meshes, mesh_hashes = {}, {}
     for n in (8, 16, 32):
         folder, repeat = OUT / "meshes" / f"n{n}", OUT / "meshes" / f"repeat{n}"
-        meshes[n] = mesh_case(n, folder)
-        mesh_case(n, repeat)
+        original = OUT / "original-meshes" / f"n{n}"
+        mesh_case(n, original)
+        expected_hash = {
+            8:"034e105f617224bcd40a60a26adf370dde51e9c441e91406cdef86a4776f4700",
+            16:"b6fac4d4c7738bf09c133841fb549be2b32f4ee4eaa90fc8053cac10e478a23d",
+            32:"76ae8585856dd02e34b255e112c02114f2efc9368ad633c5e9078c4b261cf3b1",
+        }[n]
+        assert sha(original / "plate.msh") == expected_hash, "old default mesh changed"
+        alternate = geometry(n).replace("={1,2,5,6};", "={1,2,5,6} Alternate;")
+        alternate = alternate.replace("={2,3,4,5};", "={2,3,4,5} Alternate;")
+        meshes[n] = mesh_case(n, folder, geometry_text=alternate)
+        mesh_case(n, repeat, geometry_text=alternate)
         assert sha(folder / "plate.msh") == sha(repeat / "plate.msh")
         mesh_hashes[str(n)] = sha(folder / "plate.msh")
     results = [execute(c, n, meshes[n]) for c in CASES for n in (8, 16, 32)]
@@ -233,6 +243,8 @@ def main():
         zero_current_max_az=zero_error, faults=faults, mesh_sha256=mesh_hashes, versions=versions,
         source_kind="synthetic", evidence_level="model_simulated",
         reference_kind="independent analytic Ampere/energy; not another field solver",
+        mesh_pattern="alternating diagonals; original default meshes reproduced",
+        original_grid=json.loads((ROOT / "benchmarks/p7-magnetic-original-grid.json").read_text()),
         scope="bounded return-current pair magnetostatics; partial P7-A toward P7-B",
         commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         host=dict(platform=platform.platform(), cpu_info=Path("/proc/cpuinfo").read_text(),
@@ -240,7 +252,7 @@ def main():
     (OUT / "validation.json").write_text(json.dumps(report, indent=2))
     shutil.copyfile(ROOT / "docs/p7-magnetic-contract.md", OUT / "contract.md")
     print("p7-magnetic-summary: "+json.dumps(
-        {k:v for k, v in report.items() if k not in {"cases", "host"}}), flush=True)
+        {k:v for k, v in report.items() if k not in {"cases", "host", "original_grid"}}), flush=True)
     assert report["passed"], checks
 
 

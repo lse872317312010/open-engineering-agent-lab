@@ -66,10 +66,10 @@ def material_identity(points, triangles, tags):
         raise ValueError("material physical tags do not match the frozen geometry")
 
 
-def mesh_case(n, folder):
+def mesh_case(n, folder, *, geometry_text=None):
     folder.mkdir(parents=True, exist_ok=True)
     geo = folder / "plate.geo"
-    geo.write_text(geometry(n))
+    geo.write_text(geometry(n) if geometry_text is None else geometry_text)
     path = folder / "plate.msh"
     run = subprocess.run(["gmsh",str(geo),"-2","-format","msh2","-o",str(path),"-nt","1"],
                          capture_output=True,text=True,check=True,timeout=120)

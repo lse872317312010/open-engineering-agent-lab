@@ -101,6 +101,8 @@ def main():
                 if r.url.startswith(("http://", "https://")) else None)
         page.goto((OUT / "index.html").as_uri())
         assert page.locator("#results tbody tr").count() == 12
+        assert page.locator("#mesh-comparison tbody tr").count() == 12
+        assert "失败" in page.locator("#mesh-comparison").inner_text()
         assert page.evaluate("Array.from(document.images).every(i=>i.complete&&i.naturalWidth>0)")
         for c in data["cases"]:
             page.select_option("#case", c["id"])

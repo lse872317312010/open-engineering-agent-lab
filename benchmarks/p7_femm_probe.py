@@ -31,8 +31,9 @@ def real(value):
     return float(complex(value).real)
 
 
-def cylinder(h_mm, arc_deg):
-    folder = OUT / f"cylinder-h{h_mm:g}"
+def cylinder(h_mm, arc_deg, mag_deg=0.):
+    suffix = "-reverse" if mag_deg else ""
+    folder = OUT / f"cylinder-h{h_mm:g}{suffix}"
     folder.mkdir(parents=True, exist_ok=True)
     femm.newdocument(0)
     femm.mi_probdef(0, "millimeters", "planar", 1e-10, 40, 30)
@@ -42,7 +43,7 @@ def cylinder(h_mm, arc_deg):
     femm.mi_addboundprop("A0", 0, 0, 0, 0, 0, 0, 0, 0, 0)
     circle(20, arc_deg)
     circle(40, arc_deg, "A0")
-    for x, material, direction in ((0, "pm", 0), (30, "air", 0)):
+    for x, material, direction in ((0, "pm", mag_deg), (30, "air", 0)):
         femm.mi_addblocklabel(x, 0)
         femm.mi_selectlabel(x, 0)
         femm.mi_setblockprop(material, 0, h_mm, "", direction, 1 if x == 0 else 0, 0)
@@ -79,9 +80,11 @@ def main():
         lua_probe = real(femm.callfemm("1+1"))
         assert lua_probe == 2
         rows = [cylinder(h, arc) for h, arc in ((2., 4.), (1., 2.), (.5, 1.))]
+        direction_fault = cylinder(.5, 1., mag_deg=180.)
     finally:
         femm.closefemm()
     checks = dict(
+        direction_rejected=direction_fault["b_relative_rms"] > 1,
         fine_field=rows[-1]["b_relative_rms"] <= .02,
         fine_az=rows[-1]["az_relative_rms"] <= .02,
         field_refines=all(b["b_relative_rms"] < a["b_relative_rms"]
@@ -90,7 +93,8 @@ def main():
                        for a, b in zip(rows[:-1], rows[1:], strict=True)))
     exepath = Path(os.environ["FEMM_EXE"])
     report = dict(passed=bool(all(checks.values())), checks=checks, cases=rows,
-                  lua_expression_probe=lua_probe, pyfemm=importlib.metadata.version("pyfemm"),
+                  direction_fault=direction_fault, lua_expression_probe=lua_probe,
+                  pyfemm=importlib.metadata.version("pyfemm"),
                   executable_sha256=hashlib.sha256(exepath.read_bytes()).hexdigest(),
                   host=platform.platform(), source_kind="synthetic",
                   evidence_level="model_simulated", reference_kind="analytic",

@@ -222,6 +222,7 @@ def grid_case(index, h, gap_h, arc):
                    and t["mst_relative"] <= .05 and t["mst_refinement"] <= .03
                    for t in torque_checks.values()),
         d_axis_torque=abs(loaded["dplus"]["torque_weighted_nm"])/torque_scale <= .02)
+    checks = {key:bool(value) for key, value in checks.items()}
     result = dict(passed=bool(all(checks.values())), checks=checks, grid=index,
                   h_mm=h, gap_h_mm=gap_h, arc_deg=arc,
                   extraction=extraction, ld_h=float(ld), lq_h=float(lq),
@@ -298,6 +299,7 @@ def main():
         cylinder=probe["passed"], all_grids=all(g["passed"] for g in grids),
         mesh_refinement=max(changes.values()) <= .03,
         rejected_conventions=min(faults.values()) > .05)
+    checks = {key:bool(value) for key, value in checks.items()}
     (OUT / "field-validation.json").write_text(json.dumps(
         dict(passed=bool(all(checks.values())), checks=checks, grids=grids,
              parameter_changes=changes, faults=faults), indent=2, allow_nan=False))

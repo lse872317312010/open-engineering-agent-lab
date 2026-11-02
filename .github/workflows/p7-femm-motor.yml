@@ -71,10 +71,29 @@ jobs:
           New-Item -ItemType Directory -Force $licenses | Out-Null
           Get-ChildItem C:\femm42 -Recurse -File | Where-Object {
             $_.Name -match 'licen[cs]e|copyright'
-          } | ForEach-Object { Copy-Item $_.FullName (Join-Path $licenses $_.Name) -Force }
+          } | ForEach-Object {
+            $name = $_.FullName.Replace('C:\femm42\', '').Replace('\', '__')
+            Copy-Item $_.FullName (Join-Path $licenses $name) -Force
+          }
+      - name: Offline motor state report and complete browser validation
+        run: python benchmarks/build_p7_femm_report.py
+      - name: Complete evidence manifest
+        if: always()
+        run: |
+          python -c "import hashlib,json; from pathlib import Path; root=Path('outputs'); files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for name in ('p7-femm','p7-femm-report') for p in (root/name).rglob('*') if p.is_file()}; (root/'p7-femm/manifest.json').write_text(json.dumps(files,indent=2))"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-femm-report
+          path: outputs/p7-femm-report/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: p7-femm-raw-evidence
           path: outputs/p7-femm/
           if-no-files-found: error
+      - name: Enforce independent field, mapped drive and UI gates
+        if: always()
+        run: |
+          python -c "import json; from pathlib import Path; root=Path('outputs'); assert all(json.loads((root/p).read_text())['passed'] for p in ('p7-femm/probe-validation.json','p7-femm/validation.json','p7-femm-report/ui-validation.json'))"

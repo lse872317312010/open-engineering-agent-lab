@@ -45,7 +45,7 @@ def main():
             femm.mo_smooth("off" if mode == "off" else "on")
             if mode == "on-reload":
                 femm.mo_reload()
-            direct, torque = gap_samples(360)
+            direct, torque = gap_samples(360, field_mode="off" if mode == "off" else "on")
             actual, batch_torque = batch(360, .021)
             error = float(np.max(abs(actual-direct[:, 1:3])))
             result["modes"][mode] = dict(single_nm=torque, batch_nm=batch_torque,

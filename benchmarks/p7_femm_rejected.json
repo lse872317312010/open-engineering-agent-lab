@@ -1,0 +1,271 @@
+{
+  "accepted": false,
+  "scope": "retained underresolved h2mm and diagnostic methods; not accepted grids",
+  "original_commit": "51ea86c4b87b97965d36b2e75c94636f56352065",
+  "original_run_id": 41402085343,
+  "raw_url": "https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41402085343/artifacts/13122032406",
+  "original_grids": [
+    {
+      "passed": false,
+      "checks": {
+        "pm_direction": true,
+        "sinusoidal": true,
+        "balanced": true,
+        "angle_refinement": true,
+        "inductance": true,
+        "reciprocity": true,
+        "peak_mapping": true,
+        "torque": false,
+        "d_axis_torque": true
+      },
+      "grid": 0,
+      "h_mm": 2,
+      "gap_h_mm": 0.5,
+      "arc_deg": 4,
+      "extraction": {
+        "psi_wb": 0.02602154376098856,
+        "fit_relative": 0.00003610721300508271,
+        "phase_amplitudes_wb": [
+          0.02602227901981938,
+          0.02602161248186071,
+          0.02602073980927554
+        ],
+        "phase_error_deg": [
+          -0.001314296330651952,
+          0.002147976907666548,
+          -0.0008491467504096193
+        ],
+        "phase_amplitude_spread": 0.00005915139232241391,
+        "common_mode_relative": 0.000005989295154840437
+      },
+      "ld_h": 0.00003127235029051073,
+      "lq_h": 0.000031275544898717335,
+      "angle_refinement_relative": 2.19824158875781e-14,
+      "phase_asymmetry": 1.0246006380000295e-11,
+      "phase_eigenvalues_h": [
+        0.000007137451386149683,
+        0.00003127207055464071,
+        0.000031275824941529246
+      ],
+      "peak_mapping_error_a": 5.551115123125783e-17,
+      "torque": {
+        "qplus": {
+          "weighted_nm": 0.01953200474726625,
+          "expected_nm": 0.019516157820741422,
+          "virtual_nm": 0.01951533970070142,
+          "mst360_nm": 0.025974271512446998,
+          "mst720_nm": 0.025679794522413275,
+          "reduced_relative": 0.0008119900787022314,
+          "virtual_relative": 0.0008539102172621079,
+          "mst_relative": 0.3150102510758169,
+          "mst_refinement": 0.015088881363767138
+        },
+        "qminus": {
+          "weighted_nm": -0.01949910094070698,
+          "expected_nm": -0.019516157820741422,
+          "virtual_nm": -0.01951533970070142,
+          "mst360_nm": -0.013069327827610971,
+          "mst720_nm": -0.013363771452091822,
+          "reduced_relative": 0.0008739876050968808,
+          "virtual_relative": 0.0008320674665370044,
+          "mst_relative": 0.3143717910548274,
+          "mst_refinement": 0.015087171726389783
+        }
+      },
+      "d_axis_torque_nm": 0.00001608231962191764,
+      "elapsed_s": 16.99355440000022
+    },
+    {
+      "passed": true,
+      "checks": {
+        "pm_direction": true,
+        "sinusoidal": true,
+        "balanced": true,
+        "angle_refinement": true,
+        "inductance": true,
+        "reciprocity": true,
+        "peak_mapping": true,
+        "torque": true,
+        "d_axis_torque": true
+      },
+      "grid": 1,
+      "h_mm": 1,
+      "gap_h_mm": 0.25,
+      "arc_deg": 2,
+      "extraction": {
+        "psi_wb": 0.026027583114602917,
+        "fit_relative": 0.00000217287019352511,
+        "phase_amplitudes_wb": [
+          0.0260276404376676,
+          0.026027597295293685,
+          0.026027511610866572
+        ],
+        "phase_error_deg": [
+          -0.00005534497252642753,
+          -0.000010474583707446495,
+          -0.00004063341614686014
+        ],
+        "phase_amplitude_spread": 0.000004949625958803872,
+        "common_mode_relative": 0.000003661966104818492
+      },
+      "ld_h": 0.000031290640027967914,
+      "lq_h": 0.00003129107824105533,
+      "angle_refinement_relative": 4.107825191113079e-15,
+      "phase_asymmetry": 3.007291768111528e-11,
+      "phase_eigenvalues_h": [
+        0.000007155046206002316,
+        0.00003129063926034703,
+        0.00003129107901004856
+      ],
+      "peak_mapping_error_a": 5.551115123125783e-17,
+      "torque": {
+        "qplus": {
+          "weighted_nm": 0.01951556161621559,
+          "expected_nm": 0.019520687335952188,
+          "virtual_nm": 0.019520415110608598,
+          "mst360_nm": 0.01853995184927503,
+          "mst720_nm": 0.018546468359487367,
+          "reduced_relative": 0.0002625788553642823,
+          "virtual_relative": 0.00024863337594006565,
+          "mst_relative": 0.0496444228653464,
+          "mst_refinement": 0.0003338258586998607
+        },
+        "qminus": {
+          "weighted_nm": -0.01952585156920303,
+          "expected_nm": -0.019520687335952188,
+          "virtual_nm": -0.019520415110608598,
+          "mst360_nm": -0.020499369234202574,
+          "mst720_nm": -0.020494809480163478,
+          "reduced_relative": 0.00026455181428624756,
+          "virtual_relative": 0.0002784972937104642,
+          "mst_relative": 0.04963748941236677,
+          "mst_refinement": 0.00023358573192749904
+        }
+      },
+      "d_axis_torque_nm": -0.000005187831339324017,
+      "elapsed_s": 35.860688900000014
+    },
+    {
+      "passed": true,
+      "checks": {
+        "pm_direction": true,
+        "sinusoidal": true,
+        "balanced": true,
+        "angle_refinement": true,
+        "inductance": true,
+        "reciprocity": true,
+        "peak_mapping": true,
+        "torque": true,
+        "d_axis_torque": true
+      },
+      "grid": 2,
+      "h_mm": 0.5,
+      "gap_h_mm": 0.125,
+      "arc_deg": 1,
+      "extraction": {
+        "psi_wb": 0.026027765900404263,
+        "fit_relative": 8.649954496640465e-7,
+        "phase_amplitudes_wb": [
+          0.026027770342364146,
+          0.02602776472535221,
+          0.02602776263352504
+        ],
+        "phase_error_deg": [
+          -0.0000399317918719376,
+          -0.00007495995143900108,
+          -0.000001091425760716921
+        ],
+        "phase_amplitude_spread": 2.961775180686149e-7,
+        "common_mode_relative": 0.0000013725137922126125
+      },
+      "ld_h": 0.000031302587475499216,
+      "lq_h": 0.00003130259007148941,
+      "angle_refinement_relative": 6.8833827526759706e-15,
+      "phase_asymmetry": 1.0942995347262368e-11,
+      "phase_eigenvalues_h": [
+        0.000007164415493337355,
+        0.00003130258013135711,
+        0.00003130259741573556
+      ],
+      "peak_mapping_error_a": 5.551115123125783e-17,
+      "torque": {
+        "qplus": {
+          "weighted_nm": 0.0195204384957208,
+          "expected_nm": 0.019520824425303198,
+          "virtual_nm": 0.01952058225958367,
+          "mst360_nm": 0.01930620852156626,
+          "mst720_nm": 0.01949340464726114,
+          "reduced_relative": 0.00001977014771461042,
+          "virtual_relative": 0.000007364640946388572,
+          "mst_relative": 0.0013848722713072352,
+          "mst_refinement": 0.009589560441526852
+        },
+        "qminus": {
+          "weighted_nm": -0.01952123114660383,
+          "expected_nm": -0.019520824425303198,
+          "virtual_nm": -0.01952058225958367,
+          "mst360_nm": -0.019734724400494424,
+          "mst720_nm": -0.019548401833716155,
+          "reduced_relative": 0.00002083525222964159,
+          "virtual_relative": 0.00003324075899786344,
+          "mst_relative": 0.0013918821521239787,
+          "mst_refinement": 0.009544810337864373
+        }
+      },
+      "d_axis_torque_nm": -4.053099022707091e-7,
+      "elapsed_s": 145.85155859999986
+    }
+  ],
+  "mode_note": "early raw/off labels were not locked adjacent to reads; retained verbatim",
+  "radial_diagnostics": [
+    {
+      "angular": 720,
+      "radial": 32,
+      "torque_nm": 0.015385567544067618,
+      "weighted_relative": 0.21228938129246455
+    },
+    {
+      "angular": 1440,
+      "radial": 32,
+      "torque_nm": 0.015334443851179914,
+      "weighted_relative": 0.21490681322273578
+    },
+    {
+      "angular": 2880,
+      "radial": 32,
+      "torque_nm": 0.015334220949868933,
+      "weighted_relative": 0.21491822532885935
+    },
+    {
+      "angular": 5760,
+      "radial": 32,
+      "torque_nm": 0.01533353335151289,
+      "weighted_relative": 0.21495342900431097
+    },
+    {
+      "angular": 2880,
+      "radial": 6,
+      "torque_nm": 0.015267637328840358,
+      "weighted_relative": 0.2183271749932758
+    },
+    {
+      "angular": 2880,
+      "radial": 12,
+      "torque_nm": 0.015316606316452912,
+      "weighted_relative": 0.21582005971011944
+    },
+    {
+      "angular": 2880,
+      "radial": 32,
+      "torque_nm": 0.015334220949868933,
+      "weighted_relative": 0.21491822532885935
+    },
+    {
+      "angular": 2880,
+      "radial": 64,
+      "torque_nm": 0.015335996717144838,
+      "weighted_relative": 0.2148273095575966
+    }
+  ],
+  "radial_run_id": 41407071648
+}

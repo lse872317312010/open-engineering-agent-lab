@@ -23,12 +23,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/cache/restore@v4
+        id: fields
+        with:
+          path: outputs/p7-femm/
+          key: femm-fields-v1-${{ hashFiles('benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_sampling.py', 'benchmarks/p7_femm_rejected.json', 'src/**', '.github/workflows/p7-femm-motor.yml') }}
       - name: Install fixed Python environment
         run: |
           New-Item -ItemType Directory -Force outputs/p7-femm | Out-Null
-          python -m pip install numpy==1.26.4 scipy==1.15.3 matplotlib==3.10.1 pyfemm==0.1.3 pywin32==311 playwright==1.55.0 psutil==7.0.0
+          python -m pip install --report outputs/p7-femm/pip-install.json numpy==1.26.4 scipy==1.15.3 matplotlib==3.10.1 pyfemm==0.1.3 pywin32==311 playwright==1.55.0 psutil==7.0.0
           python -m pip install -e ".[dev]"
-          python -m pip install "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+          python -m pip install --report outputs/p7-femm/motulator-install.json "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
       - name: Download official FEMM and retain installer provenance
         run: |
           $url = 'https://www.femm.info/doku/lib/exe/fetch.php?media=upload:files:femm42bin_x64_21apr2019.exe'
@@ -58,9 +63,19 @@ jobs:
           ruff check .
           python -m pytest
       - name: Actual COM solve and independent bounded cylinder
+        if: steps.fields.outputs.cache-hit != 'true'
         run: python benchmarks/p7_femm_probe.py
       - name: Actual three-phase PM motor static extraction and mapped FOC
-        run: python benchmarks/p7_femm_stress_probe.py
+        if: steps.fields.outputs.cache-hit != 'true'
+        run: python benchmarks/p7_femm_motor.py
+      - name: Verify accepted fields and immutable parameters
+        run: |
+          python -c "import hashlib,json; from pathlib import Path; p=Path('outputs/p7-femm'); d=json.loads((p/'validation.json').read_text()); assert d['passed']; assert json.loads((p/'probe-validation.json').read_text())['passed']; assert hashlib.sha256((p/'parameters.json').read_bytes()).hexdigest()==d['parameter_sha256']"
+      - uses: actions/cache/save@v4
+        if: steps.fields.outputs.cache-hit != 'true'
+        with:
+          path: outputs/p7-femm/
+          key: femm-fields-v1-${{ hashFiles('benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_sampling.py', 'benchmarks/p7_femm_rejected.json', 'src/**', '.github/workflows/p7-femm-motor.yml') }}
       - name: Archive environment and source identity
         if: always()
         run: |

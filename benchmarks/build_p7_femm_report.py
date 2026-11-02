@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -210,7 +211,10 @@ def main():
         browser.close()
     assert not errors and not network, (errors, network)
     assert (OUT / "report.pdf").read_bytes().startswith(b"%PDF")
-    ui = dict(passed=True, browser=version, csv_downloads=csv_count, exact_parameter_download=True,
+    ui = dict(passed=True, browser=version,
+              report_commit=subprocess.check_output(
+                  ["git", "rev-parse", "HEAD"], text=True).strip(),
+              csv_downloads=csv_count, exact_parameter_download=True,
               page_errors=errors, external_requests=network,
               checks=["3 meshes/28 FE states", "geometry/circuits/gap vectors",
                       "signed numeric values", "2 actual FOC traces", "14 full CSV",

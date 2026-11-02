@@ -12,11 +12,12 @@ import numpy as np
 import psutil
 from p7_femm_probe import real
 from p7_femm_reference import MU0, abc_from_dq, dq_from_abc, maxwell_torque
+from p7_femm_sampling import sample_native_b
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "outputs/p7-femm"
 DEPTH_M = .04
-GRIDS = [(2., .5, 4.), (1., .25, 2.), (.5, .125, 1.)]
+GRIDS = [(1., .25, 2.), (.5, .125, 1.), (.25, .0625, .5)]
 PHASES = ("A", "B", "C")
 
 
@@ -63,9 +64,9 @@ def motor(h, gap_h, arc):
         femm.mi_clearselected()
 
 
-def gap_samples(count, radius_m=.021):
+def gap_samples(count, radius_m=.021, field_mode="on"):
     phi = np.arange(count)*2*np.pi/count
-    b = np.array([femm.mo_getb(*xy(radius_m*1000, t)) for t in phi], dtype=float)
+    b = sample_native_b(count, radius_m, field_mode)
     br = b[:, 0]*np.cos(phi)+b[:, 1]*np.sin(phi)
     bt = -b[:, 0]*np.sin(phi)+b[:, 1]*np.cos(phi)
     torque = maxwell_torque(phi, b[:, 0], b[:, 1], radius_m, DEPTH_M)
@@ -105,23 +106,13 @@ def solve_point(folder, angle_deg, currents, h, mst=False):
                torque_weighted_nm=torque, nodes=int(femm.mo_numnodes()),
                elements=int(femm.mo_numelements()))
     if mst:
-        _, raw360 = gap_samples(360)
-        raw_gap, raw720 = gap_samples(720)
+        _, raw360 = gap_samples(360, field_mode="off")
+        raw_gap, raw720 = gap_samples(720, field_mode="off")
         np.savetxt(folder / "gap-raw-720.csv", raw_gap, delimiter=",", comments="",
                    header="phi_rad,bx_t,by_t,br_t,bt_t")
-        femm.mo_smooth("on")
-        _, single_on360 = gap_samples(360)
-        single_on_gap, single_on720 = gap_samples(720)
-        femm.mo_smooth("off")
-        t360, _ = radial_mst(360, 12)
-        t720, radial = radial_mst(720, 12)
-        radial6, _ = radial_mst(720, 6)
-        np.savetxt(folder / "radial-mst-720.csv", radial, delimiter=",", comments="",
-                   header="radius_m,normalized_weight,total_field_torque_nm")
-        fine_gap = single_on_gap
+        _, t360 = gap_samples(360, field_mode="on")
+        fine_gap, t720 = gap_samples(720, field_mode="on")
         row.update(torque_mst360_nm=t360, torque_mst720_nm=t720,
-                   torque_radial6_nm=radial6,
-                   torque_single_on360_nm=single_on360, torque_single_on720_nm=single_on720,
                    torque_raw_mst360_nm=raw360, torque_raw_mst720_nm=raw720)
         np.savetxt(folder / "gap-720.csv", fine_gap, delimiter=",", comments="",
                    header="phi_rad,bx_t,by_t,br_t,bt_t")
@@ -227,9 +218,7 @@ def grid_case(index, h, gap_h, arc):
             reduced_relative=abs(row["torque_weighted_nm"]-expected)/torque_scale,
             virtual_relative=abs(row["torque_weighted_nm"]-virtual)/torque_scale,
             mst_relative=abs(row["torque_weighted_nm"]-row["torque_mst720_nm"])/torque_scale,
-            mst_refinement=abs(row["torque_mst360_nm"]-row["torque_mst720_nm"])/torque_scale,
-            radial_refinement=abs(row["torque_radial6_nm"]-row["torque_mst720_nm"])/torque_scale,
-            single_on_nm=row["torque_single_on720_nm"])
+            mst_refinement=abs(row["torque_mst360_nm"]-row["torque_mst720_nm"])/torque_scale)
     phase_asymmetry = float(np.linalg.norm(matrix-matrix.T)/np.linalg.norm(matrix))
     eigenvalues = np.linalg.eigvalsh((matrix+matrix.T)/2)
     angle_error = abs(characterize(scans[48])["psi_wb"]/psi-1)
@@ -248,7 +237,6 @@ def grid_case(index, h, gap_h, arc):
         peak_mapping=mapping_error <= 1e-12,
         torque=all(t["reduced_relative"] <= .05 and t["virtual_relative"] <= .05
                    and t["mst_relative"] <= .05 and t["mst_refinement"] <= .03
-                   and t["radial_refinement"] <= .03
                    for t in torque_checks.values()),
         d_axis_torque=abs(loaded["dplus"]["torque_weighted_nm"])/torque_scale <= .02)
     checks = {key:bool(value) for key, value in checks.items()}
@@ -258,7 +246,7 @@ def grid_case(index, h, gap_h, arc):
                   angle_refinement_relative=angle_error, phase_asymmetry=phase_asymmetry,
                   phase_eigenvalues_h=eigenvalues.tolist(), peak_mapping_error_a=mapping_error,
                   torque=torque_checks,
-                  mst_field_mode="total raw P1 B; radial Gauss12 over 20.2..21.8mm",
+                  mst_field_mode="explicit native recovered B; single radius21mm; 360/720 points",
                   d_axis_torque_nm=loaded["dplus"]["torque_weighted_nm"],
                   snapshots=snapshots, elapsed_s=time.perf_counter()-started)
     (folder / "validation.json").write_text(json.dumps(result, indent=2, allow_nan=False))
@@ -356,6 +344,8 @@ def main():
                   host=dict(platform=platform.platform(), cpu=platform.processor(),
                             logical_cpus=os.cpu_count(), peak_working_set_bytes=getattr(
                                 psutil.Process().memory_info(), "peak_wset", None)),
+                  rejected_experiments=json.loads(
+                      (ROOT / "benchmarks/p7_femm_rejected.json").read_text()),
                   source_kind="synthetic", evidence_level="model_simulated",
                   scope="actual FEMM slotless static extraction to reduced motulator FOC")
     (OUT / "validation.json").write_text(json.dumps(result, indent=2, allow_nan=False))

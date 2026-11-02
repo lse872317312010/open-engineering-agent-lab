@@ -1693,3 +1693,46 @@ Chrome156.0.8078.47实际验四案例阶段/暂停点/终点、热状态与能�
 每组含参考和I/O约100.6–102.3s运行2s仿真，不是wall-clock实时证明。
 model_simulated/synthetic，部分P7-D；同对象暂停续跑不是跨进程序列化恢复。
 工程几何/真实电磁空间损耗/PMSM FE→FOC、PWM完整固件与耐久仍待推进。
+
+## 2026-11-02：磁静态Az、单匝磁链与电感提取
+
+[先行固定契约](p7-magnetic-contract.md) / [方法、数据与限制](p7-magnetic.md) /
+[开源采用评审](../research/reviews/p7-magnetic.md)。
+契约/独立Ampere解析参考先行288385409b1b473e1513abc7dfc3a12ba71b34cd；
+网格复验说明先行f49cbdfb00c269977fab19af4ee4b9a932447634；
+实际执行adcc76f6e92200f390d4363e2b053f3ba834d69d，[专项41398648374](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41398648374)成功。
+
+真实Gmsh4.13.1双区域网格、scikit-fem11.0.0 P1磁阻弱形式，
+均匀DC去/回流、左右Az0/上下自然边界，独立解析场与L分别验收。
+空气/右5μ0/反向/倍流各三网格共12解，另解零电流；
+最细2145节点4096三角形。原主包、IR和电驱参数不变。
+
+交替网格Az与L阶约2.01–2.02，B阶约1.00–1.01；
+最细Az全场相对L2≤0.07983%，B≤2.7200%，L≤0.07362%。
+空气L=1.046439nH，右5μ0为3.557851nH；是有限域单匝参数，不是电机Ld/Lq。
+反向场/磁链取负、倍流能量四倍，受检线性相对差0；零电流场0。
+最大几何/矩阵能量相对差5.82e−15、磁链能量差7.10e−15、
+规范平移差1.05e−15，自由残差2.00e−13；这些代数一致性不替代解析精度。
+
+原固定对角线高μ粗网格H双侧最大差5.37555%超冻结5%，整体失败，
+[完整原失败](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41397483081/artifacts/13119269087)和逐案例数据保留。
+改交替对角线后该差约0.23884%，原门槛、P1空间、节点/单元数及物理保持；
+但该粗网格对真实界面H仍差10.42%，不能把两侧一致当精度。
+最细界面解析H差≤2.607%，旧默认网格三档hash逐字节复现，
+原制造解及双材料三工况/三网格Gate回归。
+翻转B/漏深度/错误回流规范故障相对差2/98.93/7.95，均按先行规则拒绝。
+
+Ruff通过，pytest204通过/23跳过；专项环境的可选后端跳过不算通过；
+同头CI/P1/P5/P6/ARM成功。修正NumPy整数JSON序列化、
+报告字段路径及Chrome离线JSON下载；物理门槛未放宽。
+Chrome156.0.8078.47验12组合、真实多边形、Az/By/Hy、
+节点/单元端点和内部数值、36完整CSV、12与原文件内容一致的参数JSON、
+键盘/390px/四图PDF，无页面错误与外部请求。
+
+[四图交互报告5.58MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41398648374/artifacts/13120940769) /
+[原始证据3.02MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41398648374/artifacts/13120671818)。
+解压打开index.html；包含运行机制、单位/边界、材料/电流方向、原/新网格比较、
+完整场/矩阵/绕组向量/零电流解、GEO/MSH/log/CSV/VTU/NPZ、环境与SHA256。
+model_simulated/synthetic/independent analytic reference，部分P7-A向P7-B铺路；
+无永磁体、饱和、运动、转矩、涡流/铁耗或真实电机几何，
+未完成PMSM FE→FOC，真机由用户负责。

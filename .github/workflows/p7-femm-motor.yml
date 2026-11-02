@@ -87,7 +87,7 @@ jobs:
         if: steps.fields.outputs.cache-hit != 'true'
         with:
           path: outputs/p7-femm/
-          key: femm-fields-v1-${{ hashFiles('benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_sampling.py', 'benchmarks/p7_femm_rejected.json', 'src/**', '.github/workflows/p7-femm-motor.yml') }}
+          key: ${{ steps.fields.outputs.cache-primary-key }}
       - name: Archive environment and source identity
         if: always()
         run: |

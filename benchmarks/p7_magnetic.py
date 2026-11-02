@@ -253,7 +253,8 @@ def main():
     (OUT / "validation.json").write_text(json.dumps(report, indent=2))
     shutil.copyfile(ROOT / "docs/p7-magnetic-contract.md", OUT / "contract.md")
     print("p7-magnetic-summary: "+json.dumps(
-        {k:v for k, v in report.items() if k not in {"cases", "host", "original_grid"}}), flush=True)
+        {k:v for k, v in report.items()
+         if k not in {"cases", "host", "original_grid"}}), flush=True)
     assert report["passed"], checks
 
 

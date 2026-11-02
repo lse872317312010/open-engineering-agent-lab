@@ -12,15 +12,18 @@ OUT = Path(__file__).resolve().parents[1] / "outputs/p7-femm/stress-probe"
 
 
 def batch(count, radius):
-    # Use official raw COM call2femm for statements, without expression wrapping/eval.
+    # ActiveX accepts expressions; dofile executes a trusted numeric Lua chunk.
     phi = np.arange(count)*2*np.pi/count
     xs, ys = radius*1000*np.cos(phi), radius*1000*np.sin(phi)
     script = 'xs={'+','.join(femm.num(v) for v in xs)+'};'
     script += 'ys={'+','.join(femm.num(v) for v in ys)+'};'
     script += ('s="" for k=1,'+str(count)+' do '
                'local a,bx,by=mo_getpointvalues(xs[k],ys[k]) '
-               's=s..format("%.17g,%.17g,",bx,by) end actxprint(s)')
-    response = femm.HandleToFEMM.call2femm(script)
+               's=s..format("%.17g,%.17g,",bx,by) end return s')
+    script_path = OUT / "batch-query.lua"
+    script_path.write_text(script, encoding="ascii", newline="\n")
+    command = "dofile("+femm.quote(script_path.as_posix())+")"
+    response = femm.HandleToFEMM.call2femm(command)
     if response.startswith("error"):
         raise RuntimeError(response)
     values = np.fromstring(response.strip().rstrip(","), sep=",").reshape(count, 2)

@@ -72,6 +72,7 @@ class AffineThermalROM:
         self._state = np.zeros(n)
         self._previous = np.zeros(2)
         self._rc, self._dt_s = rc, dt_s
+        self._mode = None
 
     @classmethod
     def from_npz(cls, path: str | Path, *, rc, dt_s):
@@ -91,18 +92,34 @@ class AffineThermalROM:
     def dt_s(self):
         return self._dt_s
 
-    def step(self, current_source_factors):
-        """Advance one step and return four absolute temperatures and two signed powers."""
-        raw = np.asarray(current_source_factors)
+    @staticmethod
+    def _factors(values):
+        raw = np.asarray(values)
         if np.iscomplexobj(raw):
             raise ValueError("real source factors required")
         factors = np.asarray(raw, dtype=float)
         if (factors.shape != (2,) or not np.all(np.isfinite(factors))
                 or np.any(factors < 0) or np.any(factors > 2)):
             raise ValueError("two finite source factors in [0, 2] required")
-        next_state = self._advance@self._state+self._input@((self._previous+factors)/2)
+        return factors
+
+    def _apply(self, average, mode):
+        if self._mode is not None and self._mode != mode:
+            raise ValueError("endpoint and interval-average modes cannot be mixed")
+        next_state = self._advance@self._state+self._input@average
         outputs = self._observations@next_state
         outputs[:4] += self._ambient
         self._state = next_state
+        self._mode = mode
+        return outputs
+
+    def step(self, current_source_factors):
+        """Advance using current and preceding endpoint factors; first preceding input is zero."""
+        factors = self._factors(current_source_factors)
+        outputs = self._apply((self._previous+factors)/2, "endpoint")
         self._previous = factors.copy()
         return outputs
+
+    def step_average(self, average_source_factors):
+        """Advance using an actual interval mean, without averaging it a second time."""
+        return self._apply(self._factors(average_source_factors), "average")

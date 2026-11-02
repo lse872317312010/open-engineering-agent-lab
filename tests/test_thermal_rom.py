@@ -63,3 +63,22 @@ def test_malformed_bundle_rejected(key, value):
     data[key] = value
     with pytest.raises((ValueError, TypeError)):
         AffineThermalROM(data, rc=.1, dt_s=.025)
+
+
+def test_interval_average_is_not_averaged_again():
+    data = bundle()
+    model = AffineThermalROM(data, rc=.1, dt_s=.025)
+    rates = np.array([5., 7.])/np.array([2., 3.])
+    model.step_average([1., 1.])
+    expected = .025/(1+.025*rates/2)
+    np.testing.assert_allclose(model.state, expected, atol=1e-14)
+
+
+@pytest.mark.parametrize("first,second", [("step", "step_average"), ("step_average", "step")])
+def test_mixed_input_modes_are_rejected_without_state_update(first, second):
+    model = AffineThermalROM(bundle(), rc=.1, dt_s=.025)
+    getattr(model, first)([1., .5])
+    previous = model.state
+    with pytest.raises(ValueError, match="cannot be mixed"):
+        getattr(model, second)([1., .5])
+    np.testing.assert_array_equal(model.state, previous)

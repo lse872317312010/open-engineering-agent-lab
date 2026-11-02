@@ -141,5 +141,5 @@ $('grid').onchange=choose;$('point').oninput=draw;$('foc-case').onchange=focChoo
 $('play').onclick=()=>{if(timer){pause();return;}if(Number($('point').value)>=23)$('point').value=0;
  $('play').textContent='暂停';$('play').setAttribute('aria-pressed','true');draw();timer=setInterval(()=>{
  if(Number($('point').value)>=23){pause();return;}$('point').value=Number($('point').value)+1;draw();},150);};
-$('commit').textContent='model_simulated / synthetic · '+data.commit;choose();focChoose();
+$('commit').textContent='model_simulated / synthetic · FOC/报告 '+data.commit+' · 场来源 '+data.field_source_commit;choose();focChoose();
 </script></html>

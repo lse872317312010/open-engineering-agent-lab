@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: p7-femm-${{ github.ref }}
   cancel-in-progress: true
@@ -27,7 +28,18 @@ jobs:
         id: fields
         with:
           path: outputs/p7-femm/
-          key: femm-fields-v1-${{ hashFiles('benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_sampling.py', 'benchmarks/p7_femm_rejected.json', 'src/**', '.github/workflows/p7-femm-motor.yml') }}
+          key: femm-fields-v1-${{ hashFiles('benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_sampling.py', 'benchmarks/p7_femm_reuse.py', 'benchmarks/p7_femm_rejected.json', 'src/**/*.py', '.github/workflows/p7-femm-motor.yml') }}
+      - uses: actions/download-artifact@v4
+        if: steps.fields.outputs.cache-hit != 'true'
+        continue-on-error: true
+        with:
+          name: p7-femm-raw-evidence
+          run-id: 41408065697
+          github-token: ${{ github.token }}
+          path: outputs/p7-femm-transfer/
+      - name: Verify reusable accepted field stage
+        if: steps.fields.outputs.cache-hit != 'true'
+        run: python benchmarks/p7_femm_reuse.py
       - name: Install fixed Python environment
         run: |
           New-Item -ItemType Directory -Force outputs/p7-femm | Out-Null

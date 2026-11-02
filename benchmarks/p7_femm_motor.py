@@ -263,7 +263,7 @@ def foc(parameters):
     for reference in (.5, -.5):
         name = "positive" if reference > 0 else "negative"
         config = dict(duration_s=.04, period_s=50e-6, step_time_s=.003, bus_v=48.,
-                      pwm=False, delay=False, device_drop_v=0., iq_ref_a=reference,
+                      pwm=False, delay=False, device_drop_v=0., iq_reference_a=reference,
                       current_limit_a=2., bandwidth_per_s=2000., thermal_feedback=False,
                       motor_parameters=parameters)
         _, controller = run_drive(config)
@@ -272,6 +272,7 @@ def foc(parameters):
         tail = a[a[:, 0] >= .03]
         current_error = float(np.max(abs(tail[:, columns["iq_a"]]-reference)))
         d_error = float(np.max(abs(tail[:, columns["id_a"]])))
+        reference_error = float(np.max(abs(tail[:, columns["iq_reference_a"]]-reference)))
         torque = 1.5*(parameters["flux_linkage_wb"]*a[:, columns["iq_a"]]
                      +(parameters["d_inductance_h"]-parameters["q_inductance_h"])
                      *a[:, columns["id_a"]]*a[:, columns["iq_a"]])
@@ -284,8 +285,10 @@ def foc(parameters):
         np.savetxt(folder / (name+".csv"), a, delimiter=",", comments="",
                    header=",".join(CONTROL_COLUMNS))
         record = dict(id=name, reference_a=reference, rows=len(a), tail_iq_error_a=current_error,
-                      tail_id_error_a=d_error, torque_formula_error_nm=torque_error,
-                      passed=current_error <= .02 and d_error <= .02 and torque_error <= 1e-10)
+                      tail_id_error_a=d_error, reference_error_a=reference_error,
+                      torque_formula_error_nm=torque_error,
+                      passed=current_error <= .02 and d_error <= .02
+                      and reference_error <= 1e-12 and torque_error <= 1e-10)
         results.append(record)
         print("p7-femm-foc: "+json.dumps(record), flush=True)
     return results
@@ -294,11 +297,22 @@ def foc(parameters):
 def main():
     probe = json.loads((OUT / "probe-validation.json").read_text())
     assert probe["passed"]
-    femm.openfemm(1)
-    try:
-        grids = [grid_case(i, *values) for i, values in enumerate(GRIDS)]
-    finally:
-        femm.closefemm()
+    reuse_path = OUT / "field-reuse.json"
+    reused = reuse_path.exists()
+    if reused:
+        proof = json.loads(reuse_path.read_text())
+        assert proof["passed"] and proof["accepted_stage"] == "static_field_only"
+        assert hashlib.sha256((OUT / "parameters.json").read_bytes()).hexdigest() == (
+            proof["parameter_sha256"])
+        field = json.loads((OUT / "field-validation.json").read_text())
+        assert field["passed"] and all(g["passed"] for g in field["grids"])
+        grids = field["grids"]
+    else:
+        femm.openfemm(1)
+        try:
+            grids = [grid_case(i, *values) for i, values in enumerate(GRIDS)]
+        finally:
+            femm.closefemm()
     fine = grids[-1]
     parameters = dict(stator_resistance_ohm=.3, d_inductance_h=fine["ld_h"],
                       q_inductance_h=fine["lq_h"],
@@ -331,16 +345,22 @@ def main():
                    assigned_parameters=["stator_resistance_ohm", "inertia_kg_m2",
                                         "viscous_friction_nms", "pole_pairs"],
                    limitations="linear slotless 2D finite boundary; no end effects or losses")
-    frozen_text = json.dumps(payload, indent=2)
     path = OUT / "parameters.json"
-    path.write_text(frozen_text, encoding="utf-8", newline="\n")
+    if reused:
+        payload = json.loads(path.read_text())
+        assert payload["parameters"] == parameters
+    else:
+        frozen_text = json.dumps(payload, indent=2)
+        path.write_text(frozen_text, encoding="utf-8", newline="\n")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     mapped = foc(parameters)
     assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
     checks["foc"] = all(c["passed"] for c in mapped)
+    current_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     result = dict(passed=bool(all(checks.values())), checks=checks, grids=grids, foc=mapped,
                   parameter_changes=changes, faults=faults, parameters=payload,
-                  parameter_sha256=digest, commit=payload["commit"],
+                  parameter_sha256=digest, commit=current_commit,
+                  field_source_commit=payload["commit"], verified_fields_reused=reused,
                   host=dict(platform=platform.platform(), cpu=platform.processor(),
                             logical_cpus=os.cpu_count(), peak_working_set_bytes=getattr(
                                 psutil.Process().memory_info(), "peak_wset", None)),

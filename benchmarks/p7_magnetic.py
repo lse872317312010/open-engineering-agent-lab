@@ -244,7 +244,8 @@ def main():
         source_kind="synthetic", evidence_level="model_simulated",
         reference_kind="independent analytic Ampere/energy; not another field solver",
         mesh_pattern="alternating diagonals; original default meshes reproduced",
-        original_grid=json.loads((ROOT / "benchmarks/p7-magnetic-original-grid.json").read_text()),
+        original_grid=json.loads(
+            (ROOT / "benchmarks/p7-magnetic-original-grid.json").read_text()),
         scope="bounded return-current pair magnetostatics; partial P7-A toward P7-B",
         commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         host=dict(platform=platform.platform(), cpu_info=Path("/proc/cpuinfo").read_text(),

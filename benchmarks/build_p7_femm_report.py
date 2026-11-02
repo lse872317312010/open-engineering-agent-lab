@@ -38,6 +38,26 @@ def main():
         path.mkdir(exist_ok=True)
         for name in ("open-24.csv", "open-48.csv", "loaded.csv", "phase-inductance-h.csv"):
             shutil.copyfile(SOURCE / f"grid{g['grid']}" / name, path / name)
+    spectrum = {}
+    for g in data["grids"]:
+        path = SOURCE / f"grid{g['grid']}/open-48.csv"
+        rows = records(path)
+        values = np.array([[r["lambda_"+p+"_wb"] for p in ("a", "b", "c")] for r in rows])
+        amplitudes = 2*abs(np.fft.rfft(values, axis=0))/len(values)
+        amplitudes[0] /= 2
+        amplitudes[-1] /= 2
+        thd = np.sqrt(np.sum(amplitudes[2:]**2, axis=0))/amplitudes[1]
+        orders = np.arange(1, len(amplitudes))
+        spectrum[str(g["grid"])] = dict(
+            thd_relative=thd.tolist(), orders=orders.tolist(),
+            amplitudes_wb=amplitudes[1:].tolist(),
+            source_csv_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+            scope="48 FE angles; harmonic orders 1..24, not a beyond-Nyquist bound")
+        np.savetxt(OUT / f"grid{g['grid']}/harmonics.csv",
+                   np.column_stack([orders, amplitudes[1:]]), delimiter=",", comments="",
+                   header="harmonic_order,lambda_a_amplitude_wb,lambda_b_amplitude_wb,"
+                          "lambda_c_amplitude_wb")
+    (OUT / "harmonic-analysis.json").write_text(json.dumps(spectrum, indent=2))
     figures = []
     fig, axes = plt.subplots(1, 2, figsize=(11, 4), layout="constrained")
     for key in ("az_relative_rms", "b_relative_rms"):
@@ -111,11 +131,12 @@ def main():
     html = (ROOT / "reports/p7-femm-motor.html").read_text()
     html = html.replace("__DATA__", json.dumps(data)).replace("__PROBE__", json.dumps(probe))
     html = html.replace("__FOC__", json.dumps(foc))
+    html = html.replace("__SPECTRUM__", json.dumps(spectrum))
     html = html.replace("__PARAMETER_TEXT__", json.dumps(parameter_text))
     (OUT / "index.html").write_text(html.replace("__RUN_URL__", run_url), encoding="utf-8")
     (OUT / "README.txt").write_text(
         "解压打开index.html。实际FEMM静态提参、三网格与降阶motulator FOC。\n"
-        "静态扫角不是时间积分。11完整CSV、冻结参数、五图PDF、许可与原始证据入口。\n"
+        "静态扫角不是时间积分。14完整CSV、冻结参数、五图PDF、许可与原始证据入口。\n"
         "无槽两极合成模型，非实测或完整逐步电磁FE联合；真机由用户负责。\n",
         encoding="utf-8")
     errors, network = [], []
@@ -145,7 +166,8 @@ def main():
                 text = page.locator("#field-cards b").all_text_contents()
                 for actual, expected in zip(text[:9], values, strict=True):
                     assert abs(float(actual.split()[0])-expected) <= max(1e-20, abs(expected)*6e-6)
-            for selector, count in (("#open24", 25), ("#open48", 49), ("#loaded", 5)):
+            for selector, count in (("#open24", 25), ("#open48", 49), ("#loaded", 5),
+                                     ("#harmonics", 25)):
                 with page.expect_download() as download:
                     page.locator(selector).click()
                 assert len(Path(download.value.path()).read_text().splitlines()) == count
@@ -191,7 +213,7 @@ def main():
     ui = dict(passed=True, browser=version, csv_downloads=csv_count, exact_parameter_download=True,
               page_errors=errors, external_requests=network,
               checks=["3 meshes/28 FE states", "geometry/circuits/gap vectors",
-                      "signed numeric values", "2 actual FOC traces", "11 full CSV",
+                      "signed numeric values", "2 actual FOC traces", "14 full CSV",
                       "exact parameter bytes", "keyboard/play/pause", "390px", "five figures/PDF"])
     (OUT / "ui-validation.json").write_text(json.dumps(ui, indent=2))
     print("p7-femm-ui: "+json.dumps(ui), flush=True)

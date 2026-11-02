@@ -36,20 +36,43 @@ def original(path):
         return response.read().decode("utf-8").replace("\r\n", "\n")
 
 
+
+def verify_manifest(folder, manifest):
+    verified = set()
+    for recorded_name, digest in manifest.items():
+        name = recorded_name.replace("\\", "/")
+        if not name.startswith("p7-femm/"):
+            continue
+        relative = Path(name).relative_to("p7-femm")
+        path = (folder / relative).resolve()
+        if not path.is_relative_to(folder.resolve()):
+            raise ValueError("source manifest escaped its artifact directory")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            raise ValueError("source artifact manifest mismatch: "+name)
+        verified.add(name)
+    required = {"p7-femm/"+name for name in
+                ("field-validation.json", "parameters.json", "validation.json",
+                 "probe-validation.json")}
+    if not verified or not required <= verified:
+        raise ValueError("source manifest is empty or omits required field metadata")
+    return verified
+
+
 def main():
     manifest_path = TRANSFER / "manifest.json"
     if not manifest_path.exists():
         print("p7-femm-reuse: unavailable; execute a fresh field solve", flush=True)
         return
     manifest = json.loads(manifest_path.read_text())
-    verified = 0
-    for name, digest in manifest.items():
-        if not name.startswith("p7-femm/"):
-            continue
-        path = TRANSFER / Path(name).relative_to("p7-femm")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-            raise ValueError("source artifact manifest mismatch: "+name)
-        verified += 1
+    verified = verify_manifest(TRANSFER, manifest)
+    folders = [f"open24/a{i:02d}" for i in range(24)]
+    folders += [f"open48/a{i:02d}" for i in range(48)]
+    folders += ["dplus", "dminus", "qplus", "qminus", "virtual-minus", "virtual-plus"]
+    folders += [f"phase-{i}" for i in range(3)]
+    native = {f"p7-femm/grid{g}/{p}/motor.{ext}"
+              for g in range(3) for p in folders for ext in ("fem", "ans")}
+    if not native <= verified:
+        raise ValueError("manifest does not cover all 486 native motor inputs/solutions")
     field = json.loads((TRANSFER / "field-validation.json").read_text())
     assert field["passed"] is True and all(v is True for v in field["checks"].values())
     assert len(field["grids"]) == 3 and all(g["passed"] is True for g in field["grids"])
@@ -92,7 +115,8 @@ def main():
         shutil.move(str(path), str(target))
     proof = dict(passed=True, accepted_stage="static_field_only", source_commit=ORIGIN,
                  source_run_id=41408065697, source_artifact_id=13125525677,
-                 parameter_sha256=PARAM_SHA, verified_manifest_files=verified,
+                 parameter_sha256=PARAM_SHA, verified_manifest_files=len(verified),
+                 verified_native_motor_files=len(native),
                  producer_ast_identical=True, references_and_sampling_identical=True,
                  source_foc_accepted=False, downstream_foc_must_run=True)
     (OUT / "field-reuse.json").write_text(json.dumps(proof, indent=2))

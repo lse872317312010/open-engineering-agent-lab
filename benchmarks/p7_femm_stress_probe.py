@@ -23,7 +23,7 @@ def batch(count, radius):
     response = femm.HandleToFEMM.call2femm(script)
     if response.startswith("error"):
         raise RuntimeError(response)
-    values = np.fromstring(response.rstrip(",\\r\\n "), sep=",").reshape(count, 2)
+    values = np.fromstring(response.strip().rstrip(","), sep=",").reshape(count, 2)
     assert np.all(np.isfinite(values))
     return values, maxwell_torque(phi, values[:, 0], values[:, 1], radius, DEPTH_M)
 

@@ -9,7 +9,6 @@ from pathlib import Path
 
 import femm
 import numpy as np
-
 from p7_femm_reference import MU0, magnet_field
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,7 +76,8 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     femm.openfemm(1)
     try:
-        lua_version = str(femm.callfemm("return _VERSION"))
+        lua_probe = real(femm.callfemm("1+1"))
+        assert lua_probe == 2
         rows = [cylinder(h, arc) for h, arc in ((2., 4.), (1., 2.), (.5, 1.))]
     finally:
         femm.closefemm()
@@ -90,7 +90,7 @@ def main():
                        for a, b in zip(rows[:-1], rows[1:], strict=True)))
     exepath = Path(os.environ["FEMM_EXE"])
     report = dict(passed=bool(all(checks.values())), checks=checks, cases=rows,
-                  lua_version=lua_version, pyfemm=importlib.metadata.version("pyfemm"),
+                  lua_expression_probe=lua_probe, pyfemm=importlib.metadata.version("pyfemm"),
                   executable_sha256=hashlib.sha256(exepath.read_bytes()).hexdigest(),
                   host=platform.platform(), source_kind="synthetic",
                   evidence_level="model_simulated", reference_kind="analytic",

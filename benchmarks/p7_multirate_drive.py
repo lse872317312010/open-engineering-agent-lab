@@ -217,7 +217,7 @@ def thermal_references(controller, rc, folder):
     micro_step = kernel(bundle["mass"],
                         bundle["bulk_stiffness"]+.1/rc*bundle["contact_stiffness"],
                         bundle["forcing"], DT)
-    fine_states = np.zeros((TICKS+1, len(rom_states[0])))
+    fine_states = np.zeros((len(controls), len(rom_states[0])))
     for i, e in enumerate(micro_energy):
         fine_states[i+1] = micro_step(fine_states[i], e/DT/public["source_powers"])
     fine_outputs = fine_states@bundle["observations"].T

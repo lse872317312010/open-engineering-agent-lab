@@ -31,9 +31,9 @@ class ThermalWindowClock:
             raise ValueError("real cumulative energy required")
         energy = np.array(raw, dtype=float, copy=True)
         if energy.shape != (2,) or not np.all(np.isfinite(energy)) or np.any(energy < 0):
-            raise ValueError("two finite nonnegative cumulative energies required")
+            raise ValueError(f"nonnegative cumulative energies required at tick {tick}: {energy}")
         if self._seen is not None and np.any(energy < self._seen):
-            raise ValueError("loss ledger must not decrease")
+            raise ValueError(f"loss ledger decreased at tick {tick}: {energy} after {self._seen}")
         packet = None
         if tick == 0:
             self._start = energy.copy()

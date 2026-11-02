@@ -299,7 +299,21 @@ def execute(name, rc, ratio, feedback, regeneration):
     simulation = model.Simulation(drive, controller, show_progress=False,
                                   cfg=SolverCfg(method="RK45", rtol=1e-8,
                                                 atol=1e-11, max_step=25e-6))
-    result = simulation.simulate(t_stop=(TICKS-.25)*DT, N_eval=2)
+    try:
+        result = simulation.simulate(t_stop=(TICKS-.25)*DT, N_eval=2)
+    except Exception:
+        if controller.rows:
+            save_rows(folder / "failed-control.csv", controller.rows)
+        with gzip.open(folder / "failed-rhs.csv.gz", "wt") as output:
+            np.savetxt(output, np.array(ledger.rows), delimiter=",", comments="",
+                       header=",".join(RHS_COLUMNS))
+        failure = dict(control_tick=base.tick, time_s=drive.t0,
+                       integrals_j=ledger.integrals().tolist(),
+                       powers_w=ledger.powers(drive.t0).tolist(),
+                       minimum_rhs_heat_w=float(np.min(np.array(ledger.rows)[:, [5, 6]])))
+        (folder / "failure.json").write_text(json.dumps(failure, indent=2))
+        print("p7-multirate-failure: "+json.dumps(failure), flush=True)
+        raise
     assert result.success
     controller.finish()
     assert len(base.rows) == TICKS and len(controller.rows) == TICKS+1

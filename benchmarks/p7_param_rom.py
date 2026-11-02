@@ -60,7 +60,8 @@ def generate():
             np.savez_compressed(folder / (key+".npz"), times=times, inputs=signal,
                                 relative_c=states)
             training.append(dict(id=key, rc=rc))
-    metadata = dict(training=training, controls=controls, config=CONFIG, nodes=len(public["points"]),
+    metadata = dict(training=training, controls=controls, config=CONFIG,
+                    nodes=len(public["points"]),
                     free_nodes=len(free), snapshot_stride=4, pod_snapshots=486,
                     old_input_sha256=hashes(OLD / "train"))
     (folder / "metadata.json").write_text(json.dumps(metadata, indent=2))
@@ -113,10 +114,12 @@ def fit():
 def runtime_states(path, rc, signal):
     model = AffineThermalROM.from_npz(path, rc=rc, dt_s=.025)
     history = np.zeros((len(signal), len(model.state)))
+    outputs = np.zeros((len(signal), 6))
+    outputs[0, :4] = 25.
     for i in range(1, len(signal)):
-        model.step(signal[i])
+        outputs[i] = model.step(signal[i])
         history[i] = model.state
-    return history
+    return history, outputs
 
 
 def profile(path, rc):
@@ -162,7 +165,7 @@ def validate():
         assert np.allclose(kr, kr.T, atol=1e-9, rtol=1e-10)
         assert min(np.linalg.eigvalsh(kr)) > 0
         if supported:
-            reduced = runtime_states(target / "rom.npz", rc, signal)
+            reduced, runtime_output = runtime_states(target / "rom.npz", rc, signal)
         else:
             # Explicitly bypass the rejected interface for counterfactual evidence only.
             reduced = simulate(rom["mass"], kr, rom["forcing"], times, signal)
@@ -177,6 +180,8 @@ def validate():
         fa, ra = [audit(u, mass, actual_k, public, times, signal, contact_scale=.1/rc)
                   for u in whole[:2]]
         ba = audit(whole[2], mass, stiffness, public, times, signal)
+        if supported:
+            assert np.max(abs(runtime_output-ra["observed"])) <= 1e-9
         metrics = dict(
             id=name, split=split, rc=rc, supported=supported, guard_reason=reason,
             guard_status="supported" if supported else "rejected",

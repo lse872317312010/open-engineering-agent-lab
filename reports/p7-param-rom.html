@@ -1,0 +1,95 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width"><title>接触参数ROM · 实际推理接口</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0b1424;color:#e7effb}
+body{max-width:1180px;margin:auto;padding:22px}h1{font-size:clamp(26px,5vw,44px)}
+p{line-height:1.8;color:#bed0e7}section{background:#15243b;padding:20px;border-radius:18px;margin:22px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px}
+.card{background:#203856;padding:16px;border-radius:12px}.card b{display:block;margin-top:8px;font-size:20px}
+select,button,a{font:inherit;background:#26476d;color:#eef7ff;border:1px solid #587595;border-radius:8px;padding:10px}
+a{display:inline-block;margin:5px;text-decoration:none}label{display:inline-block;margin:6px}
+input{width:100%;accent-color:#6ed7b4}svg,img{width:100%;height:auto}
+svg text{font:14px system-ui;fill:#dfedff}.wrap{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}
+td,th{padding:10px;border-bottom:1px solid #345371}.good{color:#7ae2b8}.bad{color:#ffbd86}
+.note{border-left:4px solid #efb06d;padding-left:14px}*{box-sizing:border-box}code{overflow-wrap:anywhere}
+</style>
+<header><p>OPEN ENGINEERING · FE → ROM</p><h1>让小模型适应接触热阻变化</h1>
+<p id="model"></p><p class="note">固定接触板的合成降阶实验。范围允许计算，精度证据只覆盖所测离散工况，无连续域误差界；尚非器件温度实测、
+20kHz控制联合或板端硬实时验收。</p></header>
+<section><h2>数据如何流动</h2><svg viewBox="0 0 1000 130" role="img" aria-label="训练冻结和独立评价流程">
+<path d="M120 65H880" stroke="#6b96bc" stroke-width="3"/>
+<g fill="#234364" stroke="#75d7ba"><rect x="5" y="25" width="175" height="80" rx="12"/>
+<rect x="210" y="25" width="175" height="80" rx="12"/><rect x="415" y="25" width="175" height="80" rx="12"/>
+<rect x="620" y="25" width="175" height="80" rx="12"/><rect x="825" y="25" width="170" height="80" rx="12"/></g>
+<g text-anchor="middle"><text x="92" y="58">六组训练 / 三热阻</text><text x="92" y="84">完整FE轨迹</text>
+<text x="297" y="58">pyMOR质量POD</text><text x="297" y="84">加入两区能量向量</text>
+<text x="502" y="58">基底与矩阵冻结</text><text x="502" y="84">训练/模型SHA256</text>
+<text x="707" y="58">验证 / 留出 / 域外</text><text x="707" y="84">新的全阶轨迹</text>
+<text x="910" y="58">精度 / 能量 / 耗时</text><text x="910" y="84">分别独立判定</text></g></svg>
+<p>ROM仍保留左恒温—材料一储热—有限接触—材料二储热—右对流的物理连接。
+两区域能量测试向量进入基底，接触流在两区能量账中符号相反。
+K(Rc)=Kbulk+(0.1/Rc)C；界面流输出同步更新。每个对象的Rc保持恒定，不验证运行中参数跳变。</p></section>
+<section><label>案例 <select id="case"></select></label><button id="play" aria-pressed="false">播放</button>
+<p id="guard"></p><label for="time">时间回放</label><input id="time" type="range" min="0" step="1" value="0">
+<p id="now"></p><div id="state" class="grid"></div><div id="energy" class="grid"></div>
+<p id="balance"></p><svg id="trajectory" viewBox="0 0 900 300" role="img" aria-label="全阶与降阶两区平均温度随时间"></svg>
+<p>绿色为材料一、橙色为材料二；实线全阶、虚线参数ROM、点线原固定ROM。温度为当前状态，界面向右功率按当前温差计算。
+域外案例的ROM为未启用守卫的反事实，不作为受支持预测。</p><div id="downloads"></div></section>
+<section><h2>八个未参与训练的参数工况</h2><div class="wrap"><table id="results"><thead><tr>
+<th>身份</th><th>适用域</th><th>质量加权RMS</th><th>全节点峰差 K</th><th>原固定ROM峰差 K</th><th>最终状态</th>
+</tr></thead><tbody></tbody></table></div><p>训练案例只证明再现；验证和留出未参与选模态数或门槛。
+保持模型自身能量收支，不能证明错误参数下的物理预测有效。</p></section>
+<section><h2>宿主计算预算</h2><div id="latency" class="grid"></div>
+<p>实际NumPy step含输入校验、梯形输入、状态推进和六个绝对物理输出；每个域内参数预热100步、采样5000步。
+初始化/传播矩阵预计算、输入数组生成不计入step；全场重建/FOM核见上一轮报告。
+本轮p95预算为2.5ms，最大值另列；不包含绘图、传感器、FOC或硬实时保证。</p></section>
+<section><h2>四组科学图表</h2><img src="plots/01-spectrum.png" alt="训练POD谱">
+<img src="plots/02-trajectories.png" alt="五案例温度及误差"><img src="plots/03-energy.png" alt="能量与域外反事实">
+<img src="plots/04-latency.png" alt="三类逐步延迟分布">
+<a href="report.pdf" download>四图 PDF</a><a href="validation.json" download>验证 JSON</a>
+<a href="model/rom.npz" download>冻结 ROM / 基底</a><a href="model/freeze.json" download>冻结 SHA256</a>
+<a href="contract.md" download>固定契约</a></section>
+<footer><p>NumPy推理接口 / pyMOR2026.1.1 / Gmsh4.13.1 / scikit-fem11.0.0。model_simulated / synthetic。
+<code id="commit"></code></p></footer>
+<script>
+const data=__DATA__,rows=__ROWS__,$=id=>document.getElementById(id),fmt=x=>Number(x).toPrecision(6);
+let timer=null;
+const labels=Object.fromEntries(data.cases.map(c=>[c.id,(c.split==='holdout'?'独立留出':'验证')+' · Rc='+c.rc+(c.supported?'':' / 域外反事实')]));
+function cards(el,a){$(el).innerHTML=a.map(r=>'<div class="card">'+r[0]+'<b>'+r[1]+'</b></div>').join('');}
+function pause(){if(timer)clearInterval(timer);timer=null;$("play").textContent='播放';$("play").setAttribute('aria-pressed','false');}
+function choose(){pause();const c=data.cases.find(c=>c.id===$("case").value);$("time").max=c.rows-1;$("time").value=0;draw();}
+function draw(){
+ const c=data.cases.find(c=>c.id===$("case").value),a=rows[c.id],r=a[Number($("time").value)];
+ $("guard").textContent=labels[c.id]+' · '+(c.supported?'参数范围支持':'拒绝：Rc超出声明范围[0.01,1]');
+ $("guard").className=c.supported?'good':'bad';$("now").textContent=fmt(r[0])+' s / 16 s';
+ cards('state',[['材料一 FOM / ROM',fmt(r[3])+' / '+fmt(r[4])+' °C'],['材料二 FOM / ROM',fmt(r[5])+' / '+fmt(r[6])+' °C'],
+ ['界面向右 FOM / ROM',fmt(r[15])+' / '+fmt(r[16])+' W'],['原固定ROM材料一/二',fmt(r[25])+' / '+fmt(r[26])+' °C']]);
+ cards('energy',[['材料一储能 FOM / ROM',fmt(r[11])+' / '+fmt(r[12])+' J'],
+ ['材料二储能 FOM / ROM',fmt(r[13])+' / '+fmt(r[14])+' J'],
+ ['累计输入 FOM / ROM',fmt(r[17])+' / '+fmt(r[18])+' J']]);
+ $("balance").textContent='全局余额 FOM / ROM = '+fmt(r[23])+' / '+fmt(r[24])+' J；当前左/右源比例 '+fmt(r[1])+' / '+fmt(r[2]);
+ const hi=Math.max(...a.map(v=>Math.max(v[3],v[4],v[5],v[6])))+.15;
+ const x=t=>60+t/16*790,y=t=>250-(t-25)/(hi-25)*210;
+ let svg='<path d="M60 25V250H850" fill="none" stroke="#8b9ebc"/><text x="60" y="18">T (°C)</text>';
+ for(const [col,color,dash] of [[3,'#72dfb7',''],[4,'#72dfb7','7 5'],[5,'#ffc880',''],[6,'#ffc880','7 5'],[25,'#72dfb7','2 5'],[26,'#ffc880','2 5']]){
+ svg+='<polyline points="'+a.map(v=>x(v[0])+','+y(v[col])).join(' ')+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-dasharray="'+dash+'"/>';
+ }
+ svg+='<path d="M'+x(r[0])+' 25V250" stroke="#d5e6ff" stroke-dasharray="3 4"/><text x="795" y="282">t (s)</text>';
+ [0,8,16].forEach(t=>svg+='<text x="'+x(t)+'" y="274">'+t+'</text>');
+ $("trajectory").innerHTML=svg;
+ $("downloads").innerHTML=[['timeseries.csv','完整物理状态 CSV','series'],['node-errors.csv','逐节点误差 CSV','nodes'],
+ ['fields.npz','全部节点/全部时刻 FOM+ROM','fields']].map(v=>'<a id="'+v[2]+'" download href="'+c.id+'/'+v[0]+'">'+v[1]+'</a>').join('');
+}
+$("case").innerHTML=data.cases.map(c=>'<option value="'+c.id+'">'+labels[c.id]+'</option>').join('');
+$("model").textContent='声明Rc范围 [0.01,1] m²K/W · 2145自由状态 → '+data.model.dimension+'个降阶状态 · 训练后冻结';
+$("results").querySelector('tbody').innerHTML=data.cases.map(c=>'<tr><td>'+labels[c.id]+'</td><td>'+
+(c.supported?'支持':'拒绝')+'</td><td>'+fmt(100*c.rms_relative)+'%</td><td>'+fmt(c.peak_error_k)+'</td><td>'+fmt(c.fixed_peak_error_k)+'</td><td>'+
+(c.accepted?'通过':c.supported?'未通过':'仅反事实')+'</td></tr>').join('');
+cards('latency',Object.entries(data.timing).map(([n,v])=>[n+' · p95',fmt(v.p95_ns/1000)+' μs / max '+fmt(v.max_ns/1000)+' μs']));
+$("commit").textContent='代码 '+data.commit;
+$("case").onchange=choose;$("time").oninput=draw;
+$("play").onclick=()=>{if(timer){pause();return;}if(Number($("time").value)===Number($("time").max))$("time").value=0;
+$("play").textContent='暂停';$("play").setAttribute('aria-pressed','true');timer=setInterval(()=>{
+if(Number($("time").value)>=Number($("time").max)){pause();return;}$("time").value=Number($("time").value)+1;draw();},100);};
+choose();
+</script></html>

@@ -41,3 +41,25 @@ def test_bad_input_leaves_state_unchanged(value):
     with pytest.raises((ValueError, TypeError)):
         model.step(value)
     np.testing.assert_array_equal(model.state, previous)
+
+
+@pytest.mark.parametrize("dt", [0., -.1, True, np.nan, np.inf, .10001])
+def test_invalid_time_step_rejected(dt):
+    with pytest.raises((ValueError, TypeError)):
+        AffineThermalROM(bundle(), rc=.1, dt_s=dt)
+
+
+@pytest.mark.parametrize("key,value", [
+    ("format_version", np.array(2)),
+    ("format_version", np.array(True)),
+    ("mass", np.diag([-1., 1.])),
+    ("mass", np.full((2, 2), np.nan)),
+    ("forcing", np.ones((2, 1))),
+    ("observations", np.ones((5, 2))),
+    ("rc_bounds", np.array([1., .01])),
+])
+def test_malformed_bundle_rejected(key, value):
+    data = bundle()
+    data[key] = value
+    with pytest.raises((ValueError, TypeError)):
+        AffineThermalROM(data, rc=.1, dt_s=.025)

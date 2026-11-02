@@ -138,7 +138,7 @@ def main():
             with page.expect_download() as download:
                 page.locator("#download-parameters").click()
             text = Path(download.value.path()).read_text()
-            assert text == parameter_files[c["id"]+f"/n{c[\'n\']}"]
+            assert text == parameter_files[c["id"]+"/n"+str(c["n"])]
             parameters = json.loads(text)
             assert parameters["inductance_h"] == c["inductance_h"]
             assert parameters["quantity"] == "bounded_single_turn_return_pair_inductance"

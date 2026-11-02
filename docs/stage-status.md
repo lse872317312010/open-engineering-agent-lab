@@ -1627,3 +1627,35 @@ Chrome156.0.8078.47验八工况三模型数值/状态、16CSV、八份完整三�
 [原始证据201.19MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41369969789/artifacts/13108597365)。
 含FOM/参数ROM/原固定ROM完整时空场、仿射矩阵/冻结清单/训练来源/独立装配/性能样本。
 model_simulated/synthetic，部分P7-D；每对象Rc恒定，真实器件损耗和多速率控制联合仍待推进。
+
+## 2026-11-02：实际20kHz电驱与400Hz热ROM事件联合
+
+[契约与修订](p7-multirate-contract.md) / [方法、数值与适配范围](p7-multirate.md)。
+原契约bdbe8ea1ac9d6ddc0c5b97e5cc4cbe2f215ea17e，
+方向反例/修订先行ae3abb1c369051b783b80caf6051938111d451cc；
+实际972348d09ee5f3c15401d1dc949ca6f7e4a2cde1，
+[专项41373683102](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41373683102)成功。
+
+固定motulator2ffbf1a…/既有PI-FOC/平均桥与22维板ROM，四工况各.25s，
+恰5000控制命令、5001端点样本、400Hz100或800Hz200热窗。
+真实累计铜/桥J差按窗口传递，源映射差记录为0，微步/宏窗和最大差1.36e−20J。
+热均值新API不再次平均，R(Tleft)在热边界更新后供下周期使用，名义R冻结。
+首次原方向锁存方案tick1桥J−1.04e−8触发拒绝；失败原始证据保留，
+新增实际上游反例后采用显式平滑方向连续刷新适配，无裁剪或门槛放宽。
+
+最大电端余额约9.98e−15J、热全局/区域余额约8.99e−17J，先证明离散账一致。
+FE同源重放均温峰差≤5.14e−6K、全节点峰差≤4.86e−4K，非实物总误差。
+400→800Hz共同采样均温峰差3.67e−6K、Iq差6.81e−8A；
+冻结实际R对照铜J差7.03e−7、Iq峰差2.38e−6A，反馈路径生效但不宣称控制性能提升。
+回馈源功率最小−.221084W，热源仍非负；末值替代积分/丢最后窗口故障均拒绝。
+
+Ruff、pytest205通过/8跳过/14警告；原四类FE和固定/参数ROM数值Gate完整回归，
+同头CI/P1/P5/ARM/P6通过。联合前后训练与模型hash一致，确切全阶矩阵/训练/基底已归档。
+Chrome156.0.8078.47验四工况边界前后/端点数值、温度年龄、窗口计数、8完整CSV/4RHS gzip/4NPZ、
+播放暂停/键盘/390px与四图PDF，页面错误/外部请求为空。
+
+[四图报告41.59MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41373683102/artifacts/13110586078) /
+[完整原始证据63.84MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41373683102/artifacts/13109819928)。
+model_simulated/synthetic；motulator真实模型与合成等效板，平均桥、Gc=0、短时。
+每组含参考/I-O约10.8–11.1s运行.25s仿真，不是宿主实时20kHz或板端证明。
+工程器件/电磁损耗空间映射、PWM/完整固件和更长时工况仍待推进，真机由用户负责。

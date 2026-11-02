@@ -642,3 +642,28 @@ K(Rc)=Kbulk+(.1/Rc)C，接触功率输出同步缩放；不插值温度/不同�
 推理类不导入FE/SciPy/pyMOR，初态平衡、Rc每对象固定，源倍率[0,2]。
 step包含真实输入拒绝，state返回拷贝；仍不管理系统时钟或在线状态迁移。
 声明计算区间不等于整个连续参数域的精度认证，域外反事实单独标识。
+
+## 20kHz电驱—400Hz热窗：真实损耗积分与因果保持
+
+[方法/失败与适配范围](p7-multirate.md) / [冻结契约](p7-multirate-contract.md)。
+
+```mermaid
+flowchart LR
+  CTRL[既有OEAL电流PI/FOC / 20kHz] --> DRIVE[固定motulator PMSM / 机械 / 平均桥]
+  DRIVE --> J[上游RHS积分铜/桥/端口J]
+  J --> CLOCK[NumPy整型控制tick / 50周期窗口]
+  CLOCK --> AVG[真实累计差ΔE / 2.5ms]
+  AVG --> ROM[22维接触ROM / step_average]
+  ROM --> HOLD[两区平均温度保持 / 年龄0至49tick]
+  HOLD --> R[实际R(Tleft) / 名义PI参数冻结]
+  R --> DRIVE
+  ROM --> A[同热源FE及20k热ROM重放 / 能量审计]
+  J --> A
+  A --> UI[四工况回放 / 控制与热CSV / RHS gzip / 全场NPZ]
+```
+
+事件顺序：关闭旧窗口→热更新→实际R更新→下一控制命令。
+终点只关闭窗口，不额外发命令。端点step和窗口step_average锁定模式不可混用。
+旧六节点热演化不参与；板温仅通过只读视图进入旧控制日志。
+平均桥采用显式平滑方向连续刷新，原锁存方案负耗散未被算作通过。
+当前Gc=0、平均桥、.25s合成等效板映射，无真实器件几何或wall-clock实时承诺。

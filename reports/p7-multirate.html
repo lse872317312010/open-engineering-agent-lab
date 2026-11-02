@@ -1,0 +1,95 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width"><title>20kHz电驱与400Hz热场 · 多速率报告</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0b1425;color:#e9f1ff}
+body{max-width:1180px;margin:auto;padding:22px}h1{font-size:clamp(26px,5vw,44px)}
+p{line-height:1.8;color:#bfd0e6}section{padding:20px;margin:22px 0;border-radius:18px;background:#15253e}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+.card{padding:15px;background:#223b59;border-radius:12px}.card b{display:block;font-size:20px;margin-top:8px}
+button,select,a{font:inherit;padding:10px;border-radius:8px;background:#294b70;border:1px solid #557798;color:#eff7ff}
+a{display:inline-block;margin:5px;text-decoration:none}label{display:inline-block;margin:7px}
+input,progress,svg,img{width:100%;height:auto}input{accent-color:#6adbb7}progress{height:16px}
+svg text{fill:#e1efff;font:13px system-ui}.wrap{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}
+td,th{padding:10px;border-bottom:1px solid #345578}.note{border-left:4px solid #efb66f;padding-left:14px}
+.good{color:#73e0b9}*{box-sizing:border-box}code{overflow-wrap:anywhere}
+</style>
+<header><p>OPEN ENGINEERING · MULTIRATE COUPLING</p><h1>让每一份损耗，进入正确的热窗口</h1>
+<p>实际motulator电机与平均桥 · 20kHz电流PI/FOC · 400Hz接触热ROM · 整数事件时钟</p>
+<p class="note">铜耗/桥耗一比一映射至合成等效板。不是实物绕组温度/器件结温、PWM开关、完整固件或wall-clock硬实时验证。</p></header>
+<section><h2>同一边界时刻的执行顺序</h2>
+<svg viewBox="0 0 1000 125" role="img" aria-label="损耗积分关闭窗口热更新电阻反馈再发新控制">
+<path d="M100 65H900" stroke="#7d9fbe" stroke-width="3"/>
+<g fill="#244867" stroke="#7de2bf"><rect x="5" y="25" width="175" height="80" rx="12"/>
+<rect x="210" y="25" width="175" height="80" rx="12"/><rect x="415" y="25" width="175" height="80" rx="12"/>
+<rect x="620" y="25" width="175" height="80" rx="12"/><rect x="825" y="25" width="170" height="80" rx="12"/></g>
+<g text-anchor="middle"><text x="92" y="59">上游RHS累计J</text><text x="92" y="83">铜耗 / 桥耗</text>
+<text x="297" y="59">关闭旧热窗口</text><text x="297" y="83">ΔE / 窗口时长</text>
+<text x="502" y="59">热ROM推进一次</text><text x="502" y="83">区间均值输入</text>
+<text x="707" y="59">R(T)更新并保持</text><text x="707" y="83">名义控制参数冻结</text>
+<text x="910" y="59">发出新FOC命令</text><text x="910" y="83">50μs控制周期</text></g></svg>
+<p>每50控制周期关闭一次400Hz热窗口；细化对照每25周期关闭一次。
+铜总W进入材料一、桥总W进入材料二，不截断或重缩放。
+摩擦/机械负载另记。温度在窗口之间保持，终点仅关闭最后窗口，不再发出新命令。</p></section>
+<section><label>工况 <select id="case"></select></label><button id="play" aria-pressed="false">播放</button>
+<label for="time">控制tick回放</label><input id="time" type="range" min="0" max="5000" step="1" value="0">
+<p id="now"></p><p id="phase" class="good"></p><progress id="window" max="50" value="0"></progress>
+<div id="electrical" class="grid"></div></section>
+<section><h2>保持温度与反馈身份</h2><div id="thermal" class="grid"></div>
+<p>这里显示控制器当前能读取的保持温度。年龄为距上次热更新的控制周期数，
+而不是温度传感器延迟；本轮没有传感器状态校正。</p></section>
+<section><h2>已关闭窗口的热量去向</h2><div id="energy" class="grid"></div><div id="power" class="grid"></div>
+<p id="balance"></p><p>平均热源取最近已关闭窗口的真实积分；当前温度/界面流取已更新热状态。
+低速热输入使用区间均值，不能再做一次端点梯形平均。</p><div id="downloads"></div></section>
+<section><h2>固定门槛结果</h2><div class="wrap"><table id="results"><thead><tr>
+<th>工况</th><th>控制/热更新</th><th>FE重放均温峰差 K</th><th>20k热重放均温峰差 K</th><th>源映射误差 J</th>
+</tr></thead><tbody></tbody></table></div><p id="comparison"></p>
+<p>全阶FE重放使用相同记录热源，不冒充全阶电热联合闭环；
+20k热ROM重放分离窗口平均/时间离散误差，不是新的独立空间参考。</p></section>
+<section><h2>四组科学图表</h2><img src="plots/01-control.png" alt="实际电流控制和保持温度反馈">
+<img src="plots/02-thermal.png" alt="热模型反馈与各参考"><img src="plots/03-energy.png" alt="铜桥热量储能散热及余额">
+<img src="plots/04-clock.png" alt="控制热更新时钟和故障诊断">
+<a href="report.pdf" download>四图 PDF</a><a href="validation.json" download>完整验证 JSON</a>
+<a href="contract.md" download>固定契约</a></section>
+<footer><p>固定motulator commit 2ffbf1a… · 等效板训练参数保持冻结 · model_simulated / synthetic。
+<code id="commit"></code></p></footer>
+<script>
+const data=__DATA__,controls=__CONTROLS__,thermal=__THERMAL__,$=id=>document.getElementById(id),fmt=x=>Number(x).toPrecision(6);
+const labels={'feedback':'400Hz · 温度反馈','frozen-resistance':'400Hz · 冻结实际电阻',
+'fine-thermal':'800Hz · 热更新细化','regeneration':'400Hz · 外部机械驱动 / 回馈'};
+let timer=null;
+function cards(el,a){$(el).innerHTML=a.map(r=>'<div class="card">'+r[0]+'<b>'+r[1]+'</b></div>').join('');}
+function pause(){if(timer)clearInterval(timer);timer=null;$("play").textContent='播放';$("play").setAttribute('aria-pressed','false');}
+function choose(){pause();$("time").value=0;draw();}
+function draw(){
+ const c=data.cases.find(c=>c.id===$("case").value),tick=Number($("time").value);
+ const r=controls[c.id][tick],t=thermal[c.id][Math.floor(tick/c.ratio)];
+ $("now").textContent=fmt(r.time_s)+' s · 控制tick '+tick+' / 5000 · 已关闭热窗口 '+r.thermal_updates;
+ $("phase").textContent=r.command_issued?'当前时刻：热边界若到期先关闭，再发新控制命令':'终点：最后热窗口已关闭，不再发新控制命令';
+ $("window").max=c.ratio;$("window").value=r.temperature_age_ticks;
+ cards('electrical',[['实际Iq',fmt(r.iq_a)+' A'],['Iq参考',fmt(r.iq_reference_a)+' A'],
+ ['机械速度',fmt(r.speed_rad_s)+' rad/s'],['实际电阻',fmt(r.resistance_ohm)+' Ω']]);
+ cards('thermal',[['左区保持温度',fmt(r.held_left_c)+' °C'],['右区保持温度',fmt(r.held_right_c)+' °C'],
+ ['温度年龄',r.temperature_age_ticks+' ticks'],['名义控制电阻',fmt(r.nominal_resistance_ohm)+' Ω']]);
+ cards('energy',[['实际累计铜耗',fmt(r.copper_j)+' J'],['实际累计桥耗',fmt(r.device_j)+' J'],
+ ['热模型已接收输入',fmt(t.input_left_j+t.input_right_j)+' J'],['热板储能变化',fmt(t.stored_left_j+t.stored_right_j)+' J']]);
+ cards('power',[['闭合窗口平均铜热源',fmt(t.mean_left_w)+' W'],['闭合窗口平均桥热源',fmt(t.mean_right_w)+' W'],
+ ['界面向右功率',fmt(t.interface_right_w)+' W'],['累计板边界散热',fmt(t.left_out_j+t.right_out_j)+' J']]);
+ $("balance").textContent='电端余额 '+fmt(r.electrical_balance_j)+' J；最近热时刻全局/左区/右区余额 '+
+ [t.global_balance_j,t.left_balance_j,t.right_balance_j].map(fmt).join(' / ')+' J';
+ $("downloads").innerHTML=[['control.csv','全部控制/终点 CSV','control'],['thermal.csv','全部热窗口 CSV','windows'],
+ ['rhs.csv.gz','完整RHS试探功率 gzip','rhs'],['thermal-fields.npz','FE/ROM重放与20k小状态','fields']]
+ .map(a=>'<a id="'+a[2]+'" download href="'+c.id+'/'+a[0]+'">'+a[1]+'</a>').join('');
+}
+$("case").innerHTML=data.cases.map(c=>'<option value="'+c.id+'">'+labels[c.id]+'</option>').join('');
+$("results").querySelector('tbody').innerHTML=data.cases.map(c=>'<tr><td>'+labels[c.id]+'</td><td>'+
+ c.control_commands+' / '+(c.thermal_rows-1)+'</td><td>'+fmt(c.fom_mean_peak_error_k)+'</td><td>'+
+ fmt(c.fine_20khz_mean_peak_error_k)+'</td><td>'+fmt(c.mapped_energy_error_j)+'</td></tr>').join('');
+$("comparison").textContent='400→800Hz热细化：共同时刻均温峰差 '+fmt(data.macro_refinement_mean_k)+
+ ' K，Iq峰差 '+fmt(data.macro_refinement_current_a)+' A。冻结实际R对照铜耗差 '+fmt(data.feedback_copper_difference_j)+' J。';
+$("commit").textContent='代码 '+data.commit;
+$("case").onchange=choose;$("time").oninput=draw;
+$("play").onclick=()=>{if(timer){pause();return;}if(Number($("time").value)===5000)$("time").value=0;
+ $("play").textContent='暂停';$("play").setAttribute('aria-pressed','true');timer=setInterval(()=>{
+ if(Number($("time").value)>=5000){pause();return;}$("time").value=Math.min(5000,Number($("time").value)+10);draw();},100);};
+choose();
+</script></html>

@@ -85,6 +85,7 @@ jobs:
             outputs/p7-multirate/
             outputs/p7-param-rom/validation.json
             outputs/p7-param-rom/model/
+            outputs/p7-param-rom/train/
             outputs/p7-rom/validation.json
             outputs/p7-transient/validation.json
             outputs/p7-contact/validation.json

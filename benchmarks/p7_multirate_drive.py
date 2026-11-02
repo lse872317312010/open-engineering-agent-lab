@@ -388,6 +388,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     frozen = json.loads((BUNDLE / "model/freeze.json").read_text())
     assert frozen["model_sha256"] == hashes(BUNDLE / "model", exclude=("freeze.json",))
+    assert frozen["training_sha256"] == hashes(BUNDLE / "train")
     cases, controls = [], {}
     for specification in CASES:
         metrics, rows = execute(*specification)
@@ -406,6 +407,7 @@ def main():
     checks = dict(all_cases=all(c["passed"] for c in cases),
                   causal_feedback=copper_difference >= 1e-10 and current_difference >= 1e-9,
                   macro_refinement=fine_current <= .001 and fine_temperature <= .001,
+                  frozen_training=frozen["training_sha256"] == hashes(BUNDLE / "train"),
                   frozen_model=frozen["model_sha256"] == hashes(
                       BUNDLE / "model", exclude=("freeze.json",)))
     report = dict(

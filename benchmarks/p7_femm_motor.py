@@ -98,9 +98,16 @@ def solve_point(folder, angle_deg, currents, h, mst=False):
                torque_weighted_nm=torque, nodes=int(femm.mo_numnodes()),
                elements=int(femm.mo_numelements()))
     if mst:
+        _, raw360 = gap_samples(360)
+        raw_gap, raw720 = gap_samples(720)
+        np.savetxt(folder / "gap-raw-720.csv", raw_gap, delimiter=",", comments="",
+                   header="phi_rad,bx_t,by_t,br_t,bt_t")
+        femm.mo_smooth("on")
         _, t360 = gap_samples(360)
         fine_gap, t720 = gap_samples(720)
-        row.update(torque_mst360_nm=t360, torque_mst720_nm=t720)
+        femm.mo_smooth("off")
+        row.update(torque_mst360_nm=t360, torque_mst720_nm=t720,
+                   torque_raw_mst360_nm=raw360, torque_raw_mst720_nm=raw720)
         np.savetxt(folder / "gap-720.csv", fine_gap, delimiter=",", comments="",
                    header="phi_rad,bx_t,by_t,br_t,bt_t")
     np.savetxt(folder / "gap.csv", gap, delimiter=",", comments="",
@@ -198,6 +205,10 @@ def grid_case(index, h, gap_h, arc):
         torque_checks[name] = dict(
             weighted_nm=row["torque_weighted_nm"], expected_nm=expected, virtual_nm=virtual,
             mst360_nm=row["torque_mst360_nm"], mst720_nm=row["torque_mst720_nm"],
+            raw_mst360_nm=row["torque_raw_mst360_nm"],
+            raw_mst720_nm=row["torque_raw_mst720_nm"],
+            raw_mst_relative=abs(row["torque_weighted_nm"]-row["torque_raw_mst720_nm"])
+            /torque_scale,
             reduced_relative=abs(row["torque_weighted_nm"]-expected)/torque_scale,
             virtual_relative=abs(row["torque_weighted_nm"]-virtual)/torque_scale,
             mst_relative=abs(row["torque_weighted_nm"]-row["torque_mst720_nm"])/torque_scale,
@@ -228,7 +239,8 @@ def grid_case(index, h, gap_h, arc):
                   extraction=extraction, ld_h=float(ld), lq_h=float(lq),
                   angle_refinement_relative=angle_error, phase_asymmetry=phase_asymmetry,
                   phase_eigenvalues_h=eigenvalues.tolist(), peak_mapping_error_a=mapping_error,
-                  torque=torque_checks, d_axis_torque_nm=loaded["dplus"]["torque_weighted_nm"],
+                  torque=torque_checks, mst_field_mode="FEMM native recovered B",
+                  d_axis_torque_nm=loaded["dplus"]["torque_weighted_nm"],
                   snapshots=snapshots, elapsed_s=time.perf_counter()-started)
     (folder / "validation.json").write_text(json.dumps(result, indent=2, allow_nan=False))
     print("p7-femm-grid: "+json.dumps(

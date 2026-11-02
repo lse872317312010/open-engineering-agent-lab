@@ -51,6 +51,7 @@ def cylinder(h_mm, arc_deg, mag_deg=0.):
     femm.mi_saveas(str((folder / "cylinder.fem").resolve()))
     femm.mi_analyze(1)
     femm.mi_loadsolution()
+    femm.mo_smooth("on")
     samples = []
     for radius in (.01, .03):
         for angle in np.arange(16)*2*np.pi/16:
@@ -98,6 +99,7 @@ def main():
                   executable_sha256=hashlib.sha256(exepath.read_bytes()).hexdigest(),
                   host=platform.platform(), source_kind="synthetic",
                   evidence_level="model_simulated", reference_kind="analytic",
+                  field_mode="FEMM native recovered B",
                   commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip())
     (OUT / "probe-validation.json").write_text(json.dumps(report, indent=2))
     print("p7-femm-probe: "+json.dumps(report), flush=True)

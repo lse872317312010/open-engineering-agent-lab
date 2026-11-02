@@ -37,13 +37,17 @@ table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:9px;b
 <circle id="magnet-tip" r="6" fill="#ffce78"/>
 <text x="250" y="480" text-anchor="middle">PM 20mm / gap 2mm / winding 6mm / back iron 12mm</text>
 </svg><p>黄色箭头为真实磁化方向；白色箭头为气隙B采样方向（长度按本帧归一化）。
-绕组红/蓝表示实际电流乘匝向后的正/负轴向源，不代表温度。</p>
+绕组红/蓝表示实际电流乘匝向后的正/负轴向源，不代表温度。
+气隙箭头为原始单元B；MST转矩另用FEMM内置恢复B，原始积分结果同时留存。</p>
 <div id="field-cards" class="grid"></div><div id="parameter-cards" class="grid"></div>
 <p id="torque-note"></p><div id="static-downloads"></div></section>
 <section><h2>提取与转矩验收</h2><div class="wrap"><table id="results"><thead><tr>
-<th>网格mm / 气隙mm</th><th>ψ Wb</th><th>Ld H</th><th>Lq H</th><th>相序拟合差</th><th>状态</th>
+<th>网格mm / 气隙mm</th><th>ψ Wb</th><th>Ld H</th><th>Lq H</th><th>相序拟合差</th>
+<th>原始MST差</th><th>恢复B的MST差</th><th>状态</th>
 </tr></thead><tbody></tbody></table></div><p id="refinement"></p><p id="faults"></p>
 <p class="note">三种转矩使用同一几何与相关FE数据，是数值/映射交叉检查，不是三个独立实物真值。
+原始P1单圆周MST的粗网格偏差约31.5%，整轮曾失败；恢复B的应力积分另列，不把失败改名为通过。
+<a href="https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41402085343/artifacts/13122032406" target="_blank" rel="noopener">原始MST失败完整证据</a>
 圆柱解析基准验证永磁边界实现；电机参数准确性不能自动推广到其他电机。</p>
 <a id="parameters" href="parameters.json" download>下载冻结参数 JSON</a>
 <a href="parameters.json">查看参数原文件</a><a href="validation.json" download>完整验收 JSON</a>
@@ -85,7 +89,7 @@ function draw(){
  cards('parameter-cards',[['当前网格ψ',fmt(g.extraction.psi_wb)+' Wb'],['Ld',fmt(g.ld_h)+' H'],
  ['Lq',fmt(g.lq_h)+' H'],['材料与深度','PM μr1.05 / Br1.2T / 40mm']]);
  $('torque-note').textContent='当前峰值dq电流 '+fmt(id)+' / '+fmt(iq)+' A；'+
- (g.torque[s.mode]?'该载荷点MST720 '+fmt(g.torque[s.mode].mst720_nm)+' Nm，磁链虚功 '+
+ (g.torque[s.mode]?'该载荷点恢复B的MST720 '+fmt(g.torque[s.mode].mst720_nm)+' Nm，磁链虚功 '+
  fmt(g.torque[s.mode].virtual_nm)+' Nm。':'三方法详细对照见±q载荷点与下方图表。');
  const coord=(r,a)=>[250+r*Math.cos(a),250-r*Math.sin(a)];
  const assignment=[[1,-1,'B−'],[0,1,'A+'],[2,-1,'C−'],[1,1,'B+'],[0,-1,'A−'],[2,1,'C+']];
@@ -118,7 +122,8 @@ $('grid').innerHTML=data.grids.map(g=>'<option value="'+g.grid+'">h='+g.h_mm+
 $('grid').value=data.grids.length-1;
 $('results').querySelector('tbody').innerHTML=data.grids.map(g=>'<tr><td>'+g.h_mm+' / '+g.gap_h_mm+
  '</td><td>'+fmt(g.extraction.psi_wb)+'</td><td>'+fmt(g.ld_h)+'</td><td>'+fmt(g.lq_h)+
- '</td><td>'+fmt(g.extraction.fit_relative)+'</td><td>'+(g.passed?'通过':'失败')+'</td></tr>').join('');
+ '</td><td>'+fmt(g.extraction.fit_relative)+'</td><td>'+fmt(g.torque.qplus.raw_mst_relative)+
+ '</td><td>'+fmt(g.torque.qplus.mst_relative)+'</td><td>'+(g.passed?'通过':'失败')+'</td></tr>').join('');
 $('refinement').textContent='中→细网格相对变化：'+Object.entries(data.parameter_changes).map(([k,v])=>k+' '+fmt(v)).join('；');
 $('faults').textContent='错误约定副本对实际FE转矩的相对差：'+Object.entries(data.faults).map(([k,v])=>k+' '+fmt(v)).join('；');
 $('probe').textContent='实际永磁圆柱最细采样B误差 '+fmt(probe.cases[2].b_relative_rms)+

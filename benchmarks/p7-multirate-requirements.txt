@@ -1,0 +1,9 @@
+numpy==2.2.6
+scipy==1.15.3
+gmsh==4.13.1
+scikit-fem==11.0.0
+meshio==5.3.5
+matplotlib==3.10.1
+playwright==1.55.0
+pymor==2026.1.1
+motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa

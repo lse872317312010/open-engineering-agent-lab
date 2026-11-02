@@ -60,7 +60,7 @@ jobs:
       - name: Actual COM solve and independent bounded cylinder
         run: python benchmarks/p7_femm_probe.py
       - name: Actual three-phase PM motor static extraction and mapped FOC
-        run: python benchmarks/p7_femm_motor.py
+        run: python benchmarks/p7_femm_stress_probe.py
       - name: Archive environment and source identity
         if: always()
         run: |

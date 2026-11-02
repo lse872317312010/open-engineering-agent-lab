@@ -52,7 +52,7 @@ def main():
                                         batch_error_t=error)
             print("femm-batch: "+json.dumps(result["modes"][mode]), flush=True)
             assert error <= 1e-12
-        femm.mo_smooth("off")
+        femm.mo_smooth("on")
         result["radial"] = []
         for count in (720, 1440, 2880, 5760):
             nodes, weights = np.polynomial.legendre.leggauss(32)
@@ -63,6 +63,17 @@ def main():
                           /abs(row["torque_weighted_nm"]))
             result["radial"].append(record)
             print("femm-radial-diagnostic: "+json.dumps(record), flush=True)
+        result["radial_orders"] = []
+        for radial_count in (6, 12, 32, 64):
+            femm.mo_smooth("on")
+            nodes, weights = np.polynomial.legendre.leggauss(radial_count)
+            torques = [batch(2880, .021+.0008*z)[1] for z in nodes]
+            value = float(np.dot(weights, torques)/2)
+            record = dict(angular=2880, radial=radial_count, torque_nm=value,
+                          weighted_relative=abs(value-row["torque_weighted_nm"])
+                          /abs(row["torque_weighted_nm"]))
+            result["radial_orders"].append(record)
+            print("femm-radial-order-diagnostic: "+json.dumps(record), flush=True)
         (OUT / "diagnostic.json").write_text(json.dumps(result, indent=2))
         femm.mo_close()
         femm.mi_close()

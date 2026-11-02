@@ -61,7 +61,7 @@ def main():
     for name in data["timing"]:
         samples = np.loadtxt(SOURCE / (name+"-latency.csv"), delimiter=",", skiprows=1)/1000
         ax.hist(samples, bins=50, alpha=.5, label=name)
-        shutil.copyfile(SOURCE / (name+".csv"), OUT / (name+".csv"))
+        shutil.copyfile(SOURCE / (name+"-latency.csv"), OUT / (name+".csv"))
     ax.axvline(2500, linestyle="--", color="black", label="2.5 ms host p95 budget")
     ax.set(xlabel="Step elapsed (microseconds)", ylabel="Sample count", xscale="log")
     ax.legend(fontsize=7)

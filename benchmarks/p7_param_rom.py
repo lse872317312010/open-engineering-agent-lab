@@ -242,12 +242,13 @@ def validate():
         results.append(metrics)
         print("p7-param-case: "+json.dumps(metrics), flush=True)
     checks = dict(
-        supported_cases=all(r["accepted"] for r in results if r["supported"]),
+        supported_cases=all(r["accepted"] for r in results[:6]),
         domain_guard=all(not r["supported"] and not r["accepted"] for r in results[-2:]),
         time_refinement=all(r["time_refinement_rms_relative"] <= .002
                             and r["time_refinement_peak_k"] <= .002 for r in results
                             if r["supported"]),
-        host_budget=all(v["p95_ns"] <= 2_500_000 for v in timing.values()),
+        host_budget=len(timing) == 6 and all(v["p95_ns"] <= 2_500_000
+                                             for v in timing.values()),
         frozen_training=freeze["training_sha256"] == hashes(folder),
         frozen_model=freeze["model_sha256"] == hashes(target, exclude=("freeze.json",)))
     report = dict(

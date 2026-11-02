@@ -166,7 +166,7 @@ def grid_case(index, h, gap_h, arc):
         row, gap = solve_point(folder / name, 0., currents, h,
                                mst=name in {"dplus", "qplus", "qminus"})
         loaded[name] = row
-        snapshots.append(dict(**row, gap=gap))
+        snapshots.append(dict(mode=name, **row, gap=gap))
         load_rows.append(row)
     # CSV columns include all torque methods even when a point only needs flux.
     load_keys = list(loaded["qplus"])

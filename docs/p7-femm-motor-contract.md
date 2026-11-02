@@ -85,3 +85,17 @@ FEMM与pyfemm为AFPL，不改称MIT/BSD/OSI通用商用许可；
 场采样/曲线与完整CSV/fem/ans/参数JSON/PDF。
 实际Chrome验证工况/转角切换、数值、全量CSV/参数下载、390px、无外部请求。
 主IR不开放任意外部路径，旧可选基准与默认控制行为保持。
+
+## 实际分发入口修正（物理实现前置记录）
+
+首轮41400311941从Archives/bin地址得到的文件无法作为PE执行，安装步骤失败，
+没有把下载hash f1790be3…当成有效求解器身份，也没有运行物理模型。
+官方当前DokuWiki分发端点为：
+https://www.femm.info/doku/lib/exe/fetch.php?media=upload:files:femm42bin_x64_21apr2019.exe 。
+在公开Chocolatey包源码0b4554c1af13222e02140ed1716b326b86cb41c4中找到独立既有校验值
+17384e8990b6305ec8ffef1f75b6ef091a266b6e49b30c151cd1daca2e952043；
+实际下载必须同时通过PE头/长度及该SHA256，之后才允许安装。
+2019官方分发为Inno Setup，使用/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR，
+不沿用源码镜像NSIS脚本的/S /D语法。来源：
+https://github.com/usm-community/chocolatey-packages/blob/0b4554c1af13222e02140ed1716b326b86cb41c4/manual/femm/tools/chocolateyinstall.ps1 。
+该外部包只作URL/hash/安装参数来源，不执行其卸载或删除逻辑。

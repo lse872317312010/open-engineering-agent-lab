@@ -19,10 +19,11 @@ def main():
     plots = OUT / "plots"
     plots.mkdir(exist_ok=True)
     data = json.loads((SOURCE / "validation.json").read_text())
-    fields = {}
+    fields, parameter_files = {}, {}
     for c in data["cases"]:
         rel = c["id"]+f"/n{c['n']}"
         arrays = np.load(SOURCE / rel / "field.npz")
+        parameter_files[rel] = (SOURCE / rel / "parameters.json").read_text()
         fields[rel] = {k:arrays[k].tolist() for k in arrays.files}
         shutil.copytree(SOURCE / rel, OUT / rel, dirs_exist_ok=True)
     figures = []
@@ -86,7 +87,8 @@ def main():
         shutil.copyfile(ROOT / f"research/licenses/{name}.txt", OUT / (name+"-LICENSE.txt"))
     template = (ROOT / "reports/p7-magnetic.html").read_text()
     (OUT / "index.html").write_text(template.replace("__DATA__", json.dumps(data))
-                                   .replace("__FIELDS__", json.dumps(fields)))
+                                   .replace("__FIELDS__", json.dumps(fields))
+                                   .replace("__PARAMETERS__", json.dumps(parameter_files)))
     (OUT / "README.txt").write_text(
         "解压打开index.html。实际Gmsh/scikit-fem磁静态基准，12工况/网格与完整场。\n"
         "可选Az/By/Hy着色、节点/单元状态、三类CSV、VTU/NPZ/电感JSON和四图PDF。\n"
@@ -135,7 +137,9 @@ def main():
                 downloads += 1
             with page.expect_download() as download:
                 page.locator("#download-parameters").click()
-            parameters = json.loads(Path(download.value.path()).read_text())
+            text = Path(download.value.path()).read_text()
+            assert text == parameter_files[c["id"]+f"/n{c[\'n\']}"]
+            parameters = json.loads(text)
             assert parameters["inductance_h"] == c["inductance_h"]
             assert parameters["quantity"] == "bounded_single_turn_return_pair_inductance"
             assert "not a PMSM" in parameters["scope"]

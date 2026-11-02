@@ -68,7 +68,8 @@ Az着色采用三顶点均值，完整节点值与单元场分别在CSV，不进
 <a href="contract.md" download>方程、单位与固定门槛</a></section>
 <footer><p>model_simulated / synthetic / independent analytic reference · <code id="commit"></code></p></footer>
 <script>
-const data=__DATA__,fields=__FIELDS__,$=x=>document.getElementById(x),fmt=x=>Number(x).toPrecision(7);
+const data=__DATA__,fields=__FIELDS__,parameterFiles=__PARAMETERS__;
+const $=x=>document.getElementById(x),fmt=x=>Number(x).toPrecision(7);
 const names={air:'空气对称μ',contrast:'右区5μ0',reverse:'反向电流',double:'双倍电流'};
 function active(){return data.cases.find(c=>c.id===$('case').value&&c.n===Number($('mesh').value));}
 function field(){return fields[$('case').value+'/n'+$('mesh').value];}
@@ -89,6 +90,12 @@ function choose(){
  $('downloads').innerHTML=[['nodes.csv','完整节点 CSV','nodes'],['cells.csv','完整单元 CSV','cells'],
  ['interface.csv','双侧界面 CSV','interface'],['field.vtu','VTU 场','vtu'],['field.npz','完整 NPZ','npz'],
  ['parameters.json','有单位电感 JSON','parameters']].map(x=>'<a download id="download-'+x[2]+'" href="'+root+x[0]+'">'+x[1]+'</a>').join('');
+ $('download-parameters').onclick=e=>{
+ e.preventDefault();const blob=new Blob([parameterFiles[c.id+'/n'+c.n]],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='parameters-'+c.id+'-n'+c.n+'.json';document.body.appendChild(a);
+ a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
  paint();inspect();
 }
 function paint(){

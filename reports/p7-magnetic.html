@@ -1,0 +1,121 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width"><title>磁场到电感 · 独立物理基准</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0c1627;color:#edf4ff}
+body{max-width:1200px;margin:auto;padding:22px}h1{font-size:clamp(28px,5vw,44px)}
+p{line-height:1.8;color:#c2d2e8}section{background:#172941;padding:20px;margin:22px 0;border-radius:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.card{padding:14px;background:#243d5a;border-radius:12px}.card b{display:block;font-size:20px;margin-top:8px}
+select,a{font:inherit;background:#274d75;color:#fff;padding:10px;border:1px solid #6786a8;border-radius:8px}
+a{display:inline-block;margin:5px;text-decoration:none}label{display:inline-block;margin:8px}
+input,img,svg{width:100%;height:auto}input{accent-color:#6de2bf}.note{border-left:4px solid #efbd6a;padding-left:12px}
+*{box-sizing:border-box}table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:9px;border-bottom:1px solid #395975}
+.wrap{overflow:auto}code{overflow-wrap:anywhere}.good{color:#77e1b9}
+svg text{font:14px system-ui;fill:#f0f6ff}
+</style>
+<header><p>OPEN ENGINEERING · MAGNETOSTATICS</p><h1>从有方向的电流，到磁场、能量与电感</h1>
+<p class="note">有限矩形域内的合成单匝去回流基准。实际Gmsh网格与scikit-fem磁静态求解，
+独立Ampere解析参考；尚非PMSM、永久磁体或电机Ld/Lq，未接入FOC。</p></header>
+<section><h2>模块怎样运行</h2>
+<svg viewBox="0 0 1000 115" role="img" aria-label="电流经过磁静态求解形成场和电感的计算链">
+<path d="M90 55H910" stroke="#7adebd" stroke-width="3"/>
+<g fill="#284b6c" stroke="#7adebd"><rect x="5" y="10" width="180" height="90" rx="12"/>
+<rect x="205" y="10" width="180" height="90" rx="12"/><rect x="405" y="10" width="180" height="90" rx="12"/>
+<rect x="605" y="10" width="180" height="90" rx="12"/><rect x="805" y="10" width="190" height="90" rx="12"/></g>
+<g text-anchor="middle"><text x="95" y="45">去流 +I / 回流 −I</text><text x="95" y="75">区域与μ物理标签</text>
+<text x="295" y="45">磁阻弱形式 K·A=f</text><text x="295" y="75">外边界 / 共享界面</text>
+<text x="495" y="45">B=curl A / H=B/μ</text><text x="495" y="75">方向与材料跳变</text>
+<text x="695" y="45">磁能 W / 磁链 λ</text><text x="695" y="75">深度与绕组积分</text>
+<text x="900" y="45">L=λ/I=2W/I²</text><text x="900" y="75">独立解析与三网格</text></g></svg>
+<p>左/右边Az=0，上/下边自然Neumann。界面Az与切向Hy连续，材料μ变化允许By跳变。
+左右源积分为±I，净电流为零，因此常量规范平移不改变磁链。
+此为DC、有符号单匝电流，无RMS/dq换算。线性材料无涡流、饱和或铁耗。</p></section>
+<section><label>工况 <select id="case"></select></label>
+<label>每区间隔 <select id="mesh"><option>8</option><option>16</option><option selected>32</option></select></label>
+<label>着色量 <select id="quantity"><option value="az">Az · Wb/m</option>
+<option value="by">By · T</option><option value="hy">Hy · A/m</option></select></label>
+<p id="status" class="good"></p><div id="materials" class="grid"></div>
+<svg id="field" viewBox="0 0 650 650" role="img" aria-label="真实三角形磁场与B方向">
+<g id="polygons"></g><g id="arrows"></g></svg><p id="legend"></p>
+<p>红/蓝表示当前场量的正/负，箭头表示单元B方向；P1梯度为单元常量。
+Az着色采用三顶点均值，完整节点值与单元场分别在CSV，不进行视觉插值冒充精度。</p>
+<label for="node">节点 <span id="node-id"></span></label><input id="node" type="range" min="0" value="0" step="1">
+<div class="grid"><div class="card">节点Az<b id="az"></b></div><div class="card">解析Az<b id="exact"></b></div>
+<div class="card">节点Az差<b id="error"></b></div></div>
+<label for="cell">单元 <span id="cell-id"></span></label><input id="cell" type="range" min="0" value="0" step="1">
+<div class="grid"><div class="card">单元By<b id="by"></b></div><div class="card">单元Hy<b id="hy"></b></div>
+<div class="card">单元Jz<b id="jz"></b></div><div class="card">单元磁能<b id="cell-energy"></b></div></div>
+</section>
+<section><h2>电感提取与独立评价</h2><div class="grid">
+<div class="card">场积分磁能 W<b id="energy"></b></div><div class="card">有符号磁链 λ<b id="linkage"></b></div>
+<div class="card">提取电感 L<b id="inductance"></b></div><div class="card">独立解析 L<b id="analytic-l"></b></div></div>
+<p id="audit"></p><div id="downloads"></div>
+<p class="note">磁链与矩阵能量关系属于同一离散场的一致性检查；
+真正的精度检查另外使用独立解析场、解析L及三网格收敛。自身能量一致不代表器件精度。</p>
+<div class="wrap"><table id="results"><thead><tr><th>工况/间隔</th><th>Az L2</th><th>B L2</th><th>L相对差</th>
+<th>判定</th></tr></thead><tbody></tbody></table></div><p id="faults"></p></section>
+<section><h2>四组图表与完整数据</h2>
+<img src="plots/01-fields.png" alt="磁矢势和材料中的磁场"><img src="plots/02-convergence.png" alt="A磁场及电感收敛">
+<img src="plots/03-scaling.png" alt="电流反向和倍增时磁链能量及电感"><img src="plots/04-interface.png" alt="界面双侧H与解析迹">
+<a href="report.pdf" download>四图 PDF</a><a href="validation.json" download>完整验证 JSON</a>
+<a href="contract.md" download>方程、单位与固定门槛</a></section>
+<footer><p>model_simulated / synthetic / independent analytic reference · <code id="commit"></code></p></footer>
+<script>
+const data=__DATA__,fields=__FIELDS__,$=x=>document.getElementById(x),fmt=x=>Number(x).toPrecision(7);
+const names={air:'空气对称μ',contrast:'右区5μ0',reverse:'反向电流',double:'双倍电流'};
+function active(){return data.cases.find(c=>c.id===$('case').value&&c.n===Number($('mesh').value));}
+function field(){return fields[$('case').value+'/'+$('mesh').value];}
+function cards(id,a){$(id).innerHTML=a.map(x=>'<div class="card">'+x[0]+'<b>'+x[1]+'</b></div>').join('');}
+function choose(){
+ const c=active(),f=field();$('node').max=c.nodes-1;$('cell').max=c.triangles-1;
+ $('node').value=0;$('cell').value=0;
+ $('status').textContent=(c.passed?'数值审计通过':'数值审计失败')+' · '+c.nodes+'节点 / '+c.triangles+'三角形 · 静磁DC状态';
+ cards('materials',[['有符号去流 / 回流',fmt(c.regional_current_a[0])+' / '+fmt(c.regional_current_a[1])+' A'],
+ ['左区μ',fmt(f.mu[f.tags.indexOf(10)])+' H/m'],['右区μ',fmt(f.mu[f.tags.indexOf(20)])+' H/m'],
+ ['物理范围','线性 / 无运动 / 无损耗']]);
+ for(const [id,key,unit] of [['energy','energy_j','J'],['linkage','linkage_wb','Wb'],
+ ['inductance','inductance_h','H'],['analytic-l','analytic_inductance_h','H']])$(id).textContent=fmt(c[key])+' '+unit;
+ $('audit').textContent='独立解析L相对差 '+fmt(c.inductance_relative_error)+
+ '；几何/矩阵能量相对差 '+fmt(c.geometry_matrix_energy_relative)+
+ '；规范平移磁链相对差 '+fmt(c.gauge_linkage_relative)+'；B全场相对L2 '+fmt(c.b_l2_relative);
+ const root=c.id+'/n'+c.n+'/';
+ $('downloads').innerHTML=[['nodes.csv','完整节点 CSV','nodes'],['cells.csv','完整单元 CSV','cells'],
+ ['interface.csv','双侧界面 CSV','interface'],['field.vtu','VTU 场','vtu'],['field.npz','完整 NPZ','npz'],
+ ['parameters.json','有单位电感 JSON','parameters']].map(x=>'<a download id="download-'+x[2]+'" href="'+root+x[0]+'">'+x[1]+'</a>').join('');
+ paint();inspect();
+}
+function paint(){
+ const f=field(),q=$('quantity').value;
+ const values=f.triangles.map((tri,i)=>q==='az'?tri.reduce((s,j)=>s+f.az[j],0)/3:q==='by'?f.b[i][1]:f.h[i][1]);
+ const scale=Math.max(...values.map(Math.abs),1e-30);
+ $('polygons').innerHTML=f.triangles.map((tri,i)=>{const t=Math.abs(values[i]/scale),col=values[i]>=0?
+ 'rgb('+Math.round(60+190*t)+',90,'+Math.round(160-70*t)+')':
+ 'rgb(55,'+Math.round(90+100*t)+','+Math.round(160+80*t)+')';
+ return '<polygon points="'+tri.map(j=>[25+f.points[j][0]*6000,625-f.points[j][1]*6000].join(',')).join(' ')+
+ '" fill="'+col+'" stroke="#728598" stroke-width=".2"/>';}).join('');
+ const mag=Math.max(...f.b.map(b=>Math.hypot(...b)),1e-30),stride=Math.max(1,Math.floor(f.b.length/80));
+ $('arrows').innerHTML=f.triangles.map((tri,i)=>{if(i%stride)return '';
+ const p=tri.map(j=>f.points[j]),x=25+p.reduce((s,p)=>s+p[0],0)*2000,y=625-p.reduce((s,p)=>s+p[1],0)*2000;
+ const dx=f.b[i][0]/mag*13,dy=-f.b[i][1]/mag*13;
+ return '<path d="M'+(x-dx/2)+' '+(y-dy/2)+'l'+dx+' '+dy+'" stroke="#f2f8ff" stroke-width="1.7"/>'+
+ '<circle cx="'+(x+dx/2)+'" cy="'+(y+dy/2)+'" r="1.8" fill="#fff"/>';}).join('');
+ $('legend').textContent='当前 '+q+'：−'+fmt(scale)+' 至 +'+fmt(scale)+' '+(q==='az'?'Wb/m':q==='by'?'T':'A/m');
+}
+function inspect(){
+ const f=field(),n=Number($('node').value),i=Number($('cell').value);
+ $('node-id').textContent=n;$('cell-id').textContent=i;
+ for(const [id,value,unit] of [['az',f.az[n],'Wb/m'],['exact',f.exact_az[n],'Wb/m'],
+ ['error',f.az[n]-f.exact_az[n],'Wb/m'],['by',f.b[i][1],'T'],['hy',f.h[i][1],'A/m'],
+ ['jz',f.current_density[i],'A/m²'],['cell-energy',f.energy_j[i],'J']])$(id).textContent=fmt(value)+' '+unit;
+}
+$('case').innerHTML=Object.entries(names).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('');
+$('results').querySelector('tbody').innerHTML=data.cases.map(c=>'<tr><td>'+names[c.id]+' / '+c.n+'</td><td>'+
+fmt(c.az_l2_relative)+'</td><td>'+fmt(c.b_l2_relative)+'</td><td>'+fmt(c.inductance_relative_error)+'</td><td>'+
+(c.passed&&data.convergence[c.id].passed?'通过':'失败')+'</td></tr>').join('');
+$('faults').textContent='固定故障副本：翻转B相对差 '+fmt(data.faults.reversed_b_relative)+
+'；漏深度电感相对差 '+fmt(data.faults.missing_depth_l_relative)+
+'；错误回流的规范敏感差 '+fmt(data.faults.wrong_return_gauge_relative)+'。三项均超出拒绝线，未修改实际方程。';
+$('commit').textContent=data.commit;
+$('case').onchange=choose;$('mesh').onchange=choose;$('quantity').onchange=paint;
+$('node').oninput=inspect;$('cell').oninput=inspect;choose();
+</script></html>

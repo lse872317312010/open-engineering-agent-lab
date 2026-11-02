@@ -1,0 +1,92 @@
+name: P7 pyMOR frozen FE ROM
+on:
+  push:
+    branches: [main, codex/p7-pymor-rom]
+    paths: ['benchmarks/p7_rom*', 'benchmarks/p7-rom*', 'benchmarks/build_p7_rom*', 'reports/p7-rom.html', 'tests/test_p7_rom*', '.github/workflows/p7-rom.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+concurrency:
+  group: p7-rom-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frozen-rom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned FE and pyMOR environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa
+          mkdir -p outputs/p7-rom
+          python -m pip install --report outputs/p7-rom/pip-install.json -r benchmarks/p7-rom-requirements.txt
+          python -m pip install -e ".[dev]"
+      - name: Ruff and complete pytest
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Existing FE and transient frozen regressions
+        run: |
+          python benchmarks/p7_fea_baseline.py
+          python benchmarks/p7_layered.py
+          python benchmarks/p7_contact.py
+          python benchmarks/p7_transient.py
+      - name: Generate training and public matrices
+        run: python benchmarks/p7_rom.py generate
+      - name: Fit training only and freeze hashes in a separate process
+        run: python benchmarks/p7_rom.py fit
+      - name: Generate unseen full trajectories and validate frozen ROM
+        run: python benchmarks/p7_rom.py validate
+      - name: Offline report and actual Chrome validation
+        run: python benchmarks/build_p7_rom_report.py
+      - name: Environment and hashes
+        if: always()
+        run: |
+          python -m pip freeze > outputs/p7-rom/environment.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("outputs")
+          files = {}
+          for folder in ("p7-rom", "p7-rom-report"):
+              for p in sorted((root / folder).rglob("*")):
+                  if p.is_file():
+                      files[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+          (root / "p7-rom/manifest.json").write_text(json.dumps(files, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-rom-report
+          path: outputs/p7-rom-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-rom-raw-evidence
+          path: |
+            outputs/p7-rom/
+            outputs/p7-transient/validation.json
+            outputs/p7-contact/validation.json
+            outputs/p7-layered/validation.json
+            outputs/p7-fea-baseline/validation.json
+          if-no-files-found: error
+      - name: Enforce all gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("p7-fea-baseline", "p7-layered", "p7-contact", "p7-transient", "p7-rom"):
+              assert json.loads((Path("outputs") / name / "validation.json").read_text())["passed"]
+          assert json.loads(Path("outputs/p7-rom-report/ui-validation.json").read_text())["passed"]
+          PY

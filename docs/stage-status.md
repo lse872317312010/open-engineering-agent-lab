@@ -1566,3 +1566,35 @@ Chrome156.0.8078.47实际验九组合温度/功率/六项能量、源开关、�
 VTU快照、模态/FV参考、环境/安装/CPU/RSS及SHA256。
 model_simulated/source_kind synthetic；二维离散的一维理想瞬态场，
 工程热损耗映射和ROM尚未完成，下一步按路线图推进降阶及独立留出验收。
+
+## 2026-11-02：pyMOR首个冻结FE→ROM与独立留出
+
+上轮瞬态PR #42现已合并，main合并提交3ede3324d2d315cac782e9e0bfc690695b37603b。
+[ROM契约](p7-rom-contract.md) / [方法与完整结果](p7-rom.md) /
+[开源采用评审](../research/reviews/p7-pymor-rom.md)。
+契约/参考先行a119ed9ab52622539a9af313b39139c62522aa8c；
+实际6c5e6b029d609e780483132d3cd0b4f2282295ca，
+[专项41367738173](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41367738173)成功。
+
+pyMOR质量POD最多12模态加区域能量测试向量，2145→14自由状态，
+训练和模型SHA256冻结后生成新全阶验证/留出。四个同参数案例通过，
+留出M加权相对RMS1.9882e−6、节点峰差2.0192e−5K；这是对同离散全阶模型的误差。
+全阶留出时间细化峰差7.15e−5K更大，不声称连续或实物精度。
+域外Rc10与冻结.1失配拒绝，反事实峰差0.8532K/RMS31.46%，
+模型自身能量余额仍约4.72e−16J，展示守恒与适用性不同。
+
+宿主dt=.0025s，ROM更新+六输出5000样本p95=7.614μs，
+FOM同输出300样本197.828μs，ROM含自由场重建500样本17.423μs，
+均预热100步、预计算分解/输入；最大值/全部样本保留。
+两者都低于2.5ms预算，不保证固定周期、板端或20kHz同步。
+Ruff与pytest155通过/20跳过；旧四类FE完整Gate、同头CI/P1/P5/ARM/P6通过。
+新数值/浏览器首轮通过，固定门槛未改。
+
+[四图报告74.28MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41367738173/artifacts/13106884974) /
+[原始证据81.49MB](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41367738173/artifacts/13107129551)。
+五案例身份/适用域分开，回放FOM/ROM两区温度、储能、热流；
+完整641时刻×2178节点场在NPZ，附逐时状态/逐节点误差CSV、冻结模型/基底/MrKrFr、延迟样本及许可/散列。
+Chrome156.0.8078.47验数字、五适用域状态、10CSV/五完整NPZ下载和形状、
+播放暂停/键盘/390px/四图PDF，无页面错误或外部请求。
+model_simulated/synthetic，固定合成模型、部分P7-D；
+参数化适用域/接口导出/真实多速率同步与工程电磁损耗数字线程仍待推进。

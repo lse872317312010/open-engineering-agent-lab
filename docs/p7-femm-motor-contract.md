@@ -99,3 +99,22 @@ https://www.femm.info/doku/lib/exe/fetch.php?media=upload:files:femm42bin_x64_21
 不沿用源码镜像NSIS脚本的/S /D语法。来源：
 https://github.com/usm-community/chocolatey-packages/blob/0b4554c1af13222e02140ed1716b326b86cb41c4/manual/femm/tools/chocolateyinstall.ps1 。
 该外部包只作URL/hash/安装参数来源，不执行其卸载或删除逻辑。
+
+## 原始单元B与FEMM恢复B的应力积分复验（先于实现）
+
+运行41402085343，源码51ea86c4b87b97965d36b2e75c94636f56352065：
+三网格磁链、电感、互易、相序与细化均通过；
+coarse h2/gap.5mm的原始P1单圆周MST对加权应力相差约31.5%，整体明确失败，
+mid h1/gap.25mm约4.96%，fine h.5/gap.125mm约.139%。
+最粗加权应力与磁链虚功仅差约.085%，不能据此忽略MST失败。
+
+初实现显式mo_smooth("off")读取原始分片单元B；
+下一实现同时保留原始MST360/720，并另用真实FEMM mo_smooth("on")
+的内置节点恢复/插值B计算同一半径21mm、同一360/720点的MST。
+不修改FE网格、求解、材料、源、边界、转矩公式、测量圆半径或验收阈值，
+不扣除开路偏置、不做正负载差分来替代总转矩。
+最终MST比较明确注明采用FEMM恢复B，原始MST的失败另列，
+不能把平滑后的应力积分伪装成原始P1积分。
+圆柱解析采样也显式声明同一FEMM恢复B模式，继续原固定精度/细化门槛。
+若恢复B仍不满足5%/3%门槛，仍判失败，不事后提高容差。
+此比较仍共享FE解，不构成第三方独立场求解器或实物证明。

@@ -8,7 +8,6 @@ import subprocess
 from pathlib import Path, PurePosixPath
 
 import numpy as np
-
 from p7_angle_reference import periodic_back_emf
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,7 +62,8 @@ def main():
     double = periodic_back_emf(flux[2, :12], 2*SPEED)
     speed_error = float(max(np.max(abs(reverse+e12[2])),
                             np.max(abs(double-2*e12[2])))/SCALE)
-    checks = dict(native=True, mesh_nodes=all(a < b for a, b in zip(nodes[:-1], nodes[1:], strict=True)),
+    checks = dict(native=True, mesh_nodes=all(a < b for a, b in zip(
+                      nodes[:-1], nodes[1:], strict=True)),
                   closure=bool(np.max(closure) <= .02), mesh_flux=mesh_flux <= .03,
                   mesh_emf=mesh_emf <= .05, angle_step=max(angle_error[1:]) <= .30,
                   fundamental=bool(np.min(amplitudes) > .01 and phase_error <= math.radians(10)),

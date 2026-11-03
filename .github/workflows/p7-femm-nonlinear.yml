@@ -8,7 +8,7 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: p7-femm-${{ github.ref }}
+  group: p7-femm-nonlinear-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   femm:
@@ -75,7 +75,7 @@ jobs:
           path: outputs/p7-femm-nonlinear/
           key: ${{ steps.native.outputs.cache-primary-key }}
       - name: Archive environment and source identity
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           python -m pip freeze | Out-File outputs/p7-femm-nonlinear/environment.txt
           git rev-parse HEAD | Out-File outputs/p7-femm-nonlinear/source-commit.txt
@@ -91,22 +91,22 @@ jobs:
       - name: Offline motor state report and complete browser validation
         run: python benchmarks/build_p7_femm_nonlinear_report.py
       - name: Complete evidence manifest
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           python -c "import hashlib,json; from pathlib import Path; root=Path('outputs'); files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for name in ('p7-femm-nonlinear','p7-femm-nonlinear-report') for p in (root/name).rglob('*') if p.is_file()}; (root/'p7-femm-nonlinear/manifest.json').write_text(json.dumps(files,indent=2))"
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: p7-femm-nonlinear-report
           path: outputs/p7-femm-nonlinear-report/
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: p7-femm-nonlinear-raw-evidence
           path: outputs/p7-femm-nonlinear/
           if-no-files-found: error
       - name: Enforce independent material, flux map and UI gates
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           python -c "import json; from pathlib import Path; root=Path('outputs'); assert all(json.loads((root/p).read_text())['passed'] for p in ('p7-femm-nonlinear/material-validation.json','p7-femm-nonlinear/validation.json','p7-femm-nonlinear-report/ui-validation.json'))"

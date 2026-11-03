@@ -1,0 +1,98 @@
+name: P7 actual FEMM nonlinear flux map
+on:
+  push:
+    branches: [main, codex/p7-femm-nonlinear]
+    paths: ['benchmarks/p7_femm*', 'benchmarks/build_p7_femm*', 'reports/p7-femm*', '.github/workflows/p7-femm-nonlinear.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: p7-femm-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  femm:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      FEMM_EXE: C:\femm42\bin\femm.exe
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed Python environment
+        run: |
+          New-Item -ItemType Directory -Force outputs/p7-femm-nonlinear | Out-Null
+          python -m pip install --report outputs/p7-femm-nonlinear/pip-install.json numpy==1.26.4 scipy==1.15.3 matplotlib==3.10.1 pyfemm==0.1.3 pywin32==311 playwright==1.55.0 psutil==7.0.0
+          python -m pip install -e ".[dev]"
+          python -m pip install --report outputs/p7-femm-nonlinear/motulator-install.json "motulator @ git+https://github.com/Aalto-Electric-Drives/motulator.git@2ffbf1ae52d5fadcdffd85d10c80dd15fd2e39fa"
+      - name: Download official FEMM and retain installer provenance
+        run: |
+          $url = 'https://www.femm.info/doku/lib/exe/fetch.php?media=upload:files:femm42bin_x64_21apr2019.exe'
+          $installer = Join-Path $env:RUNNER_TEMP 'femm-installer.exe'
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          $digest = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          $bytes = [System.IO.File]::ReadAllBytes($installer)
+          if ($bytes.Length -lt 1000000 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) {
+            throw "Official download is not a complete Windows PE installer"
+          }
+          $expected = '17384e8990b6305ec8ffef1f75b6ef091a266b6e49b30c151cd1daca2e952043'
+          if ($digest -ne $expected) { throw "FEMM installer SHA256 differs from frozen provenance" }
+          $record = @{url=$url; sha256=$digest; bytes=$bytes.Length}
+          $record | ConvertTo-Json | Set-Content outputs/p7-femm-nonlinear/installer-provenance.json
+          Write-Output ("femm-installer-sha256: " + $digest)
+          $proc = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=C:\femm42' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Installer failed: $($proc.ExitCode)" }
+          if (!(Test-Path $env:FEMM_EXE)) { throw "FEMM executable not installed" }
+          $actualExe = (Get-FileHash $env:FEMM_EXE -Algorithm SHA256).Hash.ToLower()
+          if ($actualExe -ne '5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21') {
+            throw "FEMM runtime executable digest changed"
+          }
+          & $env:FEMM_EXE /regserver
+          (Get-Item $env:FEMM_EXE).VersionInfo | Format-List | Out-File outputs/p7-femm-nonlinear/executable-version.txt
+      - name: Ruff and full pytest
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Actual nonlinear material and motor maps
+        run: python benchmarks/p7_femm_nonlinear.py
+      - name: Archive environment and source identity
+        if: always()
+        run: |
+          python -m pip freeze | Out-File outputs/p7-femm-nonlinear/environment.txt
+          git rev-parse HEAD | Out-File outputs/p7-femm-nonlinear/source-commit.txt
+          Get-CimInstance Win32_Processor | Format-List | Out-File outputs/p7-femm-nonlinear/host-cpu.txt
+          $licenses = Join-Path $env:GITHUB_WORKSPACE 'outputs/p7-femm-nonlinear/installed-licenses'
+          New-Item -ItemType Directory -Force $licenses | Out-Null
+          Get-ChildItem C:\femm42 -Recurse -File | Where-Object {
+            $_.Name -match 'licen[cs]e|copyright'
+          } | ForEach-Object {
+            $name = $_.FullName.Replace('C:\femm42\', '').Replace('\', '__')
+            Copy-Item $_.FullName (Join-Path $licenses $name) -Force
+          }
+      - name: Offline motor state report and complete browser validation
+        run: python benchmarks/build_p7_femm_nonlinear_report.py
+      - name: Complete evidence manifest
+        if: always()
+        run: |
+          python -c "import hashlib,json; from pathlib import Path; root=Path('outputs'); files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for name in ('p7-femm-nonlinear','p7-femm-nonlinear-report') for p in (root/name).rglob('*') if p.is_file()}; (root/'p7-femm-nonlinear/manifest.json').write_text(json.dumps(files,indent=2))"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-femm-nonlinear-report
+          path: outputs/p7-femm-nonlinear-report/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p7-femm-nonlinear-raw-evidence
+          path: outputs/p7-femm-nonlinear/
+          if-no-files-found: error
+      - name: Enforce independent material, flux map and UI gates
+        if: always()
+        run: |
+          python -c "import json; from pathlib import Path; root=Path('outputs'); assert all(json.loads((root/p).read_text())['passed'] for p in ('p7-femm-nonlinear/material-validation.json','p7-femm-nonlinear/validation.json','p7-femm-nonlinear-report/ui-validation.json'))"

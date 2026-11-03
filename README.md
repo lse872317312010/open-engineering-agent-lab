@@ -627,3 +627,18 @@ Rc声明范围[.01,1]m²K/W；域外两个反事实虽误差较小仍拒绝，�
 原固定对角线粗网格界面失败保留，交替网格在相同门槛下通过，旧热基准及网格hash保持。
 报告可切换Az/By/Hy、节点/单元状态、36CSV与12电感JSON，附VTU/NPZ/PDF/PNG/SVG。
 这是有限矩形线性磁路的部分P7-A，不是PMSM电磁场或Ld/Lq，未写入现有FOC。
+
+## 实际FEMM永磁电机参数到FOC
+
+[方法、结果与复现](docs/p7-femm-motor.md) /
+[五图离线交互报告（2.26 MB）](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41411974413/artifacts/13125954296) /
+[固定契约](docs/p7-femm-motor-contract.md)。
+
+真实FEMM三网格、243个静态电机场提取ψ=0.02602778 Wb、
+Ld/Lq≈31.3056 μH，再用冻结参数运行现有motulator正反向FOC。
+报告可查看磁化角、绕组电流、气隙B、磁链/转矩和控制状态，
+附14份全量CSV、精确参数JSON、PDF/PNG/SVG；原生fem/ans在独立证据包。
+最终227测试通过、12跳过，8个CI检查成功。
+这是线性无槽合成电机的部分P7-B；原失败粗网格与FOC配置错误保留，
+工程槽结构、饱和、损耗到热场映射及完整固件仿真仍待推进。
+FEMM/pyfemm为AFPL，许可及不再分发二进制的范围见采用评审。

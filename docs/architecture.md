@@ -730,3 +730,35 @@ flowchart LR
 磁静态benchmark不注册主IR，不向电驱写入单匝L；真实电机Ld/Lq仍是独立待办。
 旧mesh_case默认几何不改，只有可信调用可显式提供交替几何文本，
 三档原网格hash与完整双材料回归保护旧路径。
+
+## 实际FEMM场到冻结参数控制与证据身份
+
+[模型、结果和复现](p7-femm-motor.md) /
+[实现前契约及修订](p7-femm-motor-contract.md)。
+
+```mermaid
+flowchart LR
+  ENV["固定FEMM安装包/exe hash<br/>独立Windows COM环境"] --> C["有限圆域磁化圆柱<br/>独立Az/B解析核验"]
+  C --> FE["原创无槽PMSM<br/>三网格×81静态场"]
+  FE --> EXT["实际λabc / λdq / 相矩阵<br/>ψ / Ld / Lq / 三路转矩"]
+  EXT --> G["固定方向/单位/细化门槛<br/>原生fem/ans与失败保留"]
+  G --> PARAM["不可变参数JSON与SHA256"]
+  ASSIGN["独立合成R / J / 摩擦 / p"] --> PARAM
+  PARAM --> FOC["既有motulator / FOC<br/>±0.5A真实时间轨迹"]
+  ARCHIVE["原已通过场阶段<br/>原失败FOC隔离"] --> VERIFY["manifest全覆盖与486原生文件<br/>参数散列 / 生产源码身份"]
+  VERIFY --> PARAM
+  FOC --> R["离线机制/场状态/控制报告<br/>14CSV / 五图 / PDF"]
+  G --> R
+  R --> UI["Chrome数值/下载/键盘/移动验收"]
+```
+
+field_source_commit固定记录场生产者d68e；最终FOC/报告为bc636。
+场归档复用不是新求解；源码不匹配或资源不可取得时走真实求解，
+损坏证据拒绝，原失败FOC另存。完整通过后才保存内容hash缓存。
+场、参数、系统控制与报告身份分别展示，不能把原失败总体运行当作通过。
+
+场回放只播放实际静态角度，不模拟滑移带或时间场；
+控制面板单独使用两组实际积分轨迹。
+本阶段无槽/线性/无损耗，R/J/摩擦未从静磁场获得。
+热ROM仍为既有独立合成板；同一工程电机损耗到热场的映射未接通。
+该可选benchmark环境不开放任意资产路径，不修改主IR或生产控制器。

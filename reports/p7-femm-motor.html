@@ -1,0 +1,145 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>实际FEMM永磁电机 · 场参数与FOC</title><style>
+:root{color-scheme:dark;font-family:system-ui;background:#0d1728;color:#eef5ff}
+body{max-width:1200px;margin:auto;padding:22px}h1{font-size:clamp(28px,5vw,44px)}
+p{line-height:1.8;color:#c1d3e8}section{padding:20px;margin:22px 0;border-radius:18px;background:#172a43}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px}
+.card{padding:14px;background:#243f5f;border-radius:12px}.card b{display:block;margin-top:8px;font-size:19px}
+label{display:inline-block;margin:8px}button,select,a{font:inherit;padding:10px;background:#2b5179;color:#f4f9ff;border:1px solid #6a87a7;border-radius:8px}
+a{display:inline-block;text-decoration:none;margin:5px}input,svg,img{width:100%;height:auto}input{accent-color:#78dfba}
+.note{border-left:4px solid #edbf76;padding-left:14px}.good{color:#7de0bb}.wrap{overflow:auto}
+table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:9px;border-bottom:1px solid #385d82}
+*{box-sizing:border-box}code{overflow-wrap:anywhere}svg text{font:13px system-ui;fill:#edf6ff}
+</style><header><p>OPEN ENGINEERING · ACTUAL FEMM → REDUCED MOTOR → FOC</p>
+<h1>永磁场、三相绕组与控制参数，连成一条可追溯链路</h1>
+<p class="note">真实FEMM4.2求解器 · 原创无槽两极合成模型 · 线性材料/二维有限边界。
+每相两侧各±20匝；定子背铁μr1000，铜/空气μr1，外圆Az=0。
+电感和永磁磁链来自本轮FE；电阻、惯量、摩擦由独立合成参数指定。
+这是静态提参后的降阶FOC，不是每控制周期重新求解FE，也不是制造或实测认证。</p></header>
+<section><h2>运行机制与证据身份</h2><div class="grid">
+<div class="card">1 · 求解器校验<b>有限边界永磁圆柱</b><p>实际COM求解，对照独立解析Az/B，三档网格与真实反向磁化负例。</p></div>
+<div class="card">2 · 同一电机<b>磁化角 / 三相电流</b><p>真实fem/ans、24及48角扫描，电路磁链和气隙B留存。</p></div>
+<div class="card">3 · 参数与转矩<b>ψ / Ld / Lq / 三方转矩</b><p>加权应力、气隙MST、冻结电流的磁链虚功互相核对。</p></div>
+<div class="card">4 · 冻结后验证<b>既有motulator / 20kHz FOC</b><p>参数hash前后一致，两个方向短时电流闭环；非逐步场-电路耦合。</p></div></div>
+<p id="probe"></p><p>FEMM/pyfemm使用AFPL，Triangle有附带分发条款，不能把仓库MIT当作第三方授权。
+程序在独立Windows环境运行，报告不分发exe/安装包。
+原许可与范围说明随包；真机由用户负责。</p></section>
+<section><h2>静态场状态回放</h2><label>网格 <select id="grid"></select></label>
+<button id="play" aria-pressed="false">播放转角扫描</button>
+<label for="point">FE采样位置 / 载荷点</label><input id="point" type="range" min="0" value="0" step="1">
+<p id="state" class="good"></p><p>前24帧是独立静磁转角解，最后4帧是θ=0的±d/±q载荷点。
+帧序不是时间积分；圆形均匀磁体通过磁化方向旋转，几何保持不变。</p>
+<svg id="motor" viewBox="0 0 500 500" role="img" aria-label="实际同心圆模型与六绕组、磁化方向及气隙B采样">
+<circle cx="250" cy="250" r="200" fill="#546176" stroke="#c2d3e4"/>
+<circle cx="250" cy="250" r="140" fill="#243e59"/><g id="windings"></g>
+<circle cx="250" cy="250" r="110" fill="#0e2033" stroke="#7ce0c0"/>
+<circle cx="250" cy="250" r="100" fill="#6e3b67" stroke="#f2a8cd"/>
+<g id="gap-vectors"></g><path id="magnet" stroke="#ffce78" stroke-width="5"/>
+<circle id="magnet-tip" r="6" fill="#ffce78"/>
+<text x="250" y="480" text-anchor="middle">PM 20mm / gap 2mm / winding 6mm / back iron 12mm</text>
+</svg><p>黄色箭头为真实磁化方向；白色箭头为气隙B采样方向（长度按本帧归一化）。
+绕组红/蓝表示实际电流乘匝向后的正/负轴向源，不代表温度。
+气隙箭头和接受的MST均读取显式恢复模式B；原始单元B的单圆周积分另外留存。</p>
+<div id="field-cards" class="grid"></div><div id="parameter-cards" class="grid"></div>
+<p id="torque-note"></p><div id="static-downloads"></div></section>
+<section><h2>提取与转矩验收</h2><div class="wrap"><table id="results"><thead><tr>
+<th>网格mm / 气隙mm</th><th>ψ Wb</th><th>Ld H</th><th>Lq H</th><th>相序拟合差</th>
+<th>原始B的MST差</th><th>恢复B的MST差</th><th>状态</th>
+</tr></thead><tbody></tbody></table></div><p id="refinement"></p><p id="faults"></p><p id="harmonic-note"></p>
+<p class="note">三种转矩使用同一几何与相关FE数据，是数值/映射交叉检查，不是三个独立实物真值。
+原2mm粗网格应力约31.5%失败，径向积分加密仍约21.5%；均保留为不适用/诊断结果。当前三档网格为1/.5/.25mm，每批查询显式锁定模式，以原5%和3%门槛验收。
+<a href="https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/41402085343/artifacts/13122032406" target="_blank" rel="noopener">原始MST失败完整证据</a>
+圆柱解析基准验证永磁边界实现；电机参数准确性不能自动推广到其他电机。</p>
+<a id="parameters" href="parameters.json" download>下载冻结参数 JSON</a>
+<a href="parameters.json">查看参数原文件</a><a href="validation.json" download>完整验收 JSON</a>
+</section>
+<section><h2>冻结参数后的真实电驱闭环</h2><label>电流方向 <select id="foc-case"></select></label>
+<label for="foc-time">实际控制采样</label><input id="foc-time" type="range" min="0" value="0" step="1">
+<p id="foc-clock"></p><div id="foc-cards" class="grid"></div><a id="foc-csv" download>完整控制 CSV</a>
+<p>真实motulator植物和既有PI/FOC保持原代码；p=1，峰值dq约定。
+这段0.04s轨迹只验参数身份、电流及降阶转矩公式；没有把FE静态扫角动画当作动态转子轨迹。</p></section>
+<section><h2>五组图表与证据下载</h2><img src="plots/01-cylinder.png" alt="永磁圆柱对独立解析参考">
+<img src="plots/02-flux.png" alt="真实三相和dq磁链转角扫描">
+<img src="plots/03-parameters.png" alt="三网格参数细化"><img src="plots/04-torque.png" alt="真实转矩多方法对照">
+<img src="plots/05-foc.png" alt="冻结参数后正负电流闭环">
+<a href="report.pdf" download>五图 PDF</a><a href="contract.md" download>物理与固定门槛</a>
+<a href="femm-source-review-AFPL.txt" download>FEMM许可</a><a href="pyfemm-source-review-AFPL.txt" download>pyfemm许可</a>
+<a href="__RUN_URL__" target="_blank" rel="noopener">完整原始fem/ans · GitHub运行页</a>
+<p>报告含14完整CSV、冻结参数与图表。全部角度/激励的原始FEMM输入/解、气隙采样、
+安装来源与双hash/环境在独立原始证据包。</p></section>
+<footer><p id="commit"></p></footer>
+<script>
+const data=__DATA__,probe=__PROBE__,foc=__FOC__,parameterText=__PARAMETER_TEXT__,spectrum=__SPECTRUM__;
+const $=x=>document.getElementById(x),fmt=x=>Number(x).toPrecision(7);let timer=null;
+function cards(id,rows){$(id).innerHTML=rows.map(r=>'<div class="card">'+r[0]+'<b>'+r[1]+'</b></div>').join('');}
+function pause(){if(timer)clearInterval(timer);timer=null;$('play').textContent='播放转角扫描';$('play').setAttribute('aria-pressed','false');}
+function grid(){return data.grids[Number($('grid').value)];}
+function choose(){pause();$('point').max=grid().snapshots.length-1;$('point').value=0;draw();}
+function draw(){
+ const g=grid(),s=g.snapshots[Number($('point').value)],theta=s.angle_deg*Math.PI/180;
+ $('harmonic-note').textContent='当前网格48角实际FE磁链FFT，三相THD '+
+ spectrum[String(g.grid)].thd_relative.map(fmt).join(' / ')+
+ '。仅覆盖1–24阶；线性固定圆模型天然基波，不能据此认证有槽/饱和谐波或Nyquist以上误差。';
+ $('state').textContent=(g.passed?'FE固定门槛通过':'FE固定门槛失败')+' · '+s.mode+' · θ='+fmt(s.angle_deg)+
+ '° · '+s.nodes+'节点 / '+s.elements+'单元';
+ const currents=[s.current_a,s.current_b,s.current_c],lambda=[s.lambda_a_wb,s.lambda_b_wb,s.lambda_c_wb];
+ const alpha=(2*currents[0]-currents[1]-currents[2])/3,beta=(currents[1]-currents[2])/Math.sqrt(3);
+ const id=alpha*Math.cos(theta)+beta*Math.sin(theta),iq=-alpha*Math.sin(theta)+beta*Math.cos(theta);
+ const predicted=1.5*(g.extraction.psi_wb*iq+(g.ld_h-g.lq_h)*id*iq);
+ cards('field-cards',[['Ia',fmt(currents[0])+' A'],['Ib',fmt(currents[1])+' A'],['Ic',fmt(currents[2])+' A'],
+ ['λa',fmt(lambda[0])+' Wb'],['λb',fmt(lambda[1])+' Wb'],['λc',fmt(lambda[2])+' Wb'],
+ ['λd',fmt(s.lambda_d_wb)+' Wb'],['λq',fmt(s.lambda_q_wb)+' Wb'],
+ ['实际加权应力转矩',fmt(s.torque_weighted_nm)+' Nm'],['提参降阶转矩',fmt(predicted)+' Nm']]);
+ cards('parameter-cards',[['当前网格ψ',fmt(g.extraction.psi_wb)+' Wb'],['Ld',fmt(g.ld_h)+' H'],
+ ['Lq',fmt(g.lq_h)+' H'],['材料与深度','PM μr1.05 / Br1.2T / 40mm']]);
+ $('torque-note').textContent='当前峰值dq电流 '+fmt(id)+' / '+fmt(iq)+' A；'+
+ (g.torque[s.mode]?'该载荷点恢复B的单圆周MST720 '+fmt(g.torque[s.mode].mst720_nm)+' Nm，磁链虚功 '+
+ fmt(g.torque[s.mode].virtual_nm)+' Nm。':'三方法详细对照见±q载荷点与下方图表。');
+ const coord=(r,a)=>[250+r*Math.cos(a),250-r*Math.sin(a)];
+ const assignment=[[1,-1,'B−'],[0,1,'A+'],[2,-1,'C−'],[1,1,'B+'],[0,-1,'A−'],[2,1,'C+']];
+ $('windings').innerHTML=assignment.map(([phase,sign,name],k)=>{
+ const a=k*Math.PI/3,b=(k+1)*Math.PI/3,p=coord(140,a),q=coord(140,b),r=coord(110,b),t=coord(110,a),v=sign*currents[phase];
+ const fill=Math.abs(v)<1e-12?'#395d76':v>0?'#c6635d':'#497cc1',label=coord(125,(a+b)/2);
+ return '<path d="M'+p+'A140 140 0 0 0 '+q+'L'+r+'A110 110 0 0 1 '+t+'Z" fill="'+fill+'" stroke="#a3b7ca"/>'+
+ '<text x="'+label[0]+'" y="'+label[1]+'" text-anchor="middle">'+name+'</text>';}).join('');
+ const tip=coord(75,theta);$('magnet').setAttribute('d','M250 250L'+tip.join(' '));
+ $('magnet-tip').setAttribute('cx',tip[0]);$('magnet-tip').setAttribute('cy',tip[1]);
+ const scale=Math.max(...s.gap.map(v=>Math.hypot(v[1],v[2])),1e-30);
+ $('gap-vectors').innerHTML=s.gap.map(v=>{const p=coord(105,v[0]),dx=v[1]/scale*11,dy=-v[2]/scale*11;
+ return '<path d="M'+(p[0]-dx/2)+' '+(p[1]-dy/2)+'l'+dx+' '+dy+'" stroke="white" stroke-width="1.3"/>';}).join('');
+ const root='grid'+g.grid+'/';
+ $('static-downloads').innerHTML=[['open-24.csv','24角完整磁链CSV','open24'],
+ ['open-48.csv','48角完整磁链CSV','open48'],['loaded.csv','四载荷点CSV','loaded'],
+ ['harmonics.csv','48角FFT各阶幅值CSV','harmonics']].map(x=>
+ '<a id="'+x[2]+'" download href="'+root+x[0]+'">'+x[1]+'</a>').join('');
+}
+function focChoose(){$('foc-time').max=foc[$('foc-case').value].length-1;$('foc-time').value=0;focDraw();}
+function focDraw(){
+ const c=$('foc-case').value,r=foc[c][Number($('foc-time').value)];
+ $('foc-clock').textContent=fmt(r.time_s)+' s · 实际20kHz控制采样';
+ cards('foc-cards',[['实际Iq',fmt(r.iq_a)+' A'],['参考Iq',fmt(r.iq_reference_a)+' A'],
+ ['实际Id',fmt(r.id_a)+' A'],['真实植物转矩',fmt(r.torque_nm)+' Nm'],
+ ['机械速度',fmt(r.motor_speed_rad_s)+' rad/s'],['名义/实际参数','冻结FE ψ/L · p=1']]);
+ $('foc-csv').href='foc/'+c+'.csv';
+}
+$('grid').innerHTML=data.grids.map(g=>'<option value="'+g.grid+'">h='+g.h_mm+
+ ' mm / gap='+g.gap_h_mm+' mm</option>').join('');
+$('grid').value=data.grids.length-1;
+$('results').querySelector('tbody').innerHTML=data.grids.map(g=>'<tr><td>'+g.h_mm+' / '+g.gap_h_mm+
+ '</td><td>'+fmt(g.extraction.psi_wb)+'</td><td>'+fmt(g.ld_h)+'</td><td>'+fmt(g.lq_h)+
+ '</td><td>'+fmt(g.extraction.fit_relative)+'</td><td>'+fmt(g.torque.qplus.raw_mst_relative)+
+ '</td><td>'+fmt(g.torque.qplus.mst_relative)+'</td><td>'+(g.passed?'通过':'失败')+'</td></tr>').join('');
+$('refinement').textContent='中→细网格相对变化：'+Object.entries(data.parameter_changes).map(([k,v])=>k+' '+fmt(v)).join('；');
+$('faults').textContent='错误约定副本对实际FE转矩的相对差：'+Object.entries(data.faults).map(([k,v])=>k+' '+fmt(v)).join('；');
+$('probe').textContent='实际永磁圆柱最细采样B误差 '+fmt(probe.cases[2].b_relative_rms)+
+ '，Az误差 '+fmt(probe.cases[2].az_relative_rms)+'；反向磁化负例B差 '+fmt(probe.direction_fault.b_relative_rms)+'。';
+$('parameters').onclick=e=>{e.preventDefault();const url=URL.createObjectURL(new Blob([parameterText],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='femm-motor-parameters.json';document.body.appendChild(a);
+ a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('foc-case').innerHTML=data.foc.map(c=>'<option value="'+c.id+'">'+(c.id==='positive'?'正向+0.5A':'反向−0.5A')+'</option>').join('');
+$('grid').onchange=choose;$('point').oninput=draw;$('foc-case').onchange=focChoose;$('foc-time').oninput=focDraw;
+$('play').onclick=()=>{if(timer){pause();return;}if(Number($('point').value)>=23)$('point').value=0;
+ $('play').textContent='暂停';$('play').setAttribute('aria-pressed','true');draw();timer=setInterval(()=>{
+ if(Number($('point').value)>=23){pause();return;}$('point').value=Number($('point').value)+1;draw();},150);};
+$('commit').textContent='model_simulated / synthetic · FOC/报告 '+data.commit+' · 场来源 '+data.field_source_commit;choose();focChoose();
+</script></html>

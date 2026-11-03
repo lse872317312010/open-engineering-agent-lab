@@ -1,0 +1,155 @@
+name: P7 PYLEECAN angle sweep and quasi-static EMF
+on:
+  push:
+    branches: [main, codex/p7-pyleecan-angle]
+    paths: ['benchmarks/p7_angle*', 'tests/test_p7_angle_reference.py', 'reports/p7-pyleecan-angle.html', '.github/workflows/p7-pyleecan-angle.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pyleecan-angle-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {index: 0, grid: 1.0}
+          - {index: 1, grid: 1.5}
+          - {index: 2, grid: 2.0}
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      FEMM_EXE: C:\femm42\bin\femm.exe
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      QT_API: pyside6
+      QT_QPA_PLATFORM: offscreen
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - name: Preserve original source line endings
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: Eomys/pyleecan
+          ref: 8654bd49fc005fdb19a38b1e39cd5d06198cdac1
+          path: outputs/vendor/pyleecan
+          sparse-checkout: |
+            pyleecan
+            LICENSE
+            README.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Eomys/SciDataTool
+          ref: c6f2497971a24486c64ad27575eb45f12a8458bf
+          path: outputs/vendor/scidatatool
+          sparse-checkout: |
+            SciDataTool
+            LICENSE
+            README.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Eomys/swat-em
+          ref: 4d3b4d7093ba127b5bfbf4c6f2a038d87ba79d7e
+          path: outputs/vendor/swat-em
+          sparse-checkout: |
+            swat_em
+            LICENSE
+            README.md
+          sparse-checkout-cone-mode: false
+      - name: Fixed optional scientific and GUI-library environment
+        run: |
+          New-Item -ItemType Directory -Force outputs/p7-pyleecan | Out-Null
+          python -m pip install --report outputs/p7-pyleecan/pip-install.json numpy==2.2.6 scipy==1.15.3 matplotlib==3.10.7 pandas==2.2.3 h5py==3.13.0 cloudpickle==3.1.1 scikit-learn==1.6.1 imageio==2.37.0 pillow==11.2.1 openpyxl==3.1.5 ezdxf==1.4.2 PySide6==6.8.3 QtPy==2.4.3 pyqtgraph==0.13.7 xlsxwriter==3.2.3 six==1.17.0 pyfemm==0.1.3 pywin32==311
+          python -m pip install -e ".[dev]"
+      - name: Download official FEMM and retain installer provenance
+        run: |
+          $url = 'https://www.femm.info/doku/lib/exe/fetch.php?media=upload:files:femm42bin_x64_21apr2019.exe'
+          $installer = Join-Path $env:RUNNER_TEMP 'femm-installer.exe'
+          foreach ($attempt in 1..3) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $installer -TimeoutSec 60 -ErrorAction Stop
+              break
+            } catch {
+              Write-Output ("Official FEMM download attempt " + $attempt + " failed")
+              if ($attempt -eq 3) { throw }
+              Start-Sleep -Seconds 5
+            }
+          }
+          $digest = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          $bytes = [System.IO.File]::ReadAllBytes($installer)
+          if ($bytes.Length -lt 1000000 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) {
+            throw "Official download is not a complete Windows PE installer"
+          }
+          $expected = '17384e8990b6305ec8ffef1f75b6ef091a266b6e49b30c151cd1daca2e952043'
+          if ($digest -ne $expected) { throw "FEMM installer SHA256 differs from frozen provenance" }
+          $record = @{url=$url; sha256=$digest; bytes=$bytes.Length}
+          $record | ConvertTo-Json | Set-Content outputs/p7-pyleecan/installer-provenance.json
+          Write-Output ("femm-installer-sha256: " + $digest)
+          $proc = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=C:\femm42' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Installer failed: $($proc.ExitCode)" }
+          if (!(Test-Path $env:FEMM_EXE)) { throw "FEMM executable not installed" }
+          $actualExe = (Get-FileHash $env:FEMM_EXE -Algorithm SHA256).Hash.ToLower()
+          if ($actualExe -ne '5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21') {
+            throw "FEMM runtime executable digest changed"
+          }
+          & $env:FEMM_EXE /regserver
+          (Get-Item $env:FEMM_EXE).VersionInfo | Format-List | Out-File outputs/p7-pyleecan/executable-version.txt
+      - name: Ruff and analytic reference tests
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Thirteen real zero-current rotor angles
+        run: python benchmarks/p7_angle_native.py ${{ matrix.grid }}
+      - name: Archive actual native models and provenance
+        if: ${{ !cancelled() }}
+        run: python benchmarks/p7_pyleecan.py archive
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: angle-lane-${{ matrix.index }}
+          path: outputs/p7-pyleecan/
+          if-no-files-found: error
+      - name: Require complete native lane
+        if: ${{ !cancelled() }}
+        run: python -c "import json; from pathlib import Path; assert json.loads(Path('outputs/p7-pyleecan/angle-lane.json').read_text())['passed']"
+  report:
+    needs: native
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      ANGLE_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy==2.2.6 matplotlib==3.10.7 playwright==1.55.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: angle-lane-*
+          path: outputs/angle-lanes
+      - name: Verify raw archives and evaluate frozen physical limits
+        run: python benchmarks/p7_angle_aggregate.py
+      - name: Build interactive report and run actual Chrome checks
+        run: python benchmarks/p7_angle_report.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-angle-interactive-report
+          path: outputs/p7-angle-report/
+          if-no-files-found: error
+      - name: Require numerical and browser acceptance
+        if: ${{ !cancelled() }}
+        run: |
+          python -c "import json; from pathlib import Path; p=Path('outputs/p7-angle-report'); assert json.loads((p/'angle-data.json').read_text())['passed']; assert json.loads((p/'ui-validation.json').read_text())['passed']"

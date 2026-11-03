@@ -1,10 +1,16 @@
 """Independent sinusoidal limits and invalid inputs for the angle derivative."""
+import importlib.util
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from benchmarks.p7_angle_reference import periodic_back_emf
+spec = importlib.util.spec_from_file_location(
+    "angle_reference", Path(__file__).resolve().parents[1] / "benchmarks/p7_angle_reference.py")
+reference = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reference)
+periodic_back_emf = reference.periodic_back_emf
 
 
 @pytest.mark.parametrize(("count", "limit"), [(12, .046), (6, .174)])

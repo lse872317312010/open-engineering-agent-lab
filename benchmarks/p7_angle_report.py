@@ -63,8 +63,9 @@ def main():
         for grid in range(3):
             page.select_option("#grid", str(grid))
             for index in range(12):
-                page.locator("#angle").fill(str(index))
-                page.locator("#angle").dispatch_event("input")
+                page.eval_on_selector("#angle", """(e, value) => {
+                    e.value = value; e.dispatchEvent(new Event('input', {bubbles: true}));
+                }""", str(index))
                 assert float(page.locator('[data-value="angle"]').get_attribute("data-number")) == (
                     index*7.5)
                 for q in range(3):
@@ -79,6 +80,7 @@ def main():
             assert math.isclose(q, data["e12"][2][11][0]*int(value)/600, abs_tol=1e-12)
         assert page.locator(".coil").count() == 24
         assert page.locator(".magnet").count() == 8
+        assert page.locator(".gapvector").count() == 48
         page.locator(".coil").first.click()
         assert "匝" in page.locator("#component").inner_text()
         for name in ("angle-scan.csv", "angle-data.json", "figures.pdf"):

@@ -2,7 +2,7 @@ name: P7 PYLEECAN angle sweep and quasi-static EMF
 on:
   push:
     branches: [main, codex/p7-pyleecan-angle]
-    paths: ['benchmarks/p7_angle*', 'tests/test_p7_angle_reference.py', 'reports/p7-pyleecan-angle.html', '.github/workflows/p7-pyleecan-angle.yml']
+    paths: ['benchmarks/p7_angle_native.py', 'benchmarks/p7_pyleecan.py', 'benchmarks/p7_pyleecan_reference.py', 'benchmarks/assets/pyleecan-spmsm001.json', '.github/workflows/p7-pyleecan-angle.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -115,6 +115,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: angle-lane-${{ matrix.index }}
+          overwrite: true
           path: outputs/p7-pyleecan/
           if-no-files-found: error
       - name: Require complete native lane
@@ -128,6 +129,8 @@ jobs:
       PYTHONUTF8: "1"
       MPLBACKEND: Agg
       ANGLE_SOURCE_COMMIT: ${{ github.sha }}
+      ANGLE_FINE_COMMIT: ${{ github.sha }}
+      ANGLE_FINE_RUN: "${{ github.run_id }}"
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4

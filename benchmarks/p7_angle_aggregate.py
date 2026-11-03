@@ -27,16 +27,21 @@ def read_lane(index, grid):
         assert path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest
     lane = json.loads((folder / "angle-lane.json").read_text())
     assert lane["grid"] == grid and lane["passed"] and lane["geometry_passed"]
-    assert lane["commit"] == os.environ["ANGLE_SOURCE_COMMIT"]
+    expected = os.environ["ANGLE_FINE_COMMIT"] if index == 2 else os.environ["ANGLE_SOURCE_COMMIT"]
+    assert lane["commit"] == expected
     assert len(lane["cases"]) == 13
     natives = {name for name in manifest if name.endswith((".fem", ".ans"))}
     assert len(natives) == 26
+    seen_native = set()
     for i, case in enumerate(lane["cases"]):
         assert case["case"] == f"angle-{i:02d}" and case["angle_deg"] == 7.5*i
         assert case["grid"] == grid and case["passed"] and all(case["checks"].values())
         assert len(case["native_files"]) == 2
         for name, digest in case["native_files"].items():
+            assert name.startswith(case["case"] + "/")
             assert name in natives and manifest[name] == digest
+            seen_native.add(name)
+    assert seen_native == natives
     return lane, json.loads((folder / "geometry.json").read_text()), len(manifest)
 
 
@@ -76,9 +81,12 @@ def main():
                 lanes=lanes, geometry=loaded[2][1],
                 manifest_counts=[x[2] for x in loaded],
                 source_commit=os.environ["ANGLE_SOURCE_COMMIT"],
+                fine_commit=os.environ["ANGLE_FINE_COMMIT"],
+                fine_run_id=os.environ["ANGLE_FINE_RUN"],
                 report_commit=subprocess.check_output(["git", "rev-parse", "HEAD"],
                                                       text=True).strip(),
-                run_id=os.environ["GITHUB_RUN_ID"], e12=e12.tolist(), e6=e6.tolist())
+                source_run_id=os.environ.get("ANGLE_SOURCE_RUN", os.environ["GITHUB_RUN_ID"]),
+                e12=e12.tolist(), e6=e6.tolist())
     with (OUT / "angle-data.json").open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, allow_nan=False)
     with (OUT / "angle-scan.csv").open("w", encoding="utf-8", newline="") as f:

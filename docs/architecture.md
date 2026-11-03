@@ -822,3 +822,29 @@ PYLEECAN/SciDataTool Apache-2.0、SWAT-EM MIT，FEMM/pyfemm AFPL独立采用；
 这是公开对象的部分P7-B静态分支，主IR与现有控制器保持原验收范围。
 材料实测出处、轴向参数不一致及小空载转矩残余明确披露，
 未据此宣称同一工程电机热场、动态FOC或完整Gate B已经完成。
+
+## 公开有槽电机：角度扫描与开路电压
+
+[方法、结果和限制](p7-pyleecan-angle.md) / [冻结契约](p7-pyleecan-angle-contract.md)。
+
+```mermaid
+flowchart LR
+  MODEL["固定公开电机 / 原JSON / 非线性BH"] --> FE["PYLEECAN + FEMM静磁<br/>三网格 × 13角 / 零相电流"]
+  FE --> RAW["原生fem/ans / 三相电路磁链<br/>实际角 / 气隙Br与Bt"]
+  RAW --> SCALE["读取原生深度1m<br/>换算物理50mm叠长"]
+  SCALE --> CLOSED["独立90°端点闭合<br/>三网格 / 三相基波检查"]
+  SCALE --> DIFF["周期中心差分<br/>12点7.5° / 6点15°"]
+  SPEED["指定±600 / +1200rpm<br/>恒速准静态假设"] --> EMF["反电势 e = −ωm dλ/dθm"]
+  DIFF --> EMF
+  RAW --> HASH["273份manifest条目 / 78原生文件<br/>两次数值生产提交身份"]
+  HASH --> ACCEPT["固定数值与身份门槛<br/>损坏/错提交拒绝"]
+  CLOSED --> ACCEPT
+  EMF --> ACCEPT
+  ACCEPT --> UI["离线状态与场可视化<br/>三相磁链/电压 / 两图 / CSV / JSON"]
+  UI --> BROWSER["Chrome / 36状态 / 三速度<br/>下载 / 390px"]
+  NEXT["更细角步 / dq标定 / 同机型动态FOC<br/>独立PMSM场参考 / 热损耗映射"] -.待验证.-> EMF
+```
+
+三种速度共享同一静磁扫描，速度反向/倍速是后处理代数性质。
+12点和6点共享场解；两者之差说明角步敏感性，不是独立场求解器误差。
+真实原生场、磁链和派生电压分开标记；原生数值源与报告源分别可追溯。

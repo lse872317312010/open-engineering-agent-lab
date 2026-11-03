@@ -26,7 +26,8 @@ def write(path, data):
 
 
 def csv(path, rows):
-    keys = [k for k, v in rows[0].items() if isinstance(v, (int, float))]
+    keys = list(dict.fromkeys(k for row in rows for k, v in row.items()
+                             if isinstance(v, (int, float))))
     np.savetxt(path, [[r.get(k, np.nan) for k in keys] for r in rows],
                delimiter=",", comments="", header=",".join(keys))
 

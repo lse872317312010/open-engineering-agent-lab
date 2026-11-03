@@ -277,7 +277,8 @@ def archive():
         cpu=platform.processor(), python=sys.version,
         packages={p:importlib.metadata.version(p) for p in
                   ("numpy", "scipy", "matplotlib", "pyfemm", "pywin32", "PySide6")},
-        executable_sha256=hashlib.sha256(Path(os.environ["FEMM_EXE"]).read_bytes()).hexdigest())
+        executable_sha256=(hashlib.sha256(Path(os.environ["FEMM_EXE"]).read_bytes()).hexdigest()
+                           if Path(os.environ["FEMM_EXE"]).is_file() else None))
     write(OUT / "environment.json", data)
     (OUT / "environment.txt").write_text(
         subprocess.check_output([sys.executable, "-m", "pip", "freeze"], text=True))

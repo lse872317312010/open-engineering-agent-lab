@@ -29,11 +29,13 @@ def main():
     if (SOURCE / "report-reuse.json").exists():
         data["reuse"] = json.loads((SOURCE / "report-reuse.json").read_text())
     cases = data["cases"]
-    columns = ["grid", "sign", "angle_deg", "length_m", "native_depth_m", "ia_a", "ib_a", "ic_a",
+    columns = ["grid", "sign", "relative_angle_deg", "actual_angle_deg", "origin_deg",
+               "length_m", "native_depth_m", "ia_a", "ib_a", "ic_a",
                "lambda_a_wb", "lambda_b_wb", "lambda_c_wb", "torque_nm", "gap_torque_nm",
                "library_torque_nm", "nodes", "elements", "max_area_relative",
                "phi_unit_error", "torque_unit_error_nm"]
-    rows = [[r["grid"], r["sign"], r["angle_deg"], r["length_m"], r["native_depth_m"],
+    rows = [[r["grid"], r["sign"], r["angle_deg"], np.rad2deg(r["actual_angle_rad"]),
+             np.rad2deg(r["angle_origin_rad"]), r["length_m"], r["native_depth_m"],
              *r["currents_a"], *r["flux_wb"], r["torque_nm"], r["gap_torque_nm"],
              r["library_torque_nm"], r["nodes"], r["elements"], r["max_area_relative"],
              r["phi_unit_error"], r["torque_unit_error_nm"]] for r in cases]
@@ -106,7 +108,7 @@ def main():
     for phase in range(3):
         axes[0].plot(range(4), [cases[i]["flux_wb"][phase] for i in (6, 9, 10, 11)],
                      "o-", label="ABC"[phase])
-    axes[0].set(xticks=range(4), xticklabels=["0deg", "45deg", "90deg", "2x stack"],
+    axes[0].set(xticks=range(4), xticklabels=["rel 0deg", "rel 45deg", "rel 90deg", "2x stack"],
                 ylabel="Linkage [Wb]", title="Specified symmetry / axial limits")
     axes[0].legend()
     r = cases[6]
@@ -147,7 +149,8 @@ def main():
             page.select_option("#grid", "all")
             page.select_option("#case", str(i))
             assert page.evaluate("window.currentCase.case") == r["case"]
-            for key in ("torque_nm", "gap_torque_nm", "length_m", "native_depth_m", "angle_deg"):
+            for key in ("torque_nm", "gap_torque_nm", "length_m", "native_depth_m",
+                        "angle_deg", "actual_angle_rad"):
                 element = page.locator('[data-value="'+key+'"]')
                 assert float(element.get_attribute("data-number")) == r[key]
             for q in range(3):

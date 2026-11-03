@@ -28,7 +28,8 @@ def main():
         name = str(path.relative_to(SOURCE)).replace("\\", "-").replace("/", "-")
         shutil.copyfile(path, OUT / name)
         exports.append(dict(name=name, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-                            rows=len(path.read_text().splitlines())-1 if path.suffix == ".csv" else None))
+                            rows=(len(path.read_text().splitlines())-1
+                                  if path.suffix == ".csv" else None)))
     data["exports"] = exports
     data["report_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     figures = []
@@ -92,14 +93,15 @@ def main():
     shutil.copyfile(ROOT / "docs/p7-femm-nonlinear-contract.md", OUT / "contract.md")
     shutil.copyfile(SOURCE / "validation.json", OUT / "validation.json")
     template = (ROOT / "reports/p7-femm-nonlinear.html").read_text(encoding="utf-8")
-    (OUT / "index.html").write_text(template.replace("__DATA__", json.dumps(data).replace("</", "<\\/")),
-                                   encoding="utf-8")
+    encoded = json.dumps(data).replace("</", "<\\/")
+    (OUT / "index.html").write_text(template.replace("__DATA__", encoded), encoding="utf-8")
     with sync_playwright() as p, TemporaryDirectory() as tmp:
         browser = p.chromium.launch(channel="chrome")
         page = browser.new_page(accept_downloads=True)
         errors, external = [], []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.on("request", lambda r: external.append(r.url) if r.url.startswith(("http:", "https:")) else None)
+        page.on("request", lambda r: external.append(r.url)
+                if r.url.startswith(("http:", "https:")) else None)
         page.goto((OUT / "index.html").as_uri())
         inspected = 0
         for gi, grid in enumerate(data["grids"]):
@@ -111,9 +113,11 @@ def main():
                 for i, row in enumerate(grid[mode]):
                     page.select_option("#state", str(i))
                     actual = page.evaluate("window.currentState")
-                    for key in ("id_a", "iq_a", "angle_deg", "lambda_d_wb", "lambda_q_wb", "torque_nm"):
+                    for key in ("id_a", "iq_a", "angle_deg", "lambda_d_wb",
+                                "lambda_q_wb", "torque_nm"):
                         assert actual[key] == row[key], (gi, mode, i, key)
-                        assert float(page.locator('[data-value="'+key+'"]').get_attribute("data-number")) == row[key]
+                        element = page.locator('[data-value="'+key+'"]')
+                        assert float(element.get_attribute("data-number")) == row[key]
                     assert page.locator(".coil").count() == 6
                     assert page.locator(".gapvector").count() == 36
                     assert page.locator(".statornode").count() == 12
@@ -134,7 +138,8 @@ def main():
             if item["rows"] is not None:
                 assert len(path.read_text().splitlines())-1 == item["rows"]
         assert page.locator("figure img").count() == 5
-        assert page.evaluate("Array.from(document.querySelectorAll('figure img')).every(i=>i.complete && i.naturalWidth>0)")
+        assert page.evaluate("Array.from(document.querySelectorAll('figure img'))"
+                             ".every(i=>i.complete && i.naturalWidth>0)")
         page.screenshot(path=str(OUT / "desktop.png"), full_page=True)
         page.set_viewport_size(dict(width=390, height=844))
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -144,7 +149,8 @@ def main():
                       page_errors=errors, external_requests=external,
                       checks=["2 grids", "all 82 states", "signed numeric values",
                               "6 coils / 36 gap vectors / 12 stator nodes",
-                              "exact CSV/JSON downloads", "keyboard Home/End", "390px", "five figures"])
+                              "exact CSV/JSON downloads", "keyboard Home/End",
+                              "390px", "five figures"])
         browser.close()
     (OUT / "ui-validation.json").write_text(json.dumps(result, indent=2))
     print("p7-nonlinear-ui: "+json.dumps(result), flush=True)

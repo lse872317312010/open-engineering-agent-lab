@@ -75,7 +75,8 @@ def uniform(h, target_b):
     h_error = float(np.max(np.linalg.norm(a[:, 4:6]-[href, 0], axis=1))/abs(href))
     result = dict(h_mm=h, target_b_t=target_b, target_h_am=href,
                   b_relative=b_error, h_relative=h_error,
-                  positive_direction_error=float(np.max(np.linalg.norm(a[:, 2:4]-[abs(target_b), 0], axis=1))/abs(target_b)),
+                  positive_direction_error=float(np.max(np.linalg.norm(
+                      a[:, 2:4]-[abs(target_b), 0], axis=1))/abs(target_b)),
                   passed=b_error <= .005 and h_error <= .01)
     np.savetxt(folder / "points.csv", a, delimiter=",", comments="",
                header="x_m,y_m,bx_t,by_t,hx_am,hy_am")

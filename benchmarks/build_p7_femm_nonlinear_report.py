@@ -131,6 +131,7 @@ def main():
         page.keyboard.press("End")
         assert page.locator("#state").input_value() == "24"
         for item in exports:
+            print("p7-nonlinear-download: "+item["name"], flush=True)
             with page.expect_download() as event:
                 page.locator('a[data-export="'+item["name"]+'"]').click()
             download = event.value

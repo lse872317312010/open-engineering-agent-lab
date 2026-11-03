@@ -32,6 +32,6 @@ function drawMap(){const g=D.grids[+$('#grid').value],key=$('#component').value,
 $('#grid').onchange=populate;$('#mode').onchange=populate;$('#state').onchange=render;$('#component').onchange=drawMap;
 $('#overall').textContent=D.passed?'本轮固定门槛通过':'存在未通过项';
 $('#exports').innerHTML=D.exports.map(e=>'<a download href="'+e.name+'" data-export="'+e.name+'">'+e.name+'</a>').join('');
-$('#footer').textContent='源提交 '+D.commit+' · FEMM exe SHA256 '+D.executable_sha256+' · model_simulated / synthetic · 训练与留出分开留存';
+$('#footer').textContent='场生产提交 '+D.commit+' · 报告提交 '+D.report_commit+' · FEMM exe SHA256 '+D.executable_sha256+' · model_simulated / synthetic · 训练与留出分开留存';
 populate();
 </script></html>

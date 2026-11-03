@@ -24,6 +24,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/cache/restore@v4
+        id: native
+        with:
+          path: outputs/p7-femm-nonlinear/
+          key: nonlinear-fields-v1-${{ hashFiles('benchmarks/p7_femm_nonlinear.py', 'benchmarks/p7_femm_nonlinear_reference.py', 'benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_sampling.py', 'src/**/*.py', '.github/workflows/p7-femm-nonlinear.yml') }}
       - name: Install fixed Python environment
         run: |
           New-Item -ItemType Directory -Force outputs/p7-femm-nonlinear | Out-Null
@@ -59,7 +64,16 @@ jobs:
           ruff check .
           python -m pytest
       - name: Actual nonlinear material and motor maps
+        if: steps.native.outputs.cache-hit != 'true'
         run: python benchmarks/p7_femm_nonlinear.py
+      - name: Verify accepted native stage and its complete file manifest
+        run: |
+          python -c "import hashlib,json; from pathlib import Path; root=Path('outputs/p7-femm-nonlinear'); v=json.loads((root/'validation.json').read_text()); assert v['passed']; m=root/'native-manifest.json'; hashes=json.loads(m.read_text()) if m.exists() else {p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}; native=[p for p in hashes if p.endswith(('.fem','.ans'))]; assert len(native)==184; assert all(hashlib.sha256((root/p).read_bytes()).hexdigest()==h for p,h in hashes.items()); assert all(hashlib.sha256((root/('grid'+str(g['grid']))/'flux-map.json').read_bytes()).hexdigest()==g['map_sha256'] for g in v['grids']); m.write_text(json.dumps(hashes,indent=2)); print('p7-nonlinear-native-verified:',len(hashes),'files,',len(native),'native models/solutions')"
+      - uses: actions/cache/save@v4
+        if: steps.native.outputs.cache-hit != 'true'
+        with:
+          path: outputs/p7-femm-nonlinear/
+          key: ${{ steps.native.outputs.cache-primary-key }}
       - name: Archive environment and source identity
         if: always()
         run: |

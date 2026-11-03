@@ -2,6 +2,7 @@
 import hashlib
 import json
 import shutil
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -29,6 +30,7 @@ def main():
         exports.append(dict(name=name, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                             rows=len(path.read_text().splitlines())-1 if path.suffix == ".csv" else None))
     data["exports"] = exports
+    data["report_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     figures = []
     bh = np.array(data["bh_table_si"])
     fig, ax = plt.subplots(figsize=(8, 4.5))

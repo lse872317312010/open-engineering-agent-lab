@@ -151,15 +151,18 @@ def flux(row):
     return np.array([row["lambda_d_wb"], row["lambda_q_wb"]])
 
 
-def grid_case(index, grid):
+def grid_case(index, grid, training=None, frozen_sha=None):
     folder = OUT / f"grid{index}"
     folder.mkdir(parents=True, exist_ok=True)
     motor(grid)
-    training = []
-    for i, d in enumerate(AXIS):
-        for j, q in enumerate(AXIS):
-            training.append(point(folder / f"train-{i}-{j}", d, q, grid[0],
-                                  mst=index == 1 and d == 0 and abs(q) == 40))
+    if training is None:
+        training = []
+        for i, d in enumerate(AXIS):
+            for j, q in enumerate(AXIS):
+                training.append(point(folder / f"train-{i}-{j}", d, q, grid[0],
+                                      mst=index == 1 and d == 0 and abs(q) == 40))
+    assert [(r["id_a"], r["iq_a"]) for r in training] == [
+        (d, q) for d in AXIS for q in AXIS]
     values = np.array([flux(r) for r in training]).reshape(5, 5, 2)
     frozen = dict(axis_a=AXIS, flux_wb=values.tolist(), training_points=25,
                   commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
@@ -168,6 +171,8 @@ def grid_case(index, grid):
     map_path = folder / "flux-map.json"
     write(map_path, frozen)
     digest = hashlib.sha256(map_path.read_bytes()).hexdigest()
+    if frozen_sha is not None:
+        assert digest == frozen_sha
     csv(folder / "training.csv", training)
     # Training artifact is immutable before any holdout result exists.
     holdouts = []
@@ -223,7 +228,8 @@ def grid_case(index, grid):
         differences = []
     femm.mi_close()
     checks = {k:bool(v) for k, v in checks.items()}
-    result = dict(grid=index, mesh=dict(h_mm=grid[0], gap_h_mm=grid[1], arc_deg=grid[2]),
+    result = dict(grid=index, commit=frozen["commit"],
+                  mesh=dict(h_mm=grid[0], gap_h_mm=grid[1], arc_deg=grid[2]),
                   passed=all(checks.values()), checks=checks, map_sha256=digest,
                   training=training, holdouts=holdouts, increments=increments,
                   incremental_matrices_h=[m.tolist() for m in matrices],
@@ -242,19 +248,25 @@ def main():
     core.OUT = OUT
     assert hashlib.sha256(Path(os.environ["FEMM_EXE"]).read_bytes()).hexdigest() == EXE_SHA
     np.savetxt(OUT / "bh.csv", BH, delimiter=",", comments="", header="b_t,h_am")
-    femm.openfemm(1)
-    try:
-        materials = [uniform(h, b) for h in (2., 1., .5) for b in (1., 1.5, 2.)]
-        reverse = uniform(.5, -1.5)
-        write(OUT / "material-validation.json", dict(
-            passed=all(r["passed"] for r in materials+[reverse]),
-            cases=materials, reverse=reverse,
-            positive_reference_rejected=reverse["positive_direction_error"] > 1))
-        assert all(r["passed"] for r in materials+[reverse])
-        assert reverse["positive_direction_error"] > 1
-        grids = [grid_case(i, grid) for i, grid in enumerate(core.GRIDS[1:])]
-    finally:
-        femm.closefemm()
+    if os.environ.get("OEAL_NL_ASSEMBLE") == "1":
+        material = json.loads((OUT / "material-validation.json").read_text())
+        assert material["passed"]
+        materials, reverse = material["cases"], material["reverse"]
+        grids = [json.loads((OUT / f"grid{i}/validation.json").read_text()) for i in range(2)]
+    else:
+        femm.openfemm(1)
+        try:
+            materials = [uniform(h, b) for h in (2., 1., .5) for b in (1., 1.5, 2.)]
+            reverse = uniform(.5, -1.5)
+            write(OUT / "material-validation.json", dict(
+                passed=all(r["passed"] for r in materials+[reverse]),
+                cases=materials, reverse=reverse,
+                positive_reference_rejected=reverse["positive_direction_error"] > 1))
+            assert all(r["passed"] for r in materials+[reverse])
+            assert reverse["positive_direction_error"] > 1
+            grids = [grid_case(i, grid) for i, grid in enumerate(core.GRIDS[1:])]
+        finally:
+            femm.closefemm()
     mesh_flux = max(float(np.linalg.norm(flux(a)-flux(b))/SCALE)
                     for a, b in zip(grids[0]["training"], grids[1]["training"], strict=True))
     mesh_torque = max(abs(a["torque_nm"]-b["torque_nm"])/TS
@@ -266,7 +278,7 @@ def main():
                   mesh_torque_relative=mesh_torque, bh_table_si=BH.tolist(),
                   flux_scale_wb=SCALE, torque_scale_nm=TS,
                   source_kind="synthetic", evidence_level="model_simulated",
-                  commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+                  commit=grids[0]["commit"],
                   executable_sha256=EXE_SHA,
                   limitations="slotless static synthetic BH; no losses or dynamic nonlinear FOC")
     write(OUT / "validation.json", result)

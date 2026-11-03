@@ -53,12 +53,15 @@ jobs:
           }
           & $env:FEMM_EXE /regserver
           (Get-Item $env:FEMM_EXE).VersionInfo | Format-List | Out-File outputs/p7-femm-nonlinear/executable-version.txt
-      - name: Independent single uniform BH point
+      - name: Full independent material probe set
         run: |
-          python -c "import sys; sys.path.insert(0,'benchmarks'); import femm; import p7_femm_nonlinear as n; femm.openfemm(1); r=n.uniform(2.,1.5); femm.closefemm(); assert r['passed']"
-      - name: Single coarse nonlinear motor point
+          python -c "import sys; sys.path.insert(0,'benchmarks'); import femm; import p7_femm_nonlinear as n; femm.openfemm(1); rows=[n.uniform(h,b) for h in (2.,1.,.5) for b in (1.,1.5,2.)]; rows.append(n.uniform(.5,-1.5)); femm.closefemm(); assert all(r['passed'] for r in rows)"
+      - name: First nonlinear medium mesh map point
         run: |
-          python -c "import sys; sys.path.insert(0,'benchmarks'); import femm; import p7_femm_nonlinear as n; femm.openfemm(1); n.motor((1.,.25,2.)); r=n.point(n.OUT/'diagnostic-motor',0.,0.,1.); femm.mi_close(); femm.closefemm(); print('isolated nonlinear motor point completed',r['lambda_d_wb'])"
+          python -c "import sys; sys.path.insert(0,'benchmarks'); import femm; import p7_femm_nonlinear as n; femm.openfemm(1); n.motor((.5,.125,1.)); r=n.point(n.OUT/'diagnostic-medium',-40.,-40.,.5); femm.mi_close(); femm.closefemm(); print('isolated nonlinear motor point completed',r['lambda_d_wb'])"
+      - name: First nonlinear fine mesh map point
+        run: |
+          python -c "import sys; sys.path.insert(0,'benchmarks'); import femm; import p7_femm_nonlinear as n; femm.openfemm(1); n.motor((.25,.0625,.5)); r=n.point(n.OUT/'diagnostic-fine',-40.,-40.,.25); femm.mi_close(); femm.closefemm(); print('isolated fine nonlinear point completed',r['lambda_d_wb'])"
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

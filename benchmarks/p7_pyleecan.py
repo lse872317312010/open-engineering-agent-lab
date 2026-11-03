@@ -103,6 +103,7 @@ def geometry():
                header="radial_layer,tangential_layer,slot,phase,turns")
     np.savetxt(OUT / "bh.csv", raw["stator"]["mat_type"]["mag"]["BH_curve"]["value"],
                delimiter=",", comments="", header="h_am,b_t")
+    checks = {k:bool(v) for k, v in checks.items()}
     data = dict(passed=all(checks.values()), checks=checks, reference=target,
                 winding_shape=list(winding.shape), absolute_turns_per_phase=turns.tolist(),
                 signed_turns_per_phase=signed.tolist(), surfaces=surfaces,
@@ -112,7 +113,7 @@ def geometry():
                 bh=raw["stator"]["mat_type"]["mag"]["BH_curve"]["value"])
     write(OUT / "geometry.json", data)
     print("p7-pyleecan-geometry: "+json.dumps(
-        {k:v for k, v in data.items() if k not in {"surfaces", "bh"}}), flush=True)
+        {k:v for k, v in data.items() if k not in {"surfaces", "bh"}}, default=encode), flush=True)
     assert data["passed"], checks
     return data
 
@@ -216,7 +217,8 @@ def solve(name, grid, sign=0., angle=0., length=.05):
         handler.mi_close()
         handler.closefemm()
     print("p7-pyleecan-case: "+json.dumps(
-        {k:v for k, v in result.items() if k not in {"field", "phi_rad"}}), flush=True)
+        {k:v for k, v in result.items() if k not in {"field", "phi_rad"}},
+        default=encode), flush=True)
     return result
 
 
@@ -264,7 +266,7 @@ def main():
                   limits="reference 2D; unverified material provenance; no losses/dynamic FOC")
     write(OUT / "validation.json", report)
     print("p7-pyleecan-summary: "+json.dumps(
-        {k:v for k, v in report.items() if k != "cases"}), flush=True)
+        {k:v for k, v in report.items() if k != "cases"}, default=encode), flush=True)
     assert report["passed"], checks
 
 

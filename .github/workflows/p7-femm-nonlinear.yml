@@ -2,7 +2,7 @@ name: P7 actual FEMM nonlinear flux map
 on:
   push:
     branches: [main, codex/p7-femm-nonlinear]
-    paths: ['benchmarks/p7_femm*', 'benchmarks/build_p7_femm*', 'reports/p7-femm*', '.github/workflows/p7-femm-nonlinear.yml']
+    paths: ['benchmarks/p7_femm_nonlinear.py', 'benchmarks/p7_femm_nonlinear_batch.py', 'benchmarks/p7_femm_nonlinear_reference.py', 'benchmarks/p7_femm_motor.py', 'benchmarks/p7_femm_probe.py', 'benchmarks/p7_femm_reference.py', 'benchmarks/p7_femm_sampling.py', '.github/workflows/p7-femm-nonlinear.yml']
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,0 +1,36 @@
+name: P7 angle report synthetic UI smoke
+on:
+  push:
+    branches: [codex/p7-pyleecan-angle]
+    paths: ['benchmarks/p7_angle_ui_smoke.py', 'benchmarks/p7_angle_report.py', 'reports/p7-pyleecan-angle.html', '.github/workflows/p7-angle-ui-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  smoke:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy==2.2.6 matplotlib==3.10.7 playwright==1.55.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: angle-lane-0
+          path: outputs/angle-lanes/angle-lane-0
+          run-id: 41601354282
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: angle-lane-1
+          path: outputs/angle-lanes/angle-lane-1
+          run-id: 41601354282
+          github-token: ${{ github.token }}
+      - run: python benchmarks/p7_angle_ui_smoke.py
+      - run: python benchmarks/p7_angle_report.py

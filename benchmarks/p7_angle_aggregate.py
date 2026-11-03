@@ -29,6 +29,13 @@ def read_lane(index, grid):
     assert lane["grid"] == grid and lane["passed"] and lane["geometry_passed"]
     expected = os.environ["ANGLE_FINE_COMMIT"] if index == 2 else os.environ["ANGLE_SOURCE_COMMIT"]
     assert lane["commit"] == expected
+    environment = json.loads((folder / "environment.json").read_text())
+    installer = json.loads((folder / "installer-provenance.json").read_text())
+    assert environment["source_commit"] == expected
+    assert environment["executable_sha256"] == (
+        "5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21")
+    assert installer["sha256"] == (
+        "17384e8990b6305ec8ffef1f75b6ef091a266b6e49b30c151cd1daca2e952043")
     assert len(lane["cases"]) == 13
     natives = {name for name in manifest if name.endswith((".fem", ".ans"))}
     assert len(natives) == 26
@@ -36,13 +43,20 @@ def read_lane(index, grid):
     for i, case in enumerate(lane["cases"]):
         assert case["case"] == f"angle-{i:02d}" and case["angle_deg"] == 7.5*i
         assert case["grid"] == grid and case["passed"] and all(case["checks"].values())
+        assert case["length_m"] == .05 and case["native_depth_m"] == 1.
+        assert all(current == 0 for current in case["currents_a"])
+        assert np.isfinite(np.asarray(case["field"])).all()
         assert len(case["native_files"]) == 2
         for name, digest in case["native_files"].items():
             assert name.startswith(case["case"] + "/")
             assert name in natives and manifest[name] == digest
             seen_native.add(name)
     assert seen_native == natives
-    return lane, json.loads((folder / "geometry.json").read_text()), len(manifest)
+    geometry = json.loads((folder / "geometry.json").read_text())
+    assert geometry["passed"] and all(geometry["checks"].values())
+    assert geometry["asset_sha256"] == (
+        "beba1fd4ed50e8c1d13743209a7e345ecd21a0ee9e64960c22a08924511cea06")
+    return lane, geometry, len(manifest)
 
 
 def main():

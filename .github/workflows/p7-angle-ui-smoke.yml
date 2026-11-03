@@ -2,7 +2,7 @@ name: P7 angle report synthetic UI smoke
 on:
   push:
     branches: [codex/p7-pyleecan-angle]
-    paths: ['benchmarks/p7_angle_ui_smoke.py', 'benchmarks/p7_angle_report.py', 'reports/p7-pyleecan-angle.html', '.github/workflows/p7-angle-ui-smoke.yml']
+    paths: ['benchmarks/p7_angle_ui_smoke.py', 'benchmarks/p7_angle_integrity_smoke.py', 'benchmarks/p7_angle_report.py', 'reports/p7-pyleecan-angle.html', '.github/workflows/p7-angle-ui-smoke.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,6 +14,7 @@ jobs:
     env:
       PYTHONUTF8: "1"
       MPLBACKEND: Agg
+      ANGLE_SOURCE_COMMIT: 73d470a58c9f8d63991c3d5ae7cd9390cf62dd50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,5 +33,6 @@ jobs:
           path: outputs/angle-lanes/angle-lane-1
           run-id: 41601354282
           github-token: ${{ github.token }}
+      - run: python benchmarks/p7_angle_integrity_smoke.py
       - run: python benchmarks/p7_angle_ui_smoke.py
       - run: python benchmarks/p7_angle_report.py

@@ -159,6 +159,14 @@ def main():
             assert page.locator(".coil").count() == 24
             assert page.locator(".gapvector").count() == 48
             assert page.locator(".magnet").count() == 8
+        coil = page.locator(".coil").first
+        coil.click()
+        assert "NI " in page.locator("#component").inner_text()
+        coil.focus()
+        page.keyboard.press("Enter")
+        assert "匝数" in page.locator("#component").inner_text()
+        page.keyboard.press("Space")
+        assert "电流" in page.locator("#component").inner_text()
         for grid, expected in (("1", 3), ("1.5", 3), ("2", 6)):
             page.select_option("#grid", grid)
             assert page.locator("#case option").count() == expected

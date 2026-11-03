@@ -16,6 +16,7 @@
 <section class="card"><h2>完整导出</h2><div class="exports" id="exports"></div><p><a href="contract.md">固定契约</a> · <a href="NOTICE.md">模型出处</a> · <a href="pyleecan-LICENSE.txt">PYLEECAN许可</a> · <a href="scidatatool-LICENSE.txt">SciDataTool许可</a> · <a href="swat-em-LICENSE.txt">SWAT-EM许可</a> · <a id="raw-link">完整原生证据</a></p><p>报告含完整 CSV、JSON、PDF、PNG/SVG 和浏览器截图；FEMM 程序二进制不随报告再分发。数据等级为 model_simulated / open_dataset。</p></section><footer id="footer"></footer></main>
 <script id="data" type="application/json">__DATA__</script><script>
 const D=JSON.parse(document.querySelector('#data').textContent),$=s=>document.querySelector(s),M=D.model,S=M.stator,R=M.rotor;
+const LABELS={frame:'转子实际位置',circuit:'三相电流施加',depth_mapping:'叠长与单位映射',native_area:'区域面积',mst:'两种应力转矩',finite:'数值有效性',geometry:'几何与绕组',cases:'12个静态状态',mesh_nodes:'网格逐档增密',mesh_flux:'网格磁链变化',mesh_torque:'网格转矩变化',open_nonzero:'永磁体开路磁链',half_period:'45°磁链反向',full_period:'90°磁链重复',axial_scaling:'双叠长极限',winding_m2:'绕组',magnets_m2:'磁体',stator_core_m2:'定子铁芯',rotor_core_m2:'转子铁芯'};
 function fmt(x){return Number(x).toPrecision(8)}
 function refresh(){const g=$('#grid').value;$('#case').innerHTML=D.cases.map((r,i)=>({r,i})).filter(({r})=>g==='all'||r.grid===Number(g)).map(({r,i})=>'<option value="'+i+'">'+r.case+' · 相对 '+r.angle_deg+'° / '+(r.length_m*1000)+' mm</option>').join('');render();}
 function circle(r,c){return '<circle r="'+(r*1000)+'" fill="'+c+'"/>'}
@@ -27,11 +28,11 @@ $('#phases').innerHTML=[0,1,2].map(q=>'<tr><td>'+'ABC'[q]+'</td><td>'+fmt(r.curr
 $('#case-info').textContent=(r.passed?'✓ 当前门槛通过':'✕ 存在失败')+' · '+r.nodes+' 节点 / '+r.elements+' 单元';
 $('#depth').textContent='原生 1 m 磁链 '+r.native_flux_wb.map(fmt).join(' / ')+' Wb，按 '+fmt(r.length_m/r.native_depth_m)+' 倍映射；库输出 '+r.library_flux_wb.map(fmt).join(' / ')+' Wb。';
 $('#field').textContent='96 点场：max |Br| '+fmt(Math.max(...r.field.map(b=>Math.abs(b[0]))))+' T；max |Bt| '+fmt(Math.max(...r.field.map(b=>Math.abs(b[1]))))+' T。';
-$('#case-gates').innerHTML=Object.entries(r.checks).map(([k,v])=>'<p>'+(v?'✓ ':'✕ ')+k+'</p>').join('');
-$('#areas').innerHTML=Object.entries(r.native_areas_m2).map(([k,v])=>'<tr><td>'+k+'</td><td>'+fmt(v)+'</td><td>'+fmt(D.geometry.reference[k])+'</td></tr>').join('');
+$('#case-gates').innerHTML=Object.entries(r.checks).map(([k,v])=>'<p>'+(v?'✓ ':'✕ ')+(LABELS[k]||k)+'</p>').join('');
+$('#areas').innerHTML=Object.entries(r.native_areas_m2).map(([k,v])=>'<tr><td>'+(LABELS[k]||k)+'</td><td>'+fmt(v)+'</td><td>'+fmt(D.geometry.reference[k])+'</td></tr>').join('');
 $('#component').textContent='点击线圈边查看相别、匝数和安匝。';draw(r);}
 $('#grid').onchange=refresh;$('#case').onchange=render;$('#overall').textContent=D.passed?'本轮固定门槛通过':'存在未通过项';
-$('#all-gates').innerHTML=Object.entries(D.checks).map(([k,v])=>'<p>'+(v?'✓ ':'✕ ')+k+'</p>').join('');
+$('#all-gates').innerHTML=Object.entries(D.checks).map(([k,v])=>'<p>'+(v?'✓ ':'✕ ')+(LABELS[k]||k)+'</p>').join('');
 $('#mesh').textContent='中→细磁链差 / 0.05 Wb：'+fmt(D.mesh_flux_relative*100)+'%；转矩差 '+fmt(D.mesh_torque_change_nm)+' N·m。';
 $('#provenance').textContent='原模型 SHA256：'+D.geometry.asset_sha256;
 $('#exports').innerHTML=D.exports.map(e=>'<a download href="'+e.name+'" data-export="'+e.name+'">'+e.name+'</a>').join('');

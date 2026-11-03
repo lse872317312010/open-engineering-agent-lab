@@ -145,8 +145,13 @@ def main():
                              ".every(i=>i.complete && i.naturalWidth>0)")
         page.screenshot(path=str(OUT / "desktop.png"), full_page=True)
         page.set_viewport_size(dict(width=390, height=844))
-        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
+        overflow = page.evaluate("""Array.from(document.querySelectorAll('main *'))
+            .filter(e=>e.getBoundingClientRect().right>innerWidth+1)
+            .map(e=>({tag:e.tagName,id:e.id,cls:e.className.baseVal||e.className,
+                      text:e.textContent.slice(0,100)}))""")
+        print("p7-nonlinear-mobile-overflow: "+json.dumps(overflow), flush=True)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         result = dict(passed=not errors and not external, browser=browser.version,
                       states_checked=inspected, exact_downloads=len(exports),
                       page_errors=errors, external_requests=external,

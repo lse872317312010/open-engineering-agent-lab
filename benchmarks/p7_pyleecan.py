@@ -247,7 +247,8 @@ def main():
                         /np.linalg.norm(base["field"]))
     mesh_nodes = [results[3*i]["nodes"] for i in range(3)]
     checks = dict(geometry=geometry_data["passed"], cases=all(r["passed"] for r in results),
-                  mesh_nodes=all(a < b for a, b in zip(mesh_nodes[:-1], mesh_nodes[1:], strict=True)),
+                  mesh_nodes=all(a < b for a, b in zip(
+                      mesh_nodes[:-1], mesh_nodes[1:], strict=True)),
                   mesh_flux=flux_change <= .03, mesh_torque=torque_change <= .05,
                   open_nonzero=np.linalg.norm(base["flux_wb"]) > 1e-6,
                   half_period=reversal <= .02, full_period=periodic <= .02,
@@ -260,7 +261,7 @@ def main():
                   double_field_relative=field_delta, sources=SOURCES,
                   source_kind="open_dataset", evidence_level="model_simulated",
                   commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-                  limits="public reference 2D model; unverified material provenance; no losses/dynamic FOC")
+                  limits="reference 2D; unverified material provenance; no losses/dynamic FOC")
     write(OUT / "validation.json", report)
     print("p7-pyleecan-summary: "+json.dumps(
         {k:v for k, v in report.items() if k != "cases"}), flush=True)
@@ -279,7 +280,8 @@ def archive():
     (OUT / "environment.txt").write_text(
         subprocess.check_output([sys.executable, "-m", "pip", "freeze"], text=True))
     for path in Path(os.environ["FEMM_EXE"]).parents[1].rglob("*"):
-        if path.is_file() and any(s in path.name.lower() for s in ("license", "licence", "copyright")):
+        if path.is_file() and any(s in path.name.lower()
+                                  for s in ("license", "licence", "copyright")):
             dst = OUT / "installed-licenses" / path.name
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, dst)

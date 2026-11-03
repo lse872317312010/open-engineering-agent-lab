@@ -36,7 +36,7 @@ $('#all-gates').innerHTML=Object.entries(D.checks).map(([k,v])=>'<p>'+(v?'✓ ':
 $('#mesh').textContent='中→细磁链差 / 0.05 Wb：'+fmt(D.mesh_flux_relative*100)+'%；转矩差 '+fmt(D.mesh_torque_change_nm)+' N·m。';
 $('#provenance').textContent='原模型 SHA256：'+D.geometry.asset_sha256;
 $('#exports').innerHTML=D.exports.map(e=>'<a download href="'+e.name+'" data-export="'+e.name+'">'+e.name+'</a>').join('');
-for(const a of $('#exports').querySelectorAll('a[data-export]')){if(!a.dataset.export.endsWith('.json'))continue;a.onclick=e=>{e.preventDefault();const item=D.exports.find(v=>v.name===a.dataset.export),bytes=Uint8Array.from(atob(item.base64),c=>c.charCodeAt(0)),u=URL.createObjectURL(new Blob([bytes],{type:'application/json'})),l=document.createElement('a');l.href=u;l.download=item.name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);};}
+for(const a of $('#exports').querySelectorAll('a[data-export]')){if(!/\.(json|pdf)$/.test(a.dataset.export))continue;a.onclick=e=>{e.preventDefault();const item=D.exports.find(v=>v.name===a.dataset.export),bytes=Uint8Array.from(atob(item.base64),c=>c.charCodeAt(0)),u=URL.createObjectURL(new Blob([bytes],{type:item.name.endsWith('.pdf')?'application/octet-stream':'application/json'})),l=document.createElement('a');l.href=u;l.download=item.name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);};}
 $('#raw-link').href='https://github.com/lse872317312010/open-engineering-agent-lab/actions'+(D.reuse?'/runs/'+D.reuse.source_run_id+'/artifacts/'+D.reuse.source_artifact_id:'');
 $('#footer').textContent='场生产 '+D.commit+' · 报告 '+D.report_commit+' · 上游 '+Object.entries(D.sources).map(([k,v])=>k+':'+v).join(' / ');refresh();
 </script></html>

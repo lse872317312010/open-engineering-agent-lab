@@ -1,4 +1,5 @@
 """Offline nonlinear FEMM map, constitutive states, full exports and browser checks."""
+import base64
 import hashlib
 import json
 import shutil
@@ -27,7 +28,8 @@ def main():
             continue
         name = str(path.relative_to(SOURCE)).replace("\\", "-").replace("/", "-")
         shutil.copyfile(path, OUT / name)
-        exports.append(dict(name=name, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        exports.append(dict(name=name, base64=base64.b64encode(path.read_bytes()).decode(),
+                            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                             rows=(len(path.read_text().splitlines())-1
                                   if path.suffix == ".csv" else None)))
     data["exports"] = exports

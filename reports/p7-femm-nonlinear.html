@@ -34,6 +34,7 @@ $('#reference').textContent='均匀场三网格 / 三个材料表节点：最大
 $('#mesh').textContent='同训练点网格差：磁链 / 0.026 Wb = '+fmt(D.mesh_flux_relative*100)+'%；转矩 / 1.56 N·m = '+fmt(D.mesh_torque_relative*100)+'%。误差归一化量固定，非各点自身百分比。';
 $('#overall').textContent=D.passed?'本轮固定门槛通过':'存在未通过项';
 $('#exports').innerHTML=D.exports.map(e=>'<a download href="'+e.name+'" data-export="'+e.name+'">'+e.name+'</a>').join('');
+for(const a of $('#exports').querySelectorAll('a[data-export]')){a.onclick=e=>{e.preventDefault();const item=D.exports.find(v=>v.name===a.dataset.export),bytes=Uint8Array.from(atob(item.base64),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'})),link=document.createElement('a');link.href=url;link.download=item.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};}
 $('#footer').textContent='场生产提交 '+D.commit+' · 报告提交 '+D.report_commit+' · FEMM exe SHA256 '+D.executable_sha256+' · model_simulated / synthetic · 训练与留出分开留存';
 populate();
 </script></html>

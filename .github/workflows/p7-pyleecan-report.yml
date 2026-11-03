@@ -1,0 +1,58 @@
+name: P7 PYLEECAN offline interactive report
+on:
+  push:
+    branches: [main, codex/p7-pyleecan-slotted]
+    paths: ['benchmarks/build_p7_pyleecan_report.py', 'benchmarks/p7_pyleecan_report_reuse.py', 'reports/p7-pyleecan.html', '.github/workflows/p7-pyleecan-report.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: pyleecan-report-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  report:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      PYLEECAN_SOURCE_COMMIT: 1d53e7f2982bf3dcfbe5aeb50bdcb22baacd9a64
+      PYLEECAN_SOURCE_RUN: "41596131408"
+      PYLEECAN_SOURCE_ARTIFACT: "13212208930"
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fixed report environment
+        run: |
+          python -m pip install numpy==2.2.6 scipy==1.15.3 matplotlib==3.10.7 playwright==1.55.0
+          python -m pip install -e ".[dev]"
+      - uses: actions/download-artifact@v4
+        with:
+          name: p7-pyleecan-raw-evidence
+          run-id: 41596131408
+          github-token: ${{ github.token }}
+          path: outputs/p7-pyleecan
+      - name: Verify immutable native archive and unchanged producers
+        run: python benchmarks/p7_pyleecan_report_reuse.py
+      - name: Ruff and full tests
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Build figures and validate all browser states and exact downloads
+        run: python benchmarks/build_p7_pyleecan_report.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-pyleecan-interactive-report
+          path: |
+            outputs/p7-pyleecan-report/
+            outputs/p7-pyleecan/report-reuse.json
+          if-no-files-found: error
+      - name: Enforce evidence and browser gates
+        if: ${{ !cancelled() }}
+        run: |
+          python -c "import json; from pathlib import Path; p=Path('outputs'); assert json.loads((p/'p7-pyleecan/report-reuse.json').read_text())['passed']; assert json.loads((p/'p7-pyleecan-report/ui-validation.json').read_text())['passed']"

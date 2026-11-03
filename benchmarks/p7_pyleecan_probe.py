@@ -9,7 +9,7 @@ script = (
     "import sys,faulthandler;sys.path.insert(0,'benchmarks');"
     "import p7_pyleecan as n;"
     "faulthandler.dump_traceback_later(30,repeat=True);"
-    "n.solve('isolated-first-case',1.);"
+    "n.activate();n.solve('isolated-first-case',1.);"
     "faulthandler.cancel_dump_traceback_later()"
 )
 try:

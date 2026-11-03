@@ -24,6 +24,7 @@ SOURCES = {
 }
 EXE_SHA = "5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21"
 GRIDS = [1., 1.5, 2.]
+ANGLE_ORIGIN = math.pi/8  # Geometric stator/rotor d-axis alignment, not a fitted phase.
 
 
 def encode(value):
@@ -82,6 +83,8 @@ def geometry():
     slot = machine.stator.slot.get_surface_active()
     polygon_error = abs(polygon_area(points(slot, 96))/target["slot_m2"]-1)
     checks["polygon"] = polygon_error <= .001
+    frame_origin = float(machine.comp_angle_rotor_initial())
+    checks["frame_origin"] = abs(frame_origin-ANGLE_ORIGIN) <= 1e-12
     surfaces = []
     for lam in (machine.stator, machine.rotor):
         for surface in lam.build_geometry(sym=1):
@@ -107,7 +110,7 @@ def geometry():
     data = dict(passed=all(checks.values()), checks=checks, reference=target,
                 winding_shape=list(winding.shape), absolute_turns_per_phase=turns.tolist(),
                 signed_turns_per_phase=signed.tolist(), surfaces=surfaces,
-                polygon_error=polygon_error, sources=SOURCES,
+                polygon_error=polygon_error, sources=SOURCES, angle_origin_rad=frame_origin,
                 asset_sha256=hashlib.sha256(ASSET.read_bytes()).hexdigest(),
                 bh_source="upstream M400-50A reference table; measurement provenance not verified",
                 bh=raw["stator"]["mat_type"]["mag"]["BH_curve"]["value"])
@@ -128,13 +131,13 @@ def selected_area(handler, groups):
 
 
 def solve(name, grid, sign=0., angle=0., length=.05):
+    machine = activate()
     from pyleecan.Classes.ImportMatrixVal import ImportMatrixVal
     from pyleecan.Classes.InputCurrent import InputCurrent
     from pyleecan.Classes.MagFEMM import MagFEMM
     from pyleecan.Classes.OPdq import OPdq
     from pyleecan.Classes.Simu1 import Simu1
 
-    machine = activate()
     machine.stator.L1 = length
     machine.rotor.L1 = length
     folder = OUT / name
@@ -143,7 +146,7 @@ def solve(name, grid, sign=0., angle=0., length=.05):
     sim = Simu1(name=name, machine=machine, path_result=str(folder))
     sim.input = InputCurrent(Is=ImportMatrixVal(value=currents[None, :]), Ir=None,
                              OP=OPdq(N0=60), Nt_tot=1, Na_tot=96,
-                             angle_rotor_initial=math.radians(angle))
+                             angle_rotor_initial=ANGLE_ORIGIN+math.radians(angle))
     sim.mag = MagFEMM(type_BH_stator=0, type_BH_rotor=0, is_periodicity_a=False,
                       is_periodicity_t=False, is_get_meshsolution=False,
                       Kgeo_fineness=grid, Kmesh_fineness=grid, nb_worker=1,
@@ -194,7 +197,12 @@ def solve(name, grid, sign=0., angle=0., length=.05):
         assert fempath.is_file() and anspath.is_file()
         native_files = {str(p.relative_to(OUT)).replace("\\", "/"):
                         hashlib.sha256(p.read_bytes()).hexdigest() for p in (fempath, anspath)}
-        checks = dict(circuit=True, depth_mapping=phi_error <= 1e-8 and torque_error <= 1e-8,
+        actual_angle = float(np.asarray(output.get_angle_rotor()).reshape(-1)[0])
+        expected_angle = ANGLE_ORIGIN+math.radians(angle)
+        frame_error = abs(math.atan2(math.sin(actual_angle-expected_angle),
+                                    math.cos(actual_angle-expected_angle)))
+        checks = dict(frame=frame_error <= 1e-12, circuit=True,
+                      depth_mapping=phi_error <= 1e-8 and torque_error <= 1e-8,
                       native_area=area_error <= .005, mst=abs(torque-gap_torque) <= .05,
                       finite=bool(np.all(np.isfinite([*flux, torque, gap_torque]))))
         result = dict(case=name, grid=grid, sign=sign, angle_deg=angle,
@@ -207,7 +215,8 @@ def solve(name, grid, sign=0., angle=0., length=.05):
                       max_area_relative=area_error, nodes=nodes, elements=elements,
                       field=field.tolist(), phi_rad=phi.tolist(), native_files=native_files,
                       passed=all(checks.values()), checks=checks,
-                      actual_angle_rad=float(np.asarray(output.get_angle_rotor()).reshape(-1)[0]))
+                      actual_angle_rad=actual_angle, expected_angle_rad=expected_angle,
+                      angle_origin_rad=ANGLE_ORIGIN, frame_error_rad=frame_error)
         write(folder / "result.json", result)
         write(folder / "femm-dict.json", details)
         np.savetxt(folder / "gap.csv", np.column_stack([phi, field]), delimiter=",", comments="",
@@ -262,6 +271,7 @@ def main():
                   double_flux_relative=double_phi, double_torque_error_nm=double_t,
                   double_field_relative=field_delta, sources=SOURCES,
                   source_kind="open_dataset", evidence_level="model_simulated",
+                  angle_origin_rad=ANGLE_ORIGIN,
                   commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
                   limits="reference 2D; unverified material provenance; no losses/dynamic FOC")
     write(OUT / "validation.json", report)

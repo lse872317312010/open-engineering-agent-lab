@@ -16,6 +16,7 @@ from p7_pyleecan import (
     write,
 )
 
+
 def solve(name, grid, sign=0., angle=0., length=.05, currents_abc=None):
     machine = activate()
     from pyleecan.Classes.ImportMatrixVal import ImportMatrixVal

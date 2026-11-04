@@ -45,6 +45,7 @@ def main():
                   direct=max(abs(cases[i]["increment_nm"]) for i in (3, 4)) <= .10,
                   formula=max(r["formula_error_nm"] for r in cases) <= .10,
                   frozen=hashlib.sha256(frozen.read_bytes()).hexdigest() == FRAME_SHA)
+    checks = {k: bool(v) for k, v in checks.items()}
     data = dict(passed=all(checks.values()), checks=checks, shard=shard,
                 frame_sha256=FRAME_SHA, cases=cases,
                 commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip())

@@ -1,0 +1,53 @@
+name: P7 open-circuit dq calibration
+on:
+  push:
+    branches: [codex/p7-dq-calibration]
+    paths: ['benchmarks/p7_dq*', 'reports/p7-dq.html', '.github/workflows/p7-dq.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  report:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      ANGLE_FINE_COMMIT: a57beef900ae3dbc5e5724f37236896c529c2bcb
+      REFINEMENT_COMMIT: 760420c76d56bfbc5ec3b8a4a6509cfff58009af
+      REFINEMENT_RUN: "41763744249"
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install numpy==2.2.6 matplotlib==3.10.7 playwright==1.55.0
+          python -m pip install -e ".[dev]"
+      - uses: actions/download-artifact@v4
+        with:
+          name: angle-lane-2-retry
+          path: outputs/angle-lanes/angle-lane-2
+          run-id: 41602596148
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: refinement-*
+          path: outputs/refined
+          run-id: 41763744249
+          github-token: ${{ github.token }}
+      - run: |
+          ruff check .
+          python -m pytest
+      - run: python benchmarks/p7_refinement_aggregate.py
+      - run: python benchmarks/p7_dq_calibration.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-dq-report
+          path: outputs/p7-dq-report/
+          if-no-files-found: error
+      - if: ${{ !cancelled() }}
+        run: python -c "import json; from pathlib import Path; p=Path('outputs/p7-dq-report'); assert json.loads((p/'validation.json').read_text())['passed']; assert json.loads((p/'ui-validation.json').read_text())['passed']"

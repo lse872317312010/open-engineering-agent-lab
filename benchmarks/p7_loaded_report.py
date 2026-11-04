@@ -29,6 +29,10 @@ def main():
         for name, digest in manifest.items():
             assert not PurePosixPath(name).is_absolute() and ".." not in PurePosixPath(name).parts
             assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == digest
+        environment = json.loads((folder / "environment.json").read_text())
+        assert environment["source_commit"] == commit
+        assert environment["executable_sha256"] == (
+            "5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21")
         lane = json.loads((folder / "loaded.json").read_text())
         assert lane["commit"] == commit and lane["shard"] == shard
         assert lane["passed"] and all(lane["checks"].values()) and len(lane["cases"]) == 5

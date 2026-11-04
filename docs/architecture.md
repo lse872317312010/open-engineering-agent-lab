@@ -884,3 +884,23 @@ flowchart LR
 ```
 
 标定对象是开路磁链坐标；不直接改写当前动态控制器。
+
+## 固定开路零位的带载方向验证
+
+[方法与原生证据](p7-loaded-frame.md)。
+
+```mermaid
+flowchart LR
+  F[冻结开路电角偏移与SHA] --> I[指定id/iq / 逆Park和Clarke]
+  I --> FE[原生三相电路 / 实际PYLEECAN与FEMM]
+  FE --> READ[电路实际电流回读 / dq误差检查]
+  FE --> L[真实磁链 / dq0映射]
+  FE --> T[加权应力与滑移带转矩]
+  L --> APPROX[1.5p乘lambda-d-iq减lambda-q-id]
+  T --> G[扣同位置零流基准 / 方向及近似差]
+  APPROX --> G
+  READ --> R[10工况状态和原生气隙场报告]
+  G --> R
+```
+
+旧数值生产者保持独立；近似公式不代替角谐波/齿槽能量模型或动态FOC验证。

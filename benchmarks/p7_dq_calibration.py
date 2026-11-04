@@ -55,6 +55,7 @@ def main():
     checks = dict(holdout_q=q_error <= .08, holdout_d=d_error <= .08,
                   roundtrip=max(errors) <= 1e-12,
                   frozen=frozen == hashlib.sha256(path.read_bytes()).hexdigest())
+    checks = {k: bool(v) for k, v in checks.items()}
     report = dict(passed=all(checks.values()), checks=checks, frame=frame, rows=rows,
                   holdout_q_normalized=q_error, holdout_d_normalized=d_error,
                   roundtrip_wb=max(errors), frozen_sha256=frozen,

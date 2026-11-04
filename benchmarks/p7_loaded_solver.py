@@ -95,7 +95,7 @@ def solve(name, grid, sign=0., angle=0., length=.05, currents_abc=None):
                       native_area=area_error <= .005, mst=abs(torque-gap_torque) <= .05,
                       finite=bool(np.all(np.isfinite([*flux, torque, gap_torque]))))
         result = dict(case=name, grid=grid, sign=sign, angle_deg=angle,
-                      length_m=length, native_depth_m=native_depth, currents_a=currents.tolist(),
+                      length_m=length, native_depth_m=native_depth, currents_a=currents.tolist(), native_currents_a=circuit[:, 0].tolist(),
                       flux_wb=flux.tolist(), native_flux_wb=circuit[:, 2].tolist(),
                       torque_nm=torque, gap_torque_nm=gap_torque,
                       native_torque_nm=raw_torque, library_flux_wb=library_flux.tolist(),

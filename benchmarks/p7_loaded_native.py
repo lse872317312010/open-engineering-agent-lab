@@ -27,7 +27,7 @@ def main():
     for i, (d, q) in enumerate(((0, 0), (0, 2), (0, -2), (2, 0), (-2, 0))):
         abc = inverse_clarke(*inverse_park(d, q, electrical))
         r = solve(f"loaded-{i}", 2., angle=angle, currents_abc=abc)
-        alpha, beta, _ = clarke(*r["currents_a"])
+        alpha, beta, _ = clarke(*r["native_currents_a"])
         actual = park(alpha, beta, electrical)
         assert max(abs(actual[0]-d), abs(actual[1]-q)) <= 1e-10
         la, lb, zero = clarke(*r["flux_wb"])

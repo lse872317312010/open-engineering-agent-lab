@@ -24,6 +24,10 @@ def main():
                     "HEAD", "--", "benchmarks/p7_pyleecan.py",
                     "benchmarks/p7_pyleecan_reference.py",
                     "benchmarks/assets/pyleecan-spmsm001.json"], check=True)
+    subprocess.run(["git", "fetch", "origin", os.environ["REFINEMENT_COMMIT"],
+                    "--depth=1"], check=True)
+    subprocess.run(["git", "diff", "--exit-code", os.environ["REFINEMENT_COMMIT"],
+                    "HEAD", "--", "benchmarks/p7_refinement_native.py"], check=True)
     cases = {2*i: c for i, c in enumerate(old["cases"][:12])}
     manifests = [count]
     for shard in range(3):
@@ -32,6 +36,10 @@ def main():
         for name, digest in manifest.items():
             assert not PurePosixPath(name).is_absolute() and ".." not in PurePosixPath(name).parts
             assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == digest
+        environment = json.loads((folder / "environment.json").read_text())
+        assert environment["source_commit"] == os.environ["REFINEMENT_COMMIT"]
+        assert environment["executable_sha256"] == (
+            "5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21")
         record = json.loads((folder / "refinement.json").read_text())
         assert record["commit"] == os.environ["REFINEMENT_COMMIT"]
         assert record["passed"] and record["geometry_passed"] and record["shard"] == shard
@@ -85,7 +93,7 @@ def main():
     (OUT / "angle-data.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     with (OUT / "angle-scan.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["relative_deg", "absolute_rad", "lambda_a", "lambda_b", "lambda_c",
+        writer.writerow(["relative_deg", "absolute_rad", "lambda_a_wb", "lambda_b_wb", "lambda_c_wb",
                          "emf_a_600rpm", "emf_b_600rpm", "emf_c_600rpm", "source_commit"])
         for i, case in enumerate(ordered):
             source = data["source_commit"] if i % 2 == 0 else data["fine_commit"]

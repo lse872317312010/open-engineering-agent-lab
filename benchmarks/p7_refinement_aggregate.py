@@ -93,7 +93,8 @@ def main():
     (OUT / "angle-data.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     with (OUT / "angle-scan.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["relative_deg", "absolute_rad", "lambda_a_wb", "lambda_b_wb", "lambda_c_wb",
+        writer.writerow(["relative_deg", "absolute_rad", "lambda_a_wb",
+                         "lambda_b_wb", "lambda_c_wb",
                          "emf_a_600rpm", "emf_b_600rpm", "emf_c_600rpm", "source_commit"])
         for i, case in enumerate(ordered):
             source = data["source_commit"] if i % 2 == 0 else data["fine_commit"]

@@ -13,6 +13,7 @@ from p7_pyleecan import (
     encode,
     physical_depth,
     reference,
+    selected_area,
     write,
 )
 

@@ -50,4 +50,4 @@ jobs:
           path: outputs/p7-dq-report/
           if-no-files-found: error
       - if: ${{ !cancelled() }}
-        run: python -c "import json; from pathlib import Path; p=Path('outputs/p7-dq-report'); assert json.loads((p/'angle-data.json').read_text())['passed']; assert json.loads((p/'ui-validation.json').read_text())['passed']"
+        run: python -c "import json; from pathlib import Path; p=Path('outputs/p7-dq-report'); assert json.loads((p/'validation.json').read_text())['passed']; assert json.loads((p/'ui-validation.json').read_text())['passed']"

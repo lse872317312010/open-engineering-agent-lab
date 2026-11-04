@@ -43,6 +43,7 @@ def main():
                 seen.add(name)
             r["d_wb"], r["q_wb"], r["zero_wb"] = (
                 r["lambda_d_wb"], r["lambda_q_wb"], r["lambda_zero_wb"])
+            r["ia_a"], r["ib_a"], r["ic_a"] = r["native_currents_a"]
             r["index"] = len(rows)
             rows.append(r)
         assert seen == native and len(seen) == 10
@@ -55,7 +56,8 @@ def main():
     (OUT / "validation.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     with (OUT / "loaded.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        keys = ["angle_deg", "id_a", "iq_a", "d_wb", "q_wb", "zero_wb",
+        keys = ["angle_deg", "id_a", "iq_a", "ia_a", "ib_a", "ic_a",
+                "electrical_rad", "d_wb", "q_wb", "zero_wb",
                 "torque_nm", "gap_torque_nm", "fundamental_torque_nm",
                 "increment_nm", "formula_error_nm"]
         w.writerow(keys)

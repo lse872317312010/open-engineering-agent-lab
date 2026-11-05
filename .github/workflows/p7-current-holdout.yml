@@ -1,0 +1,127 @@
+name: P7 mixed current holdout
+on:
+  push:
+    branches: [codex/p7-current-holdout]
+    paths: ['benchmarks/p7_current_holdout_native.py', '.github/workflows/p7-current-holdout.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: current-holdout-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  fine:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      FEMM_EXE: C:\femm42\bin\femm.exe
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      QT_API: pyside6
+      QT_QPA_PLATFORM: offscreen
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - name: Preserve original source line endings
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: Eomys/pyleecan
+          ref: 8654bd49fc005fdb19a38b1e39cd5d06198cdac1
+          path: outputs/vendor/pyleecan
+          sparse-checkout: |
+            pyleecan
+            LICENSE
+            README.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Eomys/SciDataTool
+          ref: c6f2497971a24486c64ad27575eb45f12a8458bf
+          path: outputs/vendor/scidatatool
+          sparse-checkout: |
+            SciDataTool
+            LICENSE
+            README.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Eomys/swat-em
+          ref: 4d3b4d7093ba127b5bfbf4c6f2a038d87ba79d7e
+          path: outputs/vendor/swat-em
+          sparse-checkout: |
+            swat_em
+            LICENSE
+            README.md
+          sparse-checkout-cone-mode: false
+      - name: Fixed optional scientific and GUI-library environment
+        run: |
+          New-Item -ItemType Directory -Force outputs/p7-pyleecan | Out-Null
+          python -m pip install --report outputs/p7-pyleecan/pip-install.json numpy==2.2.6 scipy==1.15.3 matplotlib==3.10.7 pandas==2.2.3 h5py==3.13.0 cloudpickle==3.1.1 scikit-learn==1.6.1 imageio==2.37.0 pillow==11.2.1 openpyxl==3.1.5 ezdxf==1.4.2 PySide6==6.8.3 QtPy==2.4.3 pyqtgraph==0.13.7 xlsxwriter==3.2.3 six==1.17.0 pyfemm==0.1.3 pywin32==311
+          python -m pip install -e ".[dev]"
+      - name: Download pinned FEMM mirror and verify official installer and runtime digests
+        run: |
+          $url = 'https://raw.githubusercontent.com/leogrossman/JUAS26-Course2-NC-Mag-Case-Study/75ce5e113836c1955b3da9964e49326d175f0a89/misc/femm_install/femm42bin_x64_21Apr2019.exe'
+          $installer = Join-Path $env:RUNNER_TEMP 'femm-installer.exe'
+          foreach ($attempt in 1..3) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $installer -TimeoutSec 60 -ErrorAction Stop
+              break
+            } catch {
+              Write-Output ("Pinned mirror download attempt " + $attempt + " failed")
+              if ($attempt -eq 3) { throw }
+              Start-Sleep -Seconds 5
+            }
+          }
+          $digest = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          $bytes = [System.IO.File]::ReadAllBytes($installer)
+          if ($bytes.Length -lt 1000000 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) {
+            throw "Pinned mirror is not a complete Windows PE installer"
+          }
+          $expected = '17384e8990b6305ec8ffef1f75b6ef091a266b6e49b30c151cd1daca2e952043'
+          if ($digest -ne $expected) { throw "FEMM installer SHA256 differs from frozen provenance" }
+          $record = @{url=$url; sha256=$digest; bytes=$bytes.Length}
+          $record | ConvertTo-Json | Set-Content outputs/p7-pyleecan/installer-provenance.json
+          Write-Output ("femm-installer-sha256: " + $digest)
+          $proc = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=C:\femm42' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Installer failed: $($proc.ExitCode)" }
+          if (!(Test-Path $env:FEMM_EXE)) { throw "FEMM executable not installed" }
+          $actualExe = (Get-FileHash $env:FEMM_EXE -Algorithm SHA256).Hash.ToLower()
+          if ($actualExe -ne '5e83cf0899cabae2017868ddcce338e3ba4ac25d1bf8e511eac77eda2bc92a21') {
+            throw "FEMM runtime executable digest changed"
+          }
+          & $env:FEMM_EXE /regserver
+          (Get-Item $env:FEMM_EXE).VersionInfo | Format-List | Out-File outputs/p7-pyleecan/executable-version.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: p7-dq-report
+          path: outputs/frozen-frame
+          run-id: 41773934220
+          github-token: ${{ github.token }}
+      - name: Ruff and analytic reference tests
+        run: |
+          ruff check .
+          python -m pytest
+      - name: Eight actual dq holdout current cases
+        run: python benchmarks/p7_current_holdout_native.py ${{ matrix.shard }}
+      - name: Archive actual native models and provenance
+        if: ${{ !cancelled() }}
+        run: python benchmarks/p7_pyleecan.py archive
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: current-holdout-${{ matrix.shard }}
+          overwrite: true
+          path: outputs/p7-pyleecan/
+          if-no-files-found: error
+      - name: Require complete native lane
+        if: ${{ !cancelled() }}
+        run: python -c "import json; from pathlib import Path; assert json.loads(Path('outputs/p7-pyleecan/current-holdout.json').read_text())['evidence_passed']"

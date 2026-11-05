@@ -6,7 +6,6 @@ import os
 import subprocess
 from pathlib import Path, PurePosixPath
 
-import numpy as np
 from p7_angular_reference import evaluate
 from p7_local_flux_model import LocalFluxModel
 

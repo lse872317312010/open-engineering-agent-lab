@@ -3,10 +3,11 @@ import csv
 import hashlib
 import json
 import math
+from functools import partial
 from pathlib import Path
 
 import numpy as np
-from p7_cogging_model import CoggingMotor, FourierSeries, JROT
+import p7_cogging_model as cogging
 from scipy.integrate import solve_ivp
 
 from oeal.current_control import CurrentPIParameters, CurrentPIState, current_control_step
@@ -66,7 +67,7 @@ def simulate(model, direction, dt):
         start = tick*TS
         angle, omega = state[2:4]
         flux = model.flux(angle, state[:2])
-        feedforward = omega*(model.psi.derivative(angle)+4*JROT@flux)
+        feedforward = omega*(model.psi.derivative(angle)+4*cogging.JROT@flux)
         command = current_control_step(
             p, pi, reference_d_a=0., reference_q_a=direction*.5,
             measured_d_a=float(state[0]), measured_q_a=float(state[1]), period_s=TS,
@@ -97,7 +98,7 @@ def simulate(model, direction, dt):
                 balance = (state[4]-state[5]-state[6]-state[7]-model.stored(state[2], state[:2])
                            -.5*model.inertia*state[3]**2)
                 max_balance = max(max_balance, abs(float(balance)))
-            reference = solve_ivp(lambda at, y: derivative(model, stationary, load, at, y),
+            reference = solve_ivp(partial(derivative, model, stationary, load),
                                   (start, start+TS), replay, method="DOP853",
                                   rtol=1e-10, atol=1e-12)
             assert reference.success
@@ -142,9 +143,9 @@ def main():
     path = OUT / "coenergy-model.json"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == fields["model_sha256"]
     parameters = json.loads(path.read_text())
-    psi = FourierSeries(parameters["psi_a"], parameters["psi_b"])
-    cog = FourierSeries(parameters["cog_a"], parameters["cog_b"])
-    motor = CoggingMotor(psi, cog, parameters["inductance_h"])
+    psi = cogging.FourierSeries(parameters["psi_a"], parameters["psi_b"])
+    cog = cogging.FourierSeries(parameters["cog_a"], parameters["cog_b"])
+    motor = cogging.CoggingMotor(psi, cog, parameters["inductance_h"])
     cases = []
     for name, direction, dt in (("forward", 1., 5e-6), ("reverse", -1., 5e-6),
                                 ("fine", 1., 2.5e-6)):

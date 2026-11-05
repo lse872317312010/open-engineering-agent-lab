@@ -944,3 +944,27 @@ flowchart LR
 ```
 
 速度为0、机械功率为0；永久磁链不影响此时的RL电流RHS，不能据此宣称已验证旋转背电势。
+
+## 外部恒速的旋转局部模型与离域拒绝
+
+[假设、方程和验证](p7-rotation.md)。
+
+```mermaid
+flowchart LR
+  SPEED[外部施加正反300rpm / 理想角度] --> ANGLE[电角随时间推进]
+  MODEL[冻结psi和完整L / 转角不变延拓假设] --> RHS[旋转dq方程 / 背电势与耦合]
+  ANGLE --> RHS
+  CTRL[既有PI / 完整omega-J-lambda前馈] --> PWM[逆Park / 平均SVPWM]
+  PWM --> HOLD[静止alpha-beta电压保持]
+  HOLD --> RHS
+  RHS --> CTRL
+  RHS --> DOMAIN[每RK阶段电流域检查 / 首次离域拒绝]
+  HOLD --> EXACT[增广矩阵指数重放]
+  RHS --> ENERGY[源能 / 铜耗 / 外部轴功 / 储能]
+  EXACT --> VERIFY[精确差 / 半步长 / 能量余额]
+  ENERGY --> VERIFY
+  DOMAIN --> UI[正常完整轨迹 / 欠压有效前缀与拒绝]
+  VERIFY --> UI
+```
+
+原FE并未覆盖全旋转带载角域；外部速度与相同仿射模型的数值验证不能替代真实动态物理参照。

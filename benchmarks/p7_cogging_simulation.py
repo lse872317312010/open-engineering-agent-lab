@@ -35,13 +35,20 @@ def derivative(model, stationary, load, at, state):
     return np.r_[di, dtheta, domega, powers]
 
 
-def simulate(model, direction, dt):
+def simulate(model, direction, dt, *, initial_theta=0., initial_omega=0.):
+    if (direction not in (-1., 1.) or not math.isfinite(dt) or dt <= 0
+            or not math.isclose(TS/dt, round(TS/dt), rel_tol=0, abs_tol=1e-10)
+            or not math.isfinite(initial_theta) or not math.isfinite(initial_omega)):
+        raise ValueError("finite initial state, signed direction and integer substeps required")
     matrix = model.inductance
     p = CurrentPIParameters(matrix[0, 0]*1000, model.resistance*1000,
                             matrix[1, 1]*1000, model.resistance*1000,
                             48/math.sqrt(3), 1., 1000.)
     pi = CurrentPIState()
-    state, replay = np.zeros(8), np.zeros(8)
+    state = np.zeros(8)
+    state[2:4] = initial_theta, initial_omega
+    replay = state.copy()
+    initial_energy = model.stored(initial_theta, state[:2]) + .5*model.inertia*initial_omega**2
     rows, rejection = [], None
     max_i = max_angle = max_speed = max_balance = max_domain = 0.
     time, commands, limited = 0., 0, 0
@@ -53,7 +60,7 @@ def simulate(model, direction, dt):
         total, cog, increment = model.torque(state[2], state[:2])
         stored = model.stored(state[2], state[:2])
         kinetic = .5*model.inertia*state[3]**2
-        balance = state[4]-state[5]-state[6]-state[7]-stored-kinetic
+        balance = state[4]-state[5]-state[6]-state[7]-stored-kinetic+initial_energy
         return dict(time_s=float(at), id_a=float(state[0]), iq_a=float(state[1]),
                     reference_a=reference, theta_rad=float(state[2]), omega_rad_s=float(state[3]),
                     vd_v=float(voltage[0]), vq_v=float(voltage[1]), torque_nm=total,
@@ -96,7 +103,7 @@ def simulate(model, direction, dt):
                 time = at+dt
                 max_domain = max(max_domain, float(np.sum(abs(state[:2]))))
                 balance = (state[4]-state[5]-state[6]-state[7]-model.stored(state[2], state[:2])
-                           -.5*model.inertia*state[3]**2)
+                           -.5*model.inertia*state[3]**2+initial_energy)
                 max_balance = max(max_balance, abs(float(balance)))
             reference = solve_ivp(partial(derivative, model, stationary, load),
                                   (start, start+TS), replay, method="DOP853",
@@ -113,6 +120,8 @@ def simulate(model, direction, dt):
     rows.append(record(time, *last))
     return dict(completed=rejection is None, commands=commands, samples=len(rows),
                 direction=direction, dt_s=dt, rows=rows, rejection=rejection,
+                initial_theta_rad=initial_theta, initial_omega_rad_s=initial_omega,
+                initial_energy_j=initial_energy,
                 max_current_error_a=max_i, max_angle_error_rad=max_angle,
                 max_speed_error_rad_s=max_speed, max_balance_j=max_balance,
                 max_l1_current_a=max_domain, limited_commands=limited,

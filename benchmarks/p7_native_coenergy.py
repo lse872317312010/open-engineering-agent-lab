@@ -119,7 +119,10 @@ def main():
     data = dict(evidence_passed=True, shard=shard, center_deg=center, samples=samples,
                 comparison=result, source_commits=[DEEP, SECOND], executable_sha256=EXE,
                 commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip())
-    (OUT / "native-coenergy.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+    output = OUT / "native-coenergy.json"
+    output.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    (OUT / "manifest.json").write_text(
+        json.dumps({"native-coenergy.json": sha(output)}, indent=2), encoding="utf-8")
     print("native-coenergy: "+json.dumps(data), flush=True)
 
 

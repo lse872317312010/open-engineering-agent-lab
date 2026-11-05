@@ -2,6 +2,7 @@
 import csv
 import hashlib
 import json
+import math
 import os
 import subprocess
 from pathlib import Path, PurePosixPath
@@ -48,6 +49,8 @@ def main():
             assert not path.is_absolute() and ".." not in path.parts
             assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == digest
         assert hashlib.sha256((folder / "frame.json").read_bytes()).hexdigest() == FRAME
+        frame = json.loads((folder / "frame.json").read_text())
+        electrical = 4*math.radians(angle)+frame["offset_rad"]
         env = json.loads((folder / "environment.json").read_text())
         assert env["source_commit"] == source and env["executable_sha256"] == EXE
         geo = json.loads((folder / "geometry.json").read_text())
@@ -67,11 +70,18 @@ def main():
         baseline = anchors[0]["fe_torque_nm"]
         for r in anchors:
             r["index"] = len(rows)
+            r["origin"] = "reused"
             rows.append(r)
         for i, (r, pair) in enumerate(zip(lane["cases"], PAIRS, strict=True)):
             assert r["angle_deg"] == angle and (r["id_a"], r["iq_a"]) == pair
             assert r["case"] == f"loaded-{i}" and r["grid"] == 2. and r["length_m"] == .05
             assert r["passed"] and all(r["checks"].values())
+            assert abs(r["electrical_rad"]-electrical) <= 1e-12
+            assert abs(r["actual_angle_rad"]-(math.pi/8+math.radians(angle))) <= 1e-12
+            assert abs(r["native_depth_m"]-1.) <= 1e-12
+            assert max(abs(a-.05*b) for a, b in zip(
+                r["flux_wb"], r["native_flux_wb"], strict=True)) <= 1e-10
+            assert abs(r["torque_nm"]-.05*r["native_torque_nm"]) <= 1e-10
             for name, digest in r["native_files"].items():
                 assert name.startswith(r["case"]+"/") and name in native
                 assert manifest[name] == digest

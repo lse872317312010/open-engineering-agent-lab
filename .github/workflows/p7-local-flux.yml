@@ -1,0 +1,46 @@
+name: P7 local reciprocal flux model
+on:
+  push:
+    branches: [codex/p7-local-flux-model]
+    paths: ['benchmarks/p7_local_flux*', 'reports/p7-local-flux.html', '.github/workflows/p7-local-flux.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  report:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      LOADED_COMMIT: 26e7035e77252d11102599cd4016da30ff47dcd8
+      LOADED_RUN: "41805176730"
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install numpy==2.2.6 matplotlib==3.10.7 playwright==1.55.0
+          python -m pip install -e ".[dev]"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: loaded-*
+          path: outputs/loaded
+          run-id: 41805176730
+          github-token: ${{ github.token }}
+      - run: |
+          ruff check .
+          python -m pytest
+      - run: python benchmarks/p7_loaded_report.py
+      - run: python benchmarks/p7_local_flux_study.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-local-flux-report
+          path: outputs/p7-local-flux-report/
+          if-no-files-found: error
+      - if: ${{ !cancelled() }}
+        run: python -c "import json; from pathlib import Path; p=Path('outputs/p7-local-flux-report'); assert json.loads((p/'validation.json').read_text())['passed']; assert json.loads((p/'ui-validation.json').read_text())['passed']"

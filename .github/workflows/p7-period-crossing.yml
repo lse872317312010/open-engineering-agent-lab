@@ -13,6 +13,9 @@ on:
       - 'benchmarks/build_p7_stator_figure.py'
       - 'benchmarks/p7-stator-requirements.txt'
       - 'tests/test_p7_stator_thermal.py'
+      - 'src/oeal/stator_rom.py'
+      - 'tests/test_stator_rom.py'
+      - 'benchmarks/build_p7_stator_rom_figure.py'
       - '.github/workflows/p7-period-crossing.yml'
   workflow_dispatch:
 permissions:
@@ -47,6 +50,9 @@ jobs:
       - run: python benchmarks/p7_winding_heat.py
       - run: python benchmarks/p7_stator_thermal.py
       - run: python benchmarks/build_p7_stator_figure.py
+      - run: python benchmarks/p7_stator_rom_study.py train
+      - run: python benchmarks/p7_stator_rom_study.py validate
+      - run: python benchmarks/build_p7_stator_rom_figure.py
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -55,4 +61,5 @@ jobs:
             outputs/p7-cogging-report/
             outputs/p7-winding-heat/
             outputs/p7-stator-thermal/
+            outputs/p7-stator-rom/
           if-no-files-found: error

@@ -93,16 +93,16 @@ def main():
     (OUT / "model.json").write_bytes(source.read_bytes())
     nominal, n = simulate(model, 48., 5e-6)
     fine, f = simulate(model, 48., 2.5e-6)
-    low, l = simulate(model, .18, 5e-6)
+    low, low_metrics = simulate(model, .18, 5e-6)
     refinement = float(np.max(abs(nominal[:, 1:3]-fine[:, 1:3])))
     checks = dict(tracking=n["steady_q_error_a"] <= .005 and n["steady_d_a"] <= .005,
-                  exact=max(x["exact_error_a"] for x in (n, f, l)) <= 1e-7,
-                  energy=max(x["max_balance_j"] for x in (n, f, l)) <= 1e-9,
+                  exact=max(x["exact_error_a"] for x in (n, f, low_metrics)) <= 1e-7,
+                  energy=max(x["max_balance_j"] for x in (n, f, low_metrics)) <= 1e-9,
                   refinement=refinement <= 1e-7,
-                  domain=max(x["max_l1_current_a"] for x in (n, f, l)) <= 2,
+                  domain=max(x["max_l1_current_a"] for x in (n, f, low_metrics)) <= 2,
                   voltage=all(x["max_voltage_v"] <= x["vdc_v"]/math.sqrt(3)+1e-12
-                              for x in (n, f, l)),
-                  undervoltage=l["limited_commands"] > 0 and l["steady_q_error_a"] > .05,
+                              for x in (n, f, low_metrics)),
+                  undervoltage=low_metrics["limited_commands"] > 0 and low_metrics["steady_q_error_a"] > .05,
                   frozen=hashlib.sha256(source.read_bytes()).hexdigest() == MODEL_SHA)
     columns = ("time_s,id_a,iq_a,iq_reference_a,vd_v,vq_v,lambda_d_wb,lambda_q_wb,"
                "reaction_torque_nm,source_j,copper_j,magnetic_j,balance_j,limited,"
@@ -112,7 +112,7 @@ def main():
             writer = csv.writer(fp)
             writer.writerow(columns)
             writer.writerows(values.tolist())
-    report = dict(passed=all(checks.values()), checks=checks, nominal=n, fine=f, undervoltage=l,
+    report = dict(passed=all(checks.values()), checks=checks, nominal=n, fine=f, undervoltage=low_metrics,
                   refinement_error_a=refinement, model_sha256=MODEL_SHA,
                   assigned_resistance_ohm=R, electrical_angle_rad=ANGLE,
                   commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip())

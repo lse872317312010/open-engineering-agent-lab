@@ -15,6 +15,8 @@ OUT = ROOT / "outputs/p7-cogging-report"
 def main():
     fields = json.loads((OUT / "fields.json").read_text())
     dynamics = json.loads((OUT / "dynamics.json").read_text())
+    native = json.loads((OUT / "native.json").read_text())
+    assert native["evidence_passed"] and len(native["rows"]) == 8
     assert fields["evidence_passed"] and len(fields["rows"]) == 65
     rows = fields["rows"]
     angles = [r["angle_deg"] for r in rows]
@@ -44,8 +46,37 @@ def main():
     for suffix in ("png", "svg", "pdf"):
         fig.savefig(OUT / ("cogging."+suffix))
     plt.close(fig)
-    files = ("fields.json", "dynamics.json", "coenergy-model.json", "cogging.pdf")
-    data = dict(fields=fields, dynamics=dynamics,
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    centers = [r["center_deg"] for r in native["rows"]]
+    for key, label in (("stress_torque_nm", "rotor stress"),
+                       ("gap_torque_nm", "gap stress"),
+                       ("energy_torque_nm", "fine coenergy difference"),
+                       ("coarse_torque_nm", "coarse coenergy difference")):
+        axes[0, 0].plot(centers, [r[key] for r in native["rows"]], "o-", label=label)
+    axes[0, 0].set(ylabel="zero-current torque [Nm]")
+    axes[0, 1].plot(centers, [r["error_nm"] for r in native["rows"]], "o-", label="fine")
+    axes[0, 1].plot(centers, [r["coarse_error_nm"] for r in native["rows"]], "o-", label="coarse")
+    axes[0, 1].axhline(.10, color="red", ls="--", label="fine budget")
+    axes[0, 1].set(ylabel="stress discrepancy [Nm]")
+    for key, label in (("native_relative_j", "native total coenergy"),
+                       ("reconstructed_relative_j", "reconstructed coenergy")):
+        axes[1, 0].plot(centers, [r[key] for r in native["rows"]], "o-", label=label)
+    axes[1, 0].set(ylabel="relative coenergy [J]")
+    axes[1, 1].bar([str(v) for v in centers],
+                   [r["gap_omission_effect_nm"] for r in native["rows"]],
+                   label="omitting sliding gap")
+    axes[1, 1].set(ylabel="torque difference [Nm]")
+    for ax in axes.flat:
+        ax.set(xlabel="mechanical angle [deg]")
+        ax.grid(alpha=.15)
+        ax.legend(fontsize=7)
+    fig.tight_layout()
+    for suffix in ("png", "svg", "pdf"):
+        fig.savefig(OUT / ("native."+suffix))
+    plt.close(fig)
+    files = ("fields.json", "dynamics.json", "coenergy-model.json", "cogging.pdf",
+             "native.json", "native.pdf")
+    data = dict(fields=fields, dynamics=dynamics, native=native,
                 exports=[dict(name=name, base64=base64.b64encode((OUT/name).read_bytes()).decode())
                          for name in files])
     template = (ROOT / "reports/p7-cogging.html").read_text(encoding="utf-8")
@@ -69,6 +100,17 @@ def main():
             assert page.locator("#machine .coil").count() == 24
             assert page.locator("#machine .magnet").count() == 8
             assert page.locator("#machine .gapvector").count() == 48
+        for r in native["rows"]:
+            page.select_option("#native-case", str(r["index"]))
+            for key in ("energy_torque_nm", "stress_torque_nm", "error_nm", "gap_torque_nm",
+                        "gap_omission_effect_nm", "relative_coenergy_error_j"):
+                assert float(page.locator("#native_"+key).get_attribute("data-number")) == r[key]
+            assert page.locator("#native-point").get_attribute("data-supported") == str(
+                r["passed"]).lower()
+            assert page.locator("#native-table tr").count() == 5
+        page.locator("#show-native").click()
+        assert page.locator("#angle").input_value() == str(
+            round(native["rows"][-1]["center_deg"]/.703125))
         for index, case in enumerate(dynamics["cases"]):
             page.select_option("#case", str(index))
             for tick in (0, len(case["rows"])//2, len(case["rows"])-1):
@@ -80,14 +122,16 @@ def main():
             assert page.locator("#dynamic-point").get_attribute("data-completed") == str(
                 case["completed"]).lower()
         for selector, value in (("#model-status", fields["model_supported"]),
-                                ("#dynamic-status", dynamics["passed"])):
+                                ("#dynamic-status", dynamics["passed"]),
+                                ("#native-status", native["supported"])):
             assert page.locator(selector).get_attribute("data-supported") == str(value).lower()
         page.locator("#machine .coil").first.click()
         assert "匝" in page.locator("#component").inner_text()
         page.locator("#machine .coil").first.focus()
         page.keyboard.press("Enter")
         assert "电流" in page.locator("#component").inner_text()
-        names = ("coenergy-fields.csv", "forward.csv", "reverse.csv", "fine.csv", *files)
+        names = ("coenergy-fields.csv", "forward.csv", "reverse.csv", "fine.csv",
+                 "native.csv", "native-samples.csv", *files)
         for name in names:
             with page.expect_download() as event:
                 page.locator(f'a[data-export="{name}"]').click()
@@ -101,7 +145,8 @@ def main():
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         ui = dict(passed=not errors and not external, field_states=65, dynamic_states=9,
-                  exact_downloads=8, errors=errors, external_requests=external,
+                  native_states=8,
+                  exact_downloads=12, errors=errors, external_requests=external,
                   browser=browser.version)
         browser.close()
     (OUT / "ui-validation.json").write_text(json.dumps(ui), encoding="utf-8")

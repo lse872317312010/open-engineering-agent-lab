@@ -2,7 +2,7 @@ name: P7 cogging mechanical report
 on:
   push:
     branches: [codex/p7-cogging-coenergy]
-    paths: ['benchmarks/p7_cogging_model.py', 'benchmarks/p7_cogging_extract.py', 'benchmarks/p7_cogging_evaluate.py', 'benchmarks/p7_cogging_simulation.py', 'benchmarks/p7_cogging_report.py', 'benchmarks/p7_cogging_source_negative.py', 'tests/test_p7_cogging_model.py', 'reports/p7-cogging.html', '.github/workflows/p7-cogging-report.yml']
+    paths: ['benchmarks/p7_cogging_model.py', 'benchmarks/p7_native_coenergy_report.py', 'benchmarks/p7_native_coenergy_negative.py', 'benchmarks/p7_cogging_extract.py', 'benchmarks/p7_cogging_evaluate.py', 'benchmarks/p7_cogging_simulation.py', 'benchmarks/p7_cogging_report.py', 'benchmarks/p7_cogging_source_negative.py', 'tests/test_p7_cogging_model.py', 'reports/p7-cogging.html', '.github/workflows/p7-cogging-report.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +17,19 @@ jobs:
       GH_REPO: ${{ github.repository }}
       PYTHONUTF8: "1"
       MPLBACKEND: Agg
+      NATIVE_COMMIT: 533cd4ea61da1ec2c5f809ddb54adec4a1027a7d
+      NATIVE_RUN: "42011534208"
     steps:
+      - name: Verify complete native coenergy source
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner, repo: context.repo.repo, run_id: 42011534208
+            });
+            if (result.data.status !== "completed" || result.data.conclusion !== "success") {
+              throw new Error("Native coenergy source not complete and successful");
+            }
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,6 +40,12 @@ jobs:
       - run: python -c "from pathlib import Path; Path('outputs').mkdir(exist_ok=True)"
       - run: gh release download snapshot-2026-11-05 --pattern open-engineering-report.zip --dir outputs
       - run: python benchmarks/p7_cogging_extract.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-coenergy-*
+          path: outputs/native-results
+          run-id: 42011534208
+          github-token: ${{ github.token }}
       - name: Verify controller source
         run: |
           git fetch origin 3a2977f5512401c2e5775b15660ffae41d435c5b --depth=1
@@ -38,6 +56,8 @@ jobs:
       - run: python -m pytest
       - run: python benchmarks/p7_cogging_evaluate.py
       - run: python benchmarks/p7_cogging_source_negative.py
+      - run: python benchmarks/p7_native_coenergy_report.py
+      - run: python benchmarks/p7_native_coenergy_negative.py
       - run: python benchmarks/p7_cogging_simulation.py
       - run: python benchmarks/p7_cogging_report.py
       - uses: actions/upload-artifact@v4

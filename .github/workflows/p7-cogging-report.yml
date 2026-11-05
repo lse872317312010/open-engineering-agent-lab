@@ -2,7 +2,7 @@ name: P7 cogging mechanical report
 on:
   push:
     branches: [codex/p7-cogging-coenergy]
-    paths: ['benchmarks/p7_cogging_model.py', 'benchmarks/p7_cogging_evaluate.py', 'benchmarks/p7_cogging_simulation.py', 'benchmarks/p7_cogging_report.py', 'benchmarks/p7_cogging_source_negative.py', 'tests/test_p7_cogging_model.py', 'reports/p7-cogging.html', '.github/workflows/p7-cogging-report.yml']
+    paths: ['benchmarks/p7_cogging_model.py', 'benchmarks/p7_cogging_extract.py', 'benchmarks/p7_cogging_evaluate.py', 'benchmarks/p7_cogging_simulation.py', 'benchmarks/p7_cogging_report.py', 'benchmarks/p7_cogging_source_negative.py', 'tests/test_p7_cogging_model.py', 'reports/p7-cogging.html', '.github/workflows/p7-cogging-report.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 20
     env:
       OPENBLAS_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       PYTHONUTF8: "1"
       MPLBACKEND: Agg
     steps:
@@ -23,12 +25,9 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install numpy==2.2.6 scipy==1.15.3 matplotlib==3.10.7 playwright==1.55.0
       - run: python -m pip install -e ".[dev]"
-      - uses: actions/download-artifact@v4
-        with:
-          name: p7-angle-dynamics
-          path: outputs/cogging-source
-          run-id: 42004300771
-          github-token: ${{ github.token }}
+      - run: python -c "from pathlib import Path; Path('outputs').mkdir(exist_ok=True)"
+      - run: gh release download snapshot-2026-11-05 --pattern open-engineering-report.zip --dir outputs
+      - run: python benchmarks/p7_cogging_extract.py
       - name: Verify controller source
         run: |
           git fetch origin 3a2977f5512401c2e5775b15660ffae41d435c5b --depth=1

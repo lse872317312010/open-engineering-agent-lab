@@ -2,7 +2,7 @@ name: P7 loaded angle refinement and energy interface
 on:
   push:
     branches: [codex/p7-loaded-angle-dynamics]
-    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_midpoint_mesh_evaluate.py', 'benchmarks/p7_second_angle_evaluate.py', 'benchmarks/p7_second_angle_audit_negative.py', 'benchmarks/p7_midpoint_mesh_audit_negative.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
+    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_midpoint_mesh_evaluate.py', 'benchmarks/p7_second_angle_evaluate.py', 'benchmarks/p7_second_angle_audit_negative.py', 'benchmarks/p7_midpoint_mesh_audit_negative.py', 'benchmarks/p7_angle_flux.py', 'tests/test_p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
   workflow_dispatch:
 permissions:
   contents: read

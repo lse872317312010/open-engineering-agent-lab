@@ -38,6 +38,8 @@ class AngleFlux:
             raise ValueError("segment must be in 0..3")
         if segment is not None and k == 3 and phase < self.step/2:
             phase += self.period
+        if segment is not None and k == 0 and phase > self.period-self.step/2:
+            phase -= self.period
         slope = (self.psi[k+1]-self.psi[k])/self.step
         return self.psi[k]+slope*(phase-k*self.step), slope
 

@@ -2,7 +2,7 @@ name: P7 loaded angle refinement and energy interface
 on:
   push:
     branches: [codex/p7-loaded-angle-dynamics]
-    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_midpoint_mesh_evaluate.py', 'benchmarks/p7_midpoint_mesh_audit_negative.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
+    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_midpoint_mesh_evaluate.py', 'benchmarks/p7_second_angle_evaluate.py', 'benchmarks/p7_second_angle_audit_negative.py', 'benchmarks/p7_midpoint_mesh_audit_negative.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,12 +24,14 @@ jobs:
       REFINE_RUN: "41998773413"
       MID_COMMIT: 939095258644b5f785885b7b08cd34be756239dd
       MID_RUN: "42000844037"
+      SECOND_COMMIT: ec41e9b79de7d918c11a04a5c4ae455a7b900938
+      SECOND_RUN: "42001283119"
     steps:
       - name: Require completed native evidence before downloading archives
         uses: actions/github-script@v7
         with:
           script: |
-            for (const run_id of [41998773413, 42000844037]) {
+            for (const run_id of [41998773413, 42000844037, 42001283119]) {
               let done = false;
               for (let attempt = 0; attempt < 180; attempt++) {
                 const result = await github.rest.actions.getWorkflowRun({
@@ -90,6 +92,12 @@ jobs:
           path: outputs/midpoint
           run-id: 42000844037
           github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: second-angle-*
+          path: outputs/second
+          run-id: 42001283119
+          github-token: ${{ github.token }}
       - run: |
           git fetch origin d5075efdc60ef0e495fb2239d64bc4a005634242 --depth=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -113,6 +121,8 @@ jobs:
       - run: python benchmarks/p7_loaded_angle_audit_negative.py
       - run: python benchmarks/p7_midpoint_mesh_evaluate.py
       - run: python benchmarks/p7_midpoint_mesh_audit_negative.py
+      - run: python benchmarks/p7_second_angle_evaluate.py
+      - run: python benchmarks/p7_second_angle_audit_negative.py
       - run: python benchmarks/p7_angle_dynamics_simulation.py
       - run: python benchmarks/p7_angle_current_loop.py
       - run: python benchmarks/p7_angle_dynamics_report.py

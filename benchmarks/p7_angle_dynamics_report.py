@@ -17,6 +17,8 @@ def main():
     dynamics = json.loads((OUT / "dynamics.json").read_text())
     control = json.loads((OUT / "control.json").read_text())
     spot = json.loads((OUT / "spot.json").read_text())
+    second = json.loads((OUT / "second.json").read_text())
+    assert second["evidence_passed"] and len(second["rows"]) == 34
     assert spot["evidence_passed"] and len(spot["rows"]) == 8
     assert fields["evidence_passed"] and len(fields["rows"]) == 36
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
@@ -74,9 +76,36 @@ def main():
     for suffix in ("png", "svg", "pdf"):
         fig.savefig(OUT / ("control."+suffix))
     plt.close(fig)
-    files = ("fields.json", "dynamics.json", "control.json", "spot.json",
-             "overview.pdf", "control.pdf")
-    data = dict(fields=fields, dynamics=dynamics, control=control, spot=spot,
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    for i in range(2):
+        group = second["rows"][i::2]
+        axes[0, 0].plot(second["angles"], [v["fe_torque_nm"] for v in group],
+                        "o-", label=f"iq={group[0]['iq_a']} A")
+        axes[0, 1].plot(second["angles"], [v["increment_nm"] for v in group],
+                        "o-", label=f"iq={group[0]['iq_a']} A")
+    for values, label in ((second["previous_comparisons"], "11.25 to 5.625 deg"),
+                          (second["comparisons"], "5.625 to 2.8125 deg")):
+        axes[1, 0].plot([v["angle_deg"] for v in values], [v["flux_error"] for v in values],
+                        "o", label=label)
+        axes[1, 1].plot([v["angle_deg"] for v in values], [v["torque_error_nm"] for v in values],
+                        "o", label=label)
+    axes[0, 0].set(ylabel="absolute torque [Nm]")
+    axes[0, 1].set(ylabel="baseline-subtracted torque [Nm]")
+    axes[1, 0].set(ylabel="flux difference / 0.05 Wb")
+    axes[1, 1].set(ylabel="absolute torque difference [Nm]")
+    axes[1, 0].axhline(.02, color="red", ls="--", label="budget")
+    axes[1, 1].axhline(.10, color="red", ls="--", label="budget")
+    for ax in axes.flat:
+        ax.set(xlabel="relative mechanical angle [deg]")
+        ax.grid(alpha=.15)
+        ax.legend(fontsize=7)
+    fig.tight_layout()
+    for suffix in ("png", "svg", "pdf"):
+        fig.savefig(OUT / ("second."+suffix))
+    plt.close(fig)
+    files = ("fields.json", "dynamics.json", "control.json", "spot.json", "second.json",
+             "overview.pdf", "control.pdf", "second.pdf")
+    data = dict(fields=fields, dynamics=dynamics, control=control, spot=spot, second=second,
                 exports=[dict(name=name, base64=base64.b64encode((OUT/name).read_bytes()).decode())
                          for name in files])
     template = (ROOT / "reports/p7-angle-dynamics.html").read_text(encoding="utf-8")
@@ -97,9 +126,20 @@ def main():
                 assert float(page.locator("#"+key).get_attribute("data-number")) == r[key]
             assert page.locator("#point-status").get_attribute("data-supported") == str(
                 r["supported"]).lower()
-            assert page.locator(".coil").count() == 24
-            assert page.locator(".magnet").count() == 8
-            assert page.locator(".gapvector").count() == 48
+            assert page.locator("#machine .coil").count() == 24
+            assert page.locator("#machine .magnet").count() == 8
+            assert page.locator("#machine .gapvector").count() == 48
+        for row in second["rows"]:
+            page.select_option("#second-angle", str(row["index"]//2))
+            page.select_option("#second-current", str(row["index"]%2))
+            for key in ("fe_torque_nm", "increment_nm", "nodes"):
+                assert float(page.locator("#sec_"+key).get_attribute("data-number")) == row[key]
+            assert page.locator("#second-machine .coil").count() == 24
+            assert page.locator("#second-machine .magnet").count() == 8
+            assert page.locator("#second-machine .gapvector").count() == 48
+        assert page.locator("#second-table tr").count() == 16
+        page.locator("#second-machine .coil").first.click()
+        assert "匝" in page.locator("#second-component").inner_text()
         assert float(page.locator("#closure").get_attribute("data-number")) == (
             fields["endpoint"][0]["flux_diff"])
         for index, case in enumerate(dynamics["cases"]):
@@ -124,17 +164,19 @@ def main():
                                 ("#model-status", fields["model_supported"]),
                                 ("#dynamic-status", dynamics["passed"]),
                                 ("#control-status", control["passed"]),
-                                ("#spot-status", spot["mesh_supported"])):
+                                ("#spot-status", spot["mesh_supported"]),
+                                ("#second-status", second["angle_supported"])):
             assert page.locator(selector).get_attribute("data-supported") == str(value).lower()
         assert page.locator("#spot-table tr").count() == 8
         assert page.locator("#table tr").count() == 16
-        page.locator(".coil").first.click()
+        page.locator("#machine .coil").first.click()
         assert "匝" in page.locator("#component").inner_text()
-        page.locator(".coil").first.focus()
+        page.locator("#machine .coil").first.focus()
         page.keyboard.press("Enter")
         assert "电流" in page.locator("#component").inner_text()
         names = ("fields.csv", "positive.csv", "negative.csv", "control-forward.csv",
                  "control-reverse.csv", "control-fine.csv", "control-undervoltage.csv", "spot.csv",
+                 "second.csv",
                  *files)
         for name in names:
             with page.expect_download() as event:
@@ -149,7 +191,7 @@ def main():
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         ui = dict(passed=not errors and not external, field_states=36, dynamic_states=6,
-                  control_states=12, exact_downloads=14, errors=errors, external_requests=external,
+                  control_states=12, second_states=34, exact_downloads=17, errors=errors, external_requests=external,
                   browser=browser.version)
         browser.close()
     (OUT / "ui-validation.json").write_text(json.dumps(ui), encoding="utf-8")

@@ -207,6 +207,7 @@ def main():
                                 ("#second-status", second["angle_supported"]),
                                 ("#deep-status", deep["levels"][3]["supported"])):
             assert page.locator(selector).get_attribute("data-supported") == str(value).lower()
+        assert "没有零流齿槽转矩" in page.locator("#scope-status").inner_text()
         assert page.locator("#spot-table tr").count() == 8
         assert page.locator("#table tr").count() == 16
         page.locator("#machine .coil").first.click()

@@ -7,8 +7,8 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
+import p7_rotation_reference as rotation
 from p7_local_flux_model import LocalFluxModel
-from p7_rotation_reference import J, DomainViolation, advance
 from scipy.linalg import expm
 
 from oeal.current_control import CurrentPIParameters, CurrentPIState, current_control_step
@@ -26,10 +26,10 @@ def simulate(model, rpm, vdc, dt):
     omega = 4*rpm*2*math.pi/60
     inverse = np.linalg.inv(matrix)
     generator = np.zeros((5, 5))
-    generator[:2, :2] = -inverse@(R*np.eye(2)+omega*J@matrix)
+    generator[:2, :2] = -inverse@(R*np.eye(2)+omega*rotation.J@matrix)
     generator[:2, 2:4] = inverse
-    generator[:2, 4] = -inverse@(omega*J@psi)
-    generator[2:4, 2:4] = -omega*J
+    generator[:2, 4] = -inverse@(omega*rotation.J@psi)
+    generator[2:4, 2:4] = -omega*rotation.J
     propagator = expm(generator*TS)
     parameters = CurrentPIParameters(matrix[0, 0]*1000, R*1000, matrix[1, 1]*1000,
                                      R*1000, vdc/math.sqrt(3), 1., 1000.)
@@ -54,7 +54,7 @@ def simulate(model, rpm, vdc, dt):
     for tick in range(1200):
         start = tick*TS
         reference = 0. if tick < 20 else .5 if tick < 600 else -.5
-        coupling = omega*J@model.flux(state[:2])
+        coupling = omega*rotation.J@model.flux(state[:2])
         command = current_control_step(
             parameters, pi, reference_d_a=0., reference_q_a=reference,
             measured_d_a=float(state[0]), measured_q_a=float(state[1]), period_s=TS,
@@ -69,13 +69,13 @@ def simulate(model, rpm, vdc, dt):
         try:
             for substep in range(round(TS/dt)):
                 at = start+substep*dt
-                state = advance(at, state, stationary, omega, OFFSET, R, matrix, psi, dt)
+                state = rotation.advance(at, state, stationary, omega, OFFSET, R, matrix, psi, dt)
                 time = at+dt
                 model.flux(state[:2])
                 max_domain = max(max_domain, float(np.sum(abs(state[:2]))))
                 balance = state[2]-state[3]-state[4]-.75*state[:2]@matrix@state[:2]
                 max_balance = max(max_balance, abs(float(balance)))
-        except DomainViolation as exc:
+        except rotation.DomainViolation as exc:
             rejection = dict(time_s=exc.time_s, current_a=exc.current, reason=str(exc),
                              last_accepted_time_s=time)
             break

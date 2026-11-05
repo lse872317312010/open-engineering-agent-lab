@@ -41,7 +41,8 @@ def main():
     for shard, angle in enumerate(ANGLES):
         folder = ROOT / f"outputs/current/current-holdout-{shard}"
         manifest = json.loads((folder / "manifest.json").read_text())
-        assert {"environment.json", "geometry.json", "frame.json", "current-holdout.json"} <= set(manifest)
+        required = {"environment.json", "geometry.json", "frame.json", "current-holdout.json"}
+        assert required <= set(manifest)
         for name, digest in manifest.items():
             path = PurePosixPath(name)
             assert not path.is_absolute() and ".." not in path.parts

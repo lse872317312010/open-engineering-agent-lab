@@ -46,7 +46,8 @@ def main():
     axes[1, 2].axhline(.02, color="red", ls="--", label="frozen budget")
     axes[1, 2].set(ylabel="normalized flux discrepancy")
     for ax in axes.flat:
-        if ax is not axes[0, 2]:\n            ax.set(xlabel="relative mechanical angle [deg]")
+        if ax is not axes[0, 2]:
+            ax.set(xlabel="relative mechanical angle [deg]")
         ax.grid(alpha=.15)
         ax.legend(fontsize=6)
     fig.tight_layout()

@@ -2,7 +2,7 @@ name: P7 mixed current evidence and model support
 on:
   push:
     branches: [codex/p7-current-holdout]
-    paths: ['benchmarks/p7_current_evaluate.py', 'benchmarks/p7_current_report.py', 'reports/p7-current-holdout.html', '.github/workflows/p7-current-report.yml']
+    paths: ['benchmarks/p7_current_evaluate.py', 'benchmarks/p7_current_report.py', 'benchmarks/p7_current_audit_negative.py', 'reports/p7-current-holdout.html', '.github/workflows/p7-current-report.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -78,6 +78,7 @@ jobs:
       - run: python benchmarks/p7_loaded_report.py
       - run: python benchmarks/p7_angular_evaluate.py
       - run: python benchmarks/p7_current_evaluate.py
+      - run: python benchmarks/p7_current_audit_negative.py
       - run: python benchmarks/p7_current_report.py
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

@@ -922,3 +922,25 @@ flowchart LR
 ```
 
 输入|id|+|iq|≤2A，域外拒绝；计算输入域不等于全域精度证明，动态FOC仍待独立验收。
+
+## 局部全矩阵模型的锁转子电流闭环
+
+[方程与验证范围](p7-locked.md)。
+
+```mermaid
+flowchart LR
+  MODEL[冻结FE衍生psi与完整L / SHA核验] --> RL[零速锁转子 L di/dt等于v减Ri]
+  REF[正向再反向iq参考] --> PI[既有20kHz dq PI / 反算限幅]
+  PI --> PWM[逆Park / 平均SVPWM / Park]
+  PWM --> HOLD[实际电压零阶保持]
+  HOLD --> RL
+  RL --> PI
+  HOLD --> EXACT[同电压矩阵指数闭式重放]
+  RL --> ENERGY[源能 / 指定R铜耗 / 增量感性储能]
+  RL --> DOMAIN[每积分阶段局部电流域拒绝]
+  EXACT --> VERIFY[精确差 / 步长细化 / 电端余额]
+  ENERGY --> VERIFY
+  VERIFY --> UI[正常与欠压回放 / 完整CSV]
+```
+
+速度为0、机械功率为0；永久磁链不影响此时的RL电流RHS，不能据此宣称已验证旋转背电势。

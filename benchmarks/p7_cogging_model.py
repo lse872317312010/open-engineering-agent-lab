@@ -65,7 +65,7 @@ class CoggingMotor:
                 or np.min(np.linalg.eigvalsh(self.inductance)) <= 0
                 or not all(math.isfinite(v) for v in (resistance, inertia, friction))
                 or resistance < 0 or inertia <= 0 or friction < 0):
-            raise ValueError("valid periodic motor, positive L/inertia and nonnegative R/B required")
+            raise ValueError("valid motor, positive L/inertia and nonnegative R/B required")
         self.resistance, self.inertia, self.friction = resistance, inertia, friction
 
     @staticmethod

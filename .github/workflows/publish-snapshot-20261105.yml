@@ -1,0 +1,47 @@
+name: Publish 2026-11-05 research snapshot
+on:
+  push:
+    branches: [codex/publish-snapshot-20261105]
+    paths: ['.github/workflows/publish-snapshot-20261105.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: p7-angle-dynamics
+          path: outputs/snapshot-report
+          run-id: 42004300771
+          github-token: ${{ github.token }}
+      - name: Verify report and frozen scientific outcomes
+        run: |
+          python -c 'import json,pathlib; p=pathlib.Path("outputs/snapshot-report"); f=json.loads((p/"fields.json").read_text()); d=json.loads((p/"deep.json").read_text()); m=json.loads((p/"spot.json").read_text()); c=json.loads((p/"control.json").read_text()); u=json.loads((p/"ui-validation.json").read_text()); assert f["evidence_passed"] and not f["angle_supported"] and f["model_supported"]; assert [x["supported"] for x in d["levels"]] == [False,False,False,True]; assert m["mesh_supported"] and c["passed"] and u["passed"]; assert f["report_commit"] == "a6f4db38df8c24c5f75eb1a1a8ad007925efbc20"; assert (p/"index.html").is_file()'
+      - name: Package offline report
+        run: |
+          mkdir -p outputs/publish
+          cd outputs/snapshot-report
+          zip -qr ../publish/open-engineering-report.zip .
+          cd ../publish
+          sha256sum open-engineering-report.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Publish prerelease and durable report assets
+        run: |
+          if gh release view snapshot-2026-11-05 >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite."
+            exit 1
+          fi
+          gh release create snapshot-2026-11-05 \
+            --target 3a2977f5512401c2e5775b15660ffae41d435c5b \
+            --title "研究快照 · 2026-11-05" \
+            --notes-file docs/releases/snapshot-2026-11-05.md \
+            --prerelease --latest=false \
+            outputs/publish/open-engineering-report.zip \
+            outputs/publish/SHA256SUMS.txt

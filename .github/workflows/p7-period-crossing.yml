@@ -6,6 +6,9 @@ on:
       - 'benchmarks/p7_cogging_model.py'
       - 'benchmarks/p7_cogging_simulation.py'
       - 'tests/test_p7_cogging_model.py'
+      - 'src/oeal/heat_sources.py'
+      - 'tests/test_heat_sources.py'
+      - 'benchmarks/p7_winding_heat.py'
       - '.github/workflows/p7-period-crossing.yml'
   workflow_dispatch:
 permissions:
@@ -34,9 +37,12 @@ jobs:
       - run: python benchmarks/p7_cogging_simulation.py
       - run: python -c "import json; assert json.load(open('outputs/p7-cogging-report/dynamics.json'))['passed']"
       - run: python benchmarks/p7_period_crossing.py
+      - run: python benchmarks/p7_winding_heat.py
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: p7-period-crossing-evidence
-          path: outputs/p7-cogging-report/
+          path: |
+            outputs/p7-cogging-report/
+            outputs/p7-winding-heat/
           if-no-files-found: error

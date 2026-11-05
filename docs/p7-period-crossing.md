@@ -29,6 +29,10 @@ python benchmarks/p7_period_crossing.py
 原三组零初态动态仿真及机械守恒极限通过。跳过不算后端通过，
 本地主机结果与专用CI结果分别记录。
 
+提交27e87fa的[专用远程运行](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/42065474433)
+已通过；[完整证据包](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/42065474433/artifacts/13432838049)
+保留原模型、原三组及四组跨周期轨迹。后续铜耗映射的CI结果按对应新提交另记。
+
 四组跨周期仿真全部通过，正向行进2.54862周期、反向2.54820周期。
 最大DOP853重放电流差3.40e-12 A，最大能量余额7.18e-13 J；
 两步长闭环最大电流差2.20e-13 A、机械角差3.74e-14 rad、速度差1.13e-12 rad/s。

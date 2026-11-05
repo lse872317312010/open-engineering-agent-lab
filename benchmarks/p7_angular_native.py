@@ -32,7 +32,8 @@ def main():
         assert max(abs(actual[0]-d), abs(actual[1]-q)) <= 1e-10
         la, lb, zero = clarke(*r["flux_wb"])
         ld, lq = park(la, lb, electrical)
-        r.update(id_a=d, iq_a=q, actual_id_a=actual[0], actual_iq_a=actual[1], lambda_d_wb=ld, lambda_q_wb=lq, lambda_zero_wb=zero,
+        r.update(id_a=d, iq_a=q, actual_id_a=actual[0], actual_iq_a=actual[1],
+                 lambda_d_wb=ld, lambda_q_wb=lq, lambda_zero_wb=zero,
                  electrical_rad=electrical, fundamental_torque_nm=6*(ld*q-lq*d))
         cases.append(r)
     baseline = cases[0]["torque_nm"]

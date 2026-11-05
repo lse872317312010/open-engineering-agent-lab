@@ -29,7 +29,8 @@ def main():
     axes[0, 0].plot(forward[:, 0], forward[:, 3], "k--", label="reference")
     for column, label in ((9, "source"), (10, "copper"), (11, "shaft"), (12, "stored")):
         axes[1, 1].plot(forward[:, 0], forward[:, column], label=label)
-    for ax, label in zip(axes.flat, ("iq [A]", "electrical angle [rad]", "balance [J]", "energy [J]"),
+    labels = ("iq [A]", "electrical angle [rad]", "balance [J]", "energy [J]")
+    for ax, label in zip(axes.flat, labels,
                          strict=True):
         ax.set(xlabel="time [s]", ylabel=label)
         ax.grid(alpha=.15)

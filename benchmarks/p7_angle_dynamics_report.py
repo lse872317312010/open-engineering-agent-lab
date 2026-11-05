@@ -191,7 +191,8 @@ def main():
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         ui = dict(passed=not errors and not external, field_states=36, dynamic_states=6,
-                  control_states=12, second_states=34, exact_downloads=17, errors=errors, external_requests=external,
+                  control_states=12, second_states=34, exact_downloads=17,
+                  errors=errors, external_requests=external,
                   browser=browser.version)
         browser.close()
     (OUT / "ui-validation.json").write_text(json.dumps(ui), encoding="utf-8")

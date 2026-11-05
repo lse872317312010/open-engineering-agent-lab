@@ -1,0 +1,44 @@
+name: P7 locked-rotor current loop
+on:
+  push:
+    branches: [codex/p7-locked-current-loop]
+    paths: ['benchmarks/p7_locked*', 'reports/p7-locked.html', '.github/workflows/p7-locked.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  report:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install numpy==2.2.6 scipy==1.15.3 matplotlib==3.10.7 playwright==1.55.0
+          python -m pip install -e ".[dev]"
+      - uses: actions/download-artifact@v4
+        with:
+          name: p7-local-flux-report
+          path: outputs/frozen-flux
+          run-id: 41947340580
+          github-token: ${{ github.token }}
+      - run: |
+          ruff check .
+          python -m pytest
+      - run: python benchmarks/p7_locked_simulation.py
+      - run: python benchmarks/p7_locked_report.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-locked-report
+          path: outputs/p7-locked-report/
+          if-no-files-found: error
+      - if: ${{ !cancelled() }}
+        run: python -c "import json; from pathlib import Path; p=Path('outputs/p7-locked-report'); assert json.loads((p/'validation.json').read_text())['passed']; assert json.loads((p/'ui-validation.json').read_text())['passed']"

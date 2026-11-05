@@ -55,3 +55,21 @@ def test_last_segment_uses_continuous_periodic_endpoint():
                              [[.002, 0], [0, .003]])
     left_psi, _ = model.coefficients(model.period, segment=3)
     np.testing.assert_allclose(left_psi, model.psi[0], atol=1e-15)
+
+
+def test_mechanical_torque_is_coenergy_gradient_at_fixed_stationary_current():
+    model = module.AngleFlux([[.06, 0], [.061, .001], [.062, 0], [.061, -.001],
+                              [.06, 0]], [[.002, .0001], [.0001, .003]])
+    theta, current, step = .1, np.array([.3, -.2]), 1e-6
+
+    def coenergy(at):
+        delta = -4*(at-theta)
+        rotation = np.array([[np.cos(delta), -np.sin(delta)],
+                             [np.sin(delta), np.cos(delta)]])
+        i = rotation@current
+        psi, _ = model.coefficients(at)
+        return 1.5*(psi@i+.5*i@model.inductance@i)
+
+    numerical = (coenergy(theta+step)-coenergy(theta-step))/(2*step)
+    torque = model.power(theta, 1., [0, 0], current)[2]
+    assert torque == pytest.approx(numerical, abs=1e-9)

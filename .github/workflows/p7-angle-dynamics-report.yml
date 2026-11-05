@@ -2,7 +2,7 @@ name: P7 loaded angle refinement and energy interface
 on:
   push:
     branches: [codex/p7-loaded-angle-dynamics]
-    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
+    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -81,6 +81,8 @@ jobs:
       - run: |
           git fetch origin d5075efdc60ef0e495fb2239d64bc4a005634242 --depth=1
           git diff --exit-code d5075efdc60ef0e495fb2239d64bc4a005634242 HEAD -- benchmarks/p7_current_evaluate.py
+          git fetch origin f8cfb936deb271ece2908bb8ab4781ba2270ce5b --depth=1
+          git diff --exit-code f8cfb936deb271ece2908bb8ab4781ba2270ce5b HEAD -- src/oeal/current_control.py src/oeal/foc.py src/oeal/transforms.py
           git fetch origin bcbb581348d394db91b87b895c7822a35534d287 --depth=1
           git diff --exit-code bcbb581348d394db91b87b895c7822a35534d287 HEAD -- benchmarks/p7_angular_evaluate.py benchmarks/p7_loaded_report.py benchmarks/p7_angular_reference.py benchmarks/p7_local_flux_model.py
           ruff check .
@@ -91,6 +93,7 @@ jobs:
       - run: python benchmarks/p7_loaded_angle_evaluate.py
       - run: python benchmarks/p7_loaded_angle_audit_negative.py
       - run: python benchmarks/p7_angle_dynamics_simulation.py
+      - run: python benchmarks/p7_angle_current_loop.py
       - run: python benchmarks/p7_angle_dynamics_report.py
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

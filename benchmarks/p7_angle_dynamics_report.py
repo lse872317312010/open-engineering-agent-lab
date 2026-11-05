@@ -15,6 +15,7 @@ OUT = ROOT / "outputs/p7-angle-dynamics"
 def main():
     fields = json.loads((OUT / "fields.json").read_text())
     dynamics = json.loads((OUT / "dynamics.json").read_text())
+    control = json.loads((OUT / "control.json").read_text())
     assert fields["evidence_passed"] and len(fields["rows"]) == 36
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     for i in range(4):
@@ -46,8 +47,33 @@ def main():
     for suffix in ("png", "svg", "pdf"):
         fig.savefig(OUT / ("overview."+suffix))
     plt.close(fig)
-    files = ("fields.json", "dynamics.json", "overview.pdf")
-    data = dict(fields=fields, dynamics=dynamics,
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    for case in control["scenarios"][:2]:
+        rows = case["rows"]
+        times = [v["time_s"]*1000 for v in rows]
+        axes[0, 0].plot(times, [v["iq_a"] for v in rows], label=f"{case['rpm']} rpm iq")
+        axes[0, 1].plot(times, [v["id_a"] for v in rows], label=f"{case['rpm']} rpm id")
+        axes[1, 0].plot(times, [v["balance_j"] for v in rows], label=f"{case['rpm']} rpm")
+    normal = control["scenarios"][0]["rows"]
+    axes[0, 0].plot([v["time_s"]*1000 for v in normal],
+                    [v["reference_a"] for v in normal], "--", label="reference")
+    low = control["scenarios"][3]["rows"]
+    axes[1, 1].plot([v["time_s"]*1000 for v in low], [v["iq_a"] for v in low],
+                    label="undervoltage valid prefix")
+    axes[0, 0].set(ylabel="iq [A]")
+    axes[0, 1].set(ylabel="id [A]")
+    axes[1, 0].set(ylabel="energy balance [J]")
+    axes[1, 1].set(ylabel="iq [A]")
+    for ax in axes.flat:
+        ax.set(xlabel="time [ms]")
+        ax.grid(alpha=.15)
+        ax.legend(fontsize=7)
+    fig.tight_layout()
+    for suffix in ("png", "svg", "pdf"):
+        fig.savefig(OUT / ("control."+suffix))
+    plt.close(fig)
+    files = ("fields.json", "dynamics.json", "control.json", "overview.pdf", "control.pdf")
+    data = dict(fields=fields, dynamics=dynamics, control=control,
                 exports=[dict(name=name, base64=base64.b64encode((OUT/name).read_bytes()).decode())
                          for name in files])
     template = (ROOT / "reports/p7-angle-dynamics.html").read_text(encoding="utf-8")
@@ -82,16 +108,27 @@ def main():
                         case["rows"][tick][key])
             assert page.locator("#dyn-point").get_attribute("data-supported") == str(
                 case["passed"]).lower()
+        for index, case in enumerate(control["scenarios"]):
+            page.select_option("#control-case", str(index))
+            for tick in (0, len(case["rows"])//2, len(case["rows"])-1):
+                page.locator("#control-tick").fill(str(tick))
+                for key in ("time_s", "id_a", "iq_a", "reference_a", "source_j", "balance_j"):
+                    assert float(page.locator("#ctl_"+key).get_attribute("data-number")) == (
+                        case["rows"][tick][key])
+            assert page.locator("#control-point").get_attribute("data-completed") == str(
+                case["completed"]).lower()
         for selector, value in (("#angle-status", fields["angle_supported"]),
                                 ("#model-status", fields["model_supported"]),
-                                ("#dynamic-status", dynamics["passed"])):
+                                ("#dynamic-status", dynamics["passed"]),
+                                ("#control-status", control["passed"])):
             assert page.locator(selector).get_attribute("data-supported") == str(value).lower()
         page.locator(".coil").first.click()
         assert "匝" in page.locator("#component").inner_text()
         page.locator(".coil").first.focus()
         page.keyboard.press("Enter")
         assert "电流" in page.locator("#component").inner_text()
-        names = ("fields.csv", "positive.csv", "negative.csv", *files)
+        names = ("fields.csv", "positive.csv", "negative.csv", "control-forward.csv",
+                 "control-reverse.csv", "control-fine.csv", "control-undervoltage.csv", *files)
         for name in names:
             with page.expect_download() as event:
                 page.locator(f'a[data-export="{name}"]').click()
@@ -104,8 +141,8 @@ def main():
         page.set_viewport_size(dict(width=390, height=844))
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        ui = dict(passed=not errors and not external, field_states=36, dynamic_states=6,
-                  exact_downloads=6, errors=errors, external_requests=external,
+        ui = dict(passed=not errors and not external, field_states=36, dynamic_states=6, control_states=12,
+                  exact_downloads=12, errors=errors, external_requests=external,
                   browser=browser.version)
         browser.close()
     (OUT / "ui-validation.json").write_text(json.dumps(ui), encoding="utf-8")

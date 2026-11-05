@@ -1,7 +1,7 @@
 name: P7 midpoint mesh spot check
 on:
   push:
-    branches: [codex/p7-midpoint-mesh-dynamics]
+    branches: [codex/p7-loaded-angle-dynamics]
     paths: ['benchmarks/p7_midpoint_mesh_native.py', '.github/workflows/p7-midpoint-mesh.yml']
   workflow_dispatch:
 permissions:

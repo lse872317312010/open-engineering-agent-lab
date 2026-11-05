@@ -118,7 +118,8 @@ def full_replay(fom, h, name, dt, *, basis=None, model=None):
     return dict(outputs=output, snapshots=np.array(snapshots),
                 max_balance_j=float(max_balance), rom_balance_j=float(max_rom_balance),
                 max_field_error_k=float(max_field),
-                rmse_k=float(np.sqrt(np.mean(np.array(rom_error)**2))) if rom_error else None)
+                rmse_k=float(max(np.sqrt(np.mean(np.array(rom_error)**2, axis=0))))
+                if rom_error else None)
 
 
 def orthogonal_basis(weighted, mass, forcing):

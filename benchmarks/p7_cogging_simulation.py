@@ -133,7 +133,7 @@ def mechanical_limit(model):
     assert result.success
     errors = [abs(.5*model.inertia*speed**2-float(model.cog.integral(angle)[0])-energy0)
               for angle, speed in zip(*result.y, strict=True)]
-    return dict(passed=max(errors) <= 1e-8, max_balance_j=max(errors),
+    return dict(passed=bool(max(errors) <= 1e-8), max_balance_j=float(max(errors)),
                 initial_theta_rad=initial[0], final_theta_rad=float(result.y[0, -1]),
                 final_omega_rad_s=float(result.y[1, -1]))
 
@@ -175,6 +175,7 @@ def main():
                   voltage=all(c["max_voltage_v"] <= 48/math.sqrt(3)+1e-12 for c in cases),
                   model_frozen=hashlib.sha256(path.read_bytes()).hexdigest()
                   == fields["model_sha256"])
+    checks = {name: bool(value) for name, value in checks.items()}
     data = dict(passed=all(checks.values()), checks=checks,
                 model_supported=fields["model_supported"],
                 refinement=refinement, mechanical_limit=isolated, cases=cases,

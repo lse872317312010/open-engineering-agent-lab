@@ -27,6 +27,10 @@ def main():
     parameters = json.loads(frozen_path.read_text())
     model = LocalFluxModel(parameters["psi_wb"], parameters["inductance_h"])
     (OUT / "model.json").write_bytes(frozen_path.read_bytes())
+    model_commit = "f8cfb936deb271ece2908bb8ab4781ba2270ce5b"
+    subprocess.run(["git", "fetch", "origin", model_commit, "--depth=1"], check=True)
+    subprocess.run(["git", "diff", "--exit-code", model_commit, "HEAD", "--",
+                    "benchmarks/p7_local_flux_model.py"], check=True)
     native_commit = os.environ["ANGULAR_COMMIT"]
     subprocess.run(["git", "fetch", "origin", native_commit, "--depth=1"], check=True)
     subprocess.run(["git", "diff", "--exit-code", native_commit, "HEAD", "--",

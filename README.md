@@ -1,5 +1,9 @@
 # Open Engineering Agent Lab
 
+同机型铜耗已继续接入[二维定子瞬态热场](docs/p7-stator-thermal.md)：
+公开槽绕组几何、共形网格、合成热材料、源/储能/散热账及可复现全场产物。
+范围为单向热源回放；完整工程热精度和同几何ROM闭环仍待验收。
+
 面向 PMSM / FOC / 机器人关节研究的 Python + Agent 工程实验仓库。
 参数和工况使用开放 JSON，仿真输出 CSV/JSON，验收与提议策略分离。
 

@@ -2,6 +2,7 @@
 import json
 import math
 
+from p7_angle_current_loop import main as control_main
 from p7_angle_dynamics_simulation import OUT, main
 
 OUT.mkdir(parents=True, exist_ok=True)
@@ -17,4 +18,7 @@ main()
 result = json.loads((OUT / "dynamics.json").read_text())
 assert result["passed"], result
 assert all(len(case["rows"]) == 501 for case in result["cases"])
+control_main()
+control = json.loads((OUT / "control.json").read_text())
+assert control["passed"], {k: v for k, v in control.items() if k != "scenarios"}
 print("synthetic-dynamics-smoke: passed")

@@ -92,12 +92,19 @@ jobs:
           github-token: ${{ github.token }}
       - run: |
           git fetch origin d5075efdc60ef0e495fb2239d64bc4a005634242 --depth=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code d5075efdc60ef0e495fb2239d64bc4a005634242 HEAD -- benchmarks/p7_current_evaluate.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git fetch origin f8cfb936deb271ece2908bb8ab4781ba2270ce5b --depth=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code f8cfb936deb271ece2908bb8ab4781ba2270ce5b HEAD -- src/oeal/current_control.py src/oeal/foc.py src/oeal/transforms.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git fetch origin bcbb581348d394db91b87b895c7822a35534d287 --depth=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code bcbb581348d394db91b87b895c7822a35534d287 HEAD -- benchmarks/p7_angular_evaluate.py benchmarks/p7_loaded_report.py benchmarks/p7_angular_reference.py benchmarks/p7_local_flux_model.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ruff check .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest
       - run: python benchmarks/p7_loaded_report.py
       - run: python benchmarks/p7_angular_evaluate.py

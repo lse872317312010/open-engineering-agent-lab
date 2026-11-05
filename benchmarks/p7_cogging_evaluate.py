@@ -3,6 +3,7 @@ import csv
 import hashlib
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -81,6 +82,8 @@ def main():
                 source_sha256=HASHES, model_sha256=model_sha, torque_mean_removed_nm=torque_mean,
                 zero_endpoint_torque_diff_nm=zero[-1]["fe_torque_nm"]-zero[0]["fe_torque_nm"],
                 endpoint_flux_diff_wb=math.dist(zero[-1]["actual_wb"], zero[0]["actual_wb"]),
+                report_commit=subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                                      text=True).strip(),
                 max_holdout_flux=max(r["flux_error"] for r in holdout),
                 max_holdout_torque_nm=max(r["zero_torque_error_nm"] for r in holdout),
                 max_loaded_torque_nm=max(r["loaded_error_nm"] for r in rows),

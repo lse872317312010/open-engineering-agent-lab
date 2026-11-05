@@ -904,3 +904,21 @@ flowchart LR
 ```
 
 旧数值生产者保持独立；近似公式不代替角谐波/齿槽能量模型或动态FOC验证。
+
+## 局部磁链映射：训练冻结与角度留出
+
+[参数与限制](p7-local-flux.md)。
+
+```mermaid
+flowchart LR
+  RAW[已核验原生带载场 / 冻结dq零位] --> TRAIN[0度五点 / 零流psi与中心割线Lraw]
+  TRAIN --> SYM[对称化L / 原始互易残差保留 / 正定检查]
+  SYM --> FREEZE[模型JSON与SHA冻结]
+  FREEZE --> MODEL[局部lambda等于psi加Li / 增量余能势]
+  RAW --> HOLD[22.5度五点留出 / 不参与拟合]
+  HOLD --> CHECK[磁链与转矩差 / 适用范围]
+  MODEL --> CHECK
+  CHECK --> UI[训练与留出交互报告 / 完整CSV与参数]
+```
+
+输入|id|+|iq|≤2A，域外拒绝；计算输入域不等于全域精度证明，动态FOC仍待独立验收。

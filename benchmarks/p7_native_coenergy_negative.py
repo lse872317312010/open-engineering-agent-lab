@@ -32,6 +32,8 @@ def main():
     finally:
         path.write_bytes(original)
         manifest_path.write_bytes(original_manifest)
+    archived = ROOT / "outputs/p7-cogging-report/native-evidence/shard-0/native-coenergy.json"
+    assert archived.read_bytes() == original
     env = os.environ.copy()
     env["NATIVE_COMMIT"] = "4030532a05a932b3c84f7742218d23130be2f819"
     rejected(env)

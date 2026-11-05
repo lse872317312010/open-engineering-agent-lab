@@ -35,10 +35,6 @@ def main():
         assert set(manifest) == {"native-coenergy.json"}
         path = folder / "native-coenergy.json"
         assert hashlib.sha256(path.read_bytes()).hexdigest() == manifest["native-coenergy.json"]
-        archive = OUT / f"native-evidence/shard-{shard}"
-        archive.mkdir(parents=True, exist_ok=True)
-        (archive / "native-coenergy.json").write_bytes(path.read_bytes())
-        (archive / "manifest.json").write_bytes((folder / "manifest.json").read_bytes())
         data = json.loads(path.read_text())
         center = 2.8125+5.625*shard
         assert data["evidence_passed"] and data["shard"] == shard and data["center_deg"] == center
@@ -56,6 +52,10 @@ def main():
             previous = data["comparison"][key]
             assert previous == value if isinstance(value, bool) else math.isclose(
                 previous, value, rel_tol=1e-13, abs_tol=1e-13)
+        archive = OUT / f"native-evidence/shard-{shard}"
+        archive.mkdir(parents=True, exist_ok=True)
+        (archive / "native-coenergy.json").write_bytes(path.read_bytes())
+        (archive / "manifest.json").write_bytes((folder / "manifest.json").read_bytes())
         rows.append(dict(index=shard, center_deg=center, samples=samples, **result,
                          native_coenergy_j=samples[2]["block_coenergy_j"]
                          +samples[2]["gap_energy_j"],

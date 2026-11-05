@@ -71,6 +71,8 @@ def main():
             assert page.locator(".coil").count() == 24
             assert page.locator(".magnet").count() == 8
             assert page.locator(".gapvector").count() == 48
+        assert float(page.locator("#closure").get_attribute("data-number")) == (
+            fields["endpoint"][0]["flux_diff"])
         for index, case in enumerate(dynamics["cases"]):
             page.select_option("#case", str(index))
             for tick in (0, len(case["rows"])//2, len(case["rows"])-1):

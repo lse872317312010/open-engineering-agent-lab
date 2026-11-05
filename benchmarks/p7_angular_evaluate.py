@@ -103,7 +103,10 @@ def main():
                              predicted_torque_nm=float(6*(prediction[0]*pair[1]
                                                          - prediction[1]*pair[0])),
                              raw_formula_nm=float(6*(flux[0]*pair[1]-flux[1]*pair[0])),
-                             origin=origin, commit=commit, currents_a=r["native_currents_a"],
+                             origin=origin, role=("training" if angle == 0 else
+                                                 "previous_holdout" if origin == "reused"
+                                                 else "new_holdout"),
+                             commit=commit, currents_a=r["native_currents_a"],
                              nodes=r["nodes"], field=r["field"], phi_rad=r["phi_rad"],
                              actual_angle_rad=r["actual_angle_rad"]))
     gate = evaluate([r["actual_wb"] for r in rows], [r["predicted_wb"] for r in rows],
@@ -120,7 +123,8 @@ def main():
     data = dict(evidence_passed=True, model_supported=gate["model_supported"],
                 failed_indices=gate["failed_indices"], rows=rows, angles=angles,
                 geometry=geometry, envelopes=envelopes, manifest_counts=counts,
-                native_files=80, new_cases=30, reused_cases=10, model_sha256=MODEL_SHA,
+                native_files=80, new_cases=30, reused_cases=10, training_cases=5,
+                previous_holdout_cases=5, new_holdout_cases=30, model_sha256=MODEL_SHA,
                 max_flux_error=max(gate["flux_error"]),
                 max_torque_error_nm=max(gate["torque_error"]),
                 source_commit=native_commit, source_run=os.environ["ANGULAR_RUN"],
@@ -133,14 +137,14 @@ def main():
                          "actual_d_wb", "actual_q_wb", "predicted_d_wb", "predicted_q_wb",
                          "flux_error_over_0p05wb", "fe_torque_nm", "baseline_nm", "increment_nm",
                          "predicted_torque_nm", "raw_formula_nm", "torque_error_nm",
-                         "supported", "origin", "commit"])
+                         "supported", "origin", "role", "commit"])
         for r in rows:
             writer.writerow([r["angle_deg"], r["id_a"], r["iq_a"], r["actual_id_a"],
                              r["actual_iq_a"], *r["actual_wb"], *r["predicted_wb"],
                              *[r[k] for k in ("flux_error", "fe_torque_nm", "baseline_nm",
                                               "increment_nm", "predicted_torque_nm",
                                               "raw_formula_nm", "torque_error_nm", "supported",
-                                              "origin", "commit")]])
+                                              "origin", "role", "commit")]])
     print("angular-analysis: "+json.dumps({k:v for k, v in data.items()
           if k not in {"rows", "geometry"}}), flush=True)
 

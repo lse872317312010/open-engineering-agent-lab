@@ -5,7 +5,7 @@ import numpy as np
 
 
 class AngleFlux:
-    def __init__(self, psi, inductance):
+    def __init__(self, psi, inductance, resistance=.3):
         psi = np.asarray(psi, dtype=float)
         self.inductance = np.asarray(inductance, dtype=float).copy()
         if (psi.shape != (5, 2) or self.inductance.shape != (2, 2)
@@ -13,6 +13,9 @@ class AngleFlux:
                 or not np.allclose(self.inductance, self.inductance.T, atol=1e-14, rtol=0)
                 or np.min(np.linalg.eigvalsh(self.inductance)) <= 0):
             raise ValueError("five finite dq knots and a symmetric positive definite L required")
+        if not math.isfinite(resistance) or resistance < 0:
+            raise ValueError("finite nonnegative resistance required")
+        self.resistance = float(resistance)
         self.closure_error = (psi[-1]-psi[0]).copy()
         self.psi = psi.copy()
         self.psi[-1] = self.psi[0]
@@ -33,6 +36,8 @@ class AngleFlux:
         k = int(phase/self.step) if segment is None else int(segment)
         if k not in range(4):
             raise ValueError("segment must be in 0..3")
+        if segment is not None and k == 3 and phase < self.step/2:
+            phase += self.period
         slope = (self.psi[k+1]-self.psi[k])/self.step
         return self.psi[k]+slope*(phase-k*self.step), slope
 
@@ -49,14 +54,14 @@ class AngleFlux:
         psi, slope = self.coefficients(theta, segment)
         lam = psi+self.inductance@i
         jlam = np.array([-lam[1], lam[0]])
-        return np.linalg.solve(self.inductance, v-.3*i-omega*slope-4*omega*jlam)
+        return np.linalg.solve(self.inductance, v-self.resistance*i-omega*slope-4*omega*jlam)
 
     def power(self, theta, omega, voltage, i, segment=None):
         i = self.current(i)
         psi, slope = self.coefficients(theta, segment)
         lam = psi+self.inductance@i
         mechanical = 1.5*omega*(4*np.dot(i, [-lam[1], lam[0]])+np.dot(i, slope))
-        return np.array([1.5*np.dot(voltage, i), 1.5*.3*np.dot(i, i), mechanical])
+        return np.array([1.5*np.dot(voltage, i), 1.5*self.resistance*np.dot(i, i), mechanical])
 
     def stored(self, i):
         i = self.current(i)

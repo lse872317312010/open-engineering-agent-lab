@@ -41,3 +41,17 @@ def test_zero_speed_rl_and_domain_rejection():
         model.flux(0, [1.1, 1.1])
     with pytest.raises(ValueError):
         model.rhs(float("nan"), 0, [0, 0], [0, 0])
+
+
+def test_zero_resistance_no_voltage_preserves_isotropic_energy():
+    model = module.AngleFlux([[0, 0]]*5, [[.002, 0], [0, .002]], resistance=0)
+    i = np.array([.3, -.2])
+    derivative = model.rhs(0, 7., [0, 0], i)
+    assert np.dot(i, derivative) == pytest.approx(0, abs=1e-12)
+
+
+def test_last_segment_uses_continuous_periodic_endpoint():
+    model = module.AngleFlux([[.06, 0], [.061, 0], [.062, 0], [.061, 0], [.06, 0]],
+                             [[.002, 0], [0, .003]])
+    left_psi, _ = model.coefficients(model.period, segment=3)
+    np.testing.assert_allclose(left_psi, model.psi[0], atol=1e-15)

@@ -2,7 +2,7 @@ name: P7 loaded angle refinement and energy interface
 on:
   push:
     branches: [codex/p7-loaded-angle-dynamics]
-    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
+    paths: ['benchmarks/p7_loaded_angle_evaluate.py', 'benchmarks/p7_midpoint_mesh_evaluate.py', 'benchmarks/p7_midpoint_mesh_audit_negative.py', 'benchmarks/p7_angle_flux.py', 'benchmarks/p7_angle_current_loop.py', 'benchmarks/p7_angle_dynamics_simulation.py', 'benchmarks/p7_angle_dynamics_report.py', 'benchmarks/p7_loaded_angle_audit_negative.py', 'reports/p7-angle-dynamics.html', '.github/workflows/p7-angle-dynamics-report.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,7 +10,7 @@ permissions:
 jobs:
   report:
     runs-on: windows-2022
-    timeout-minutes: 45
+    timeout-minutes: 75
     env:
       PYTHONUTF8: "1"
       MPLBACKEND: Agg
@@ -22,24 +22,30 @@ jobs:
       CURRENT_RUN: "41991447793"
       REFINE_COMMIT: 4c3a076c5e0749c91fdabd6bcb7e9b24abba9d1d
       REFINE_RUN: "41998773413"
+      MID_COMMIT: 939095258644b5f785885b7b08cd34be756239dd
+      MID_RUN: "42000844037"
     steps:
       - name: Require completed native evidence before downloading archives
         uses: actions/github-script@v7
         with:
           script: |
-            for (let attempt = 0; attempt < 180; attempt++) {
-              const result = await github.rest.actions.getWorkflowRun({
-                owner: context.repo.owner, repo: context.repo.repo, run_id: 41998773413
-              });
-              if (result.data.status === 'completed') {
-                if (result.data.conclusion !== 'success') {
-                  throw new Error('Native evidence run did not pass');
+            for (const run_id of [41998773413, 42000844037]) {
+              let done = false;
+              for (let attempt = 0; attempt < 180; attempt++) {
+                const result = await github.rest.actions.getWorkflowRun({
+                  owner: context.repo.owner, repo: context.repo.repo, run_id
+                });
+                if (result.data.status === 'completed') {
+                  if (result.data.conclusion !== 'success') {
+                    throw new Error('Native evidence run '+run_id+' did not pass');
+                  }
+                  done = true;
+                  break;
                 }
-                return;
+                await new Promise(resolve => setTimeout(resolve, 10000));
               }
-              await new Promise(resolve => setTimeout(resolve, 10000));
+              if (!done) throw new Error('Native evidence still incomplete: '+run_id);
             }
-            throw new Error('Native evidence still incomplete after bounded wait');
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,6 +84,12 @@ jobs:
           path: outputs/refine
           run-id: 41998773413
           github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: midpoint-mesh-*
+          path: outputs/midpoint
+          run-id: 42000844037
+          github-token: ${{ github.token }}
       - run: |
           git fetch origin d5075efdc60ef0e495fb2239d64bc4a005634242 --depth=1
           git diff --exit-code d5075efdc60ef0e495fb2239d64bc4a005634242 HEAD -- benchmarks/p7_current_evaluate.py
@@ -92,6 +104,8 @@ jobs:
       - run: python benchmarks/p7_current_evaluate.py
       - run: python benchmarks/p7_loaded_angle_evaluate.py
       - run: python benchmarks/p7_loaded_angle_audit_negative.py
+      - run: python benchmarks/p7_midpoint_mesh_evaluate.py
+      - run: python benchmarks/p7_midpoint_mesh_audit_negative.py
       - run: python benchmarks/p7_angle_dynamics_simulation.py
       - run: python benchmarks/p7_angle_current_loop.py
       - run: python benchmarks/p7_angle_dynamics_report.py

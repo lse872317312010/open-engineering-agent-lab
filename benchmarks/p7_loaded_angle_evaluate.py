@@ -84,7 +84,8 @@ def main():
             records[(angle, pair)] = dict(
                 angle_deg=angle, id_a=pair[0], iq_a=pair[1],
                 actual_id_a=actual[0], actual_iq_a=actual[1], actual_wb=list(flux),
-                zero_wb=zero, fe_torque_nm=r["torque_nm"], nodes=r["nodes"],
+                zero_wb=zero, fe_torque_nm=r["torque_nm"],
+                gap_torque_nm=r["gap_torque_nm"], nodes=r["nodes"],
                 field=r["field"], phi_rad=r["phi_rad"], currents_a=r["native_currents_a"],
                 actual_angle_rad=r["actual_angle_rad"], origin="new", commit=source)
         assert seen == natives and len(seen) == 8
@@ -126,6 +127,8 @@ def main():
             comparisons.append(dict(angle_deg=m, id_a=pair[0], iq_a=pair[1],
                                     interp_wb=interp, flux_error=flux_error,
                                     torque_error_nm=torque_error,
+                                    increment_error_nm=abs(mid["increment_nm"]
+                                        -(left["increment_nm"]+right["increment_nm"])/2),
                                     passed=flux_error <= .02 and torque_error <= .10))
     endpoint = []
     for pair in PAIRS:
@@ -140,6 +143,8 @@ def main():
                 model_sha256=MODEL, source_commit=source, source_run=os.environ["REFINE_RUN"],
                 max_mid_flux=max(r["flux_error"] for r in comparisons),
                 max_mid_torque_nm=max(r["torque_error_nm"] for r in comparisons),
+                max_mid_increment_nm=max(r["increment_error_nm"] for r in comparisons),
+                worst_mid_torque=max(comparisons, key=lambda r: r["torque_error_nm"]),
                 max_model_flux=max(gate["flux_error"]),
                 max_model_torque_nm=max(gate["torque_error"]),
                 report_commit=subprocess.check_output(["git", "rev-parse", "HEAD"],

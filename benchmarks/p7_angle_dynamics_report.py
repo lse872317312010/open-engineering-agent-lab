@@ -16,6 +16,8 @@ def main():
     fields = json.loads((OUT / "fields.json").read_text())
     dynamics = json.loads((OUT / "dynamics.json").read_text())
     control = json.loads((OUT / "control.json").read_text())
+    spot = json.loads((OUT / "spot.json").read_text())
+    assert spot["evidence_passed"] and len(spot["rows"]) == 8
     assert fields["evidence_passed"] and len(fields["rows"]) == 36
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     for i in range(4):
@@ -72,8 +74,9 @@ def main():
     for suffix in ("png", "svg", "pdf"):
         fig.savefig(OUT / ("control."+suffix))
     plt.close(fig)
-    files = ("fields.json", "dynamics.json", "control.json", "overview.pdf", "control.pdf")
-    data = dict(fields=fields, dynamics=dynamics, control=control,
+    files = ("fields.json", "dynamics.json", "control.json", "spot.json",
+             "overview.pdf", "control.pdf")
+    data = dict(fields=fields, dynamics=dynamics, control=control, spot=spot,
                 exports=[dict(name=name, base64=base64.b64encode((OUT/name).read_bytes()).decode())
                          for name in files])
     template = (ROOT / "reports/p7-angle-dynamics.html").read_text(encoding="utf-8")
@@ -120,15 +123,19 @@ def main():
         for selector, value in (("#angle-status", fields["angle_supported"]),
                                 ("#model-status", fields["model_supported"]),
                                 ("#dynamic-status", dynamics["passed"]),
-                                ("#control-status", control["passed"])):
+                                ("#control-status", control["passed"]),
+                                ("#spot-status", spot["mesh_supported"])):
             assert page.locator(selector).get_attribute("data-supported") == str(value).lower()
+        assert page.locator("#spot-table tr").count() == 8
+        assert page.locator("#table tr").count() == 16
         page.locator(".coil").first.click()
         assert "匝" in page.locator("#component").inner_text()
         page.locator(".coil").first.focus()
         page.keyboard.press("Enter")
         assert "电流" in page.locator("#component").inner_text()
         names = ("fields.csv", "positive.csv", "negative.csv", "control-forward.csv",
-                 "control-reverse.csv", "control-fine.csv", "control-undervoltage.csv", *files)
+                 "control-reverse.csv", "control-fine.csv", "control-undervoltage.csv", "spot.csv",
+                 *files)
         for name in names:
             with page.expect_download() as event:
                 page.locator(f'a[data-export="{name}"]').click()
@@ -142,7 +149,7 @@ def main():
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         ui = dict(passed=not errors and not external, field_states=36, dynamic_states=6,
-                  control_states=12, exact_downloads=12, errors=errors, external_requests=external,
+                  control_states=12, exact_downloads=14, errors=errors, external_requests=external,
                   browser=browser.version)
         browser.close()
     (OUT / "ui-validation.json").write_text(json.dumps(ui), encoding="utf-8")

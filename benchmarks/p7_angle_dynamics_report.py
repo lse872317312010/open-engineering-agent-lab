@@ -18,6 +18,8 @@ def main():
     control = json.loads((OUT / "control.json").read_text())
     spot = json.loads((OUT / "spot.json").read_text())
     second = json.loads((OUT / "second.json").read_text())
+    deep = json.loads((OUT / "deep.json").read_text())
+    assert deep["evidence_passed"] and len(deep["rows"]) == 130
     assert second["evidence_passed"] and len(second["rows"]) == 34
     assert spot["evidence_passed"] and len(spot["rows"]) == 8
     assert fields["evidence_passed"] and len(fields["rows"]) == 36
@@ -103,9 +105,35 @@ def main():
     for suffix in ("png", "svg", "pdf"):
         fig.savefig(OUT / ("second."+suffix))
     plt.close(fig)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    for i in range(2):
+        group = deep["rows"][i::2]
+        axes[0, 0].plot(deep["angles"], [v["fe_torque_nm"] for v in group],
+                        label=f"iq={group[0]['iq_a']} A")
+        axes[0, 1].plot(deep["angles"], [v["increment_nm"] for v in group],
+                        label=f"iq={group[0]['iq_a']} A")
+    labels = [str(v["midpoint_step_deg"]) for v in deep["levels"]]
+    axes[1, 0].bar(labels, [v["max_torque_nm"] for v in deep["levels"]],
+                   label="maximum absolute torque discrepancy")
+    axes[1, 1].bar(labels, [v["max_flux"] for v in deep["levels"]],
+                   label="maximum flux discrepancy")
+    axes[1, 0].axhline(.10, color="red", ls="--", label="frozen budget")
+    axes[1, 1].axhline(.02, color="red", ls="--", label="frozen budget")
+    axes[0, 0].set(xlabel="relative mechanical angle [deg]", ylabel="absolute torque [Nm]")
+    axes[0, 1].set(xlabel="relative mechanical angle [deg]", ylabel="increment torque [Nm]")
+    axes[1, 0].set(xlabel="refined step [deg]", ylabel="absolute torque discrepancy [Nm]")
+    axes[1, 1].set(xlabel="refined step [deg]", ylabel="flux discrepancy / 0.05 Wb")
+    for ax in axes.flat:
+        ax.grid(alpha=.15)
+        ax.legend(fontsize=7)
+    fig.tight_layout()
+    for suffix in ("png", "svg", "pdf"):
+        fig.savefig(OUT / ("deep."+suffix))
+    plt.close(fig)
     files = ("fields.json", "dynamics.json", "control.json", "spot.json", "second.json",
-             "overview.pdf", "control.pdf", "second.pdf")
-    data = dict(fields=fields, dynamics=dynamics, control=control, spot=spot, second=second,
+             "deep.json", "overview.pdf", "control.pdf", "second.pdf", "deep.pdf")
+    data = dict(fields=fields, dynamics=dynamics, control=control, spot=spot,
+                second=second, deep=deep,
                 exports=[dict(name=name, base64=base64.b64encode((OUT/name).read_bytes()).decode())
                          for name in files])
     template = (ROOT / "reports/p7-angle-dynamics.html").read_text(encoding="utf-8")
@@ -142,6 +170,17 @@ def main():
         assert "匝" in page.locator("#second-component").inner_text()
         assert float(page.locator("#closure").get_attribute("data-number")) == (
             fields["endpoint"][0]["flux_diff"])
+        for row in deep["rows"]:
+            page.select_option("#deep-angle", str(row["index"]//2))
+            page.select_option("#deep-current", str(row["index"]%2))
+            for key in ("fe_torque_nm", "increment_nm", "nodes"):
+                assert float(page.locator("#deep_"+key).get_attribute("data-number")) == row[key]
+            assert page.locator("#deep-machine .coil").count() == 24
+            assert page.locator("#deep-machine .magnet").count() == 8
+            assert page.locator("#deep-machine .gapvector").count() == 48
+        assert page.locator("#deep-table tr").count() == 4
+        page.locator("#deep-machine .coil").first.click()
+        assert "匝" in page.locator("#deep-component").inner_text()
         for index, case in enumerate(dynamics["cases"]):
             page.select_option("#case", str(index))
             for tick in (0, len(case["rows"])//2, len(case["rows"])-1):
@@ -165,7 +204,8 @@ def main():
                                 ("#dynamic-status", dynamics["passed"]),
                                 ("#control-status", control["passed"]),
                                 ("#spot-status", spot["mesh_supported"]),
-                                ("#second-status", second["angle_supported"])):
+                                ("#second-status", second["angle_supported"]),
+                                ("#deep-status", deep["levels"][3]["supported"])):
             assert page.locator(selector).get_attribute("data-supported") == str(value).lower()
         assert page.locator("#spot-table tr").count() == 8
         assert page.locator("#table tr").count() == 16
@@ -176,7 +216,7 @@ def main():
         assert "电流" in page.locator("#component").inner_text()
         names = ("fields.csv", "positive.csv", "negative.csv", "control-forward.csv",
                  "control-reverse.csv", "control-fine.csv", "control-undervoltage.csv", "spot.csv",
-                 "second.csv",
+                 "second.csv", "deep.csv",
                  *files)
         for name in names:
             with page.expect_download() as event:
@@ -191,7 +231,7 @@ def main():
         page.screenshot(path=str(OUT / "mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         ui = dict(passed=not errors and not external, field_states=36, dynamic_states=6,
-                  control_states=12, second_states=34, exact_downloads=17,
+                  control_states=12, second_states=34, deep_states=130, exact_downloads=20,
                   errors=errors, external_requests=external,
                   browser=browser.version)
         browser.close()

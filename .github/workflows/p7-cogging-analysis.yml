@@ -1,0 +1,35 @@
+name: P7 cogging heldout field analysis
+on:
+  push:
+    branches: [codex/p7-cogging-coenergy]
+    paths: ['benchmarks/p7_cogging_model.py', 'benchmarks/p7_cogging_extract.py', 'benchmarks/p7_cogging_evaluate.py', 'tests/test_p7_cogging_model.py', '.github/workflows/p7-cogging-analysis.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[dev]"
+      - run: python -c "from pathlib import Path; Path('outputs').mkdir(exist_ok=True)"
+      - run: gh release download snapshot-2026-11-05 --pattern open-engineering-report.zip --dir outputs
+      - run: python benchmarks/p7_cogging_extract.py
+      - run: ruff check .
+      - run: python -m pytest
+      - run: python benchmarks/p7_cogging_evaluate.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-cogging-analysis
+          path: outputs/p7-cogging-report/
+          if-no-files-found: error

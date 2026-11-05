@@ -1,0 +1,23 @@
+name: P7 cogging source fingerprint
+on:
+  push:
+    branches: [codex/p7-cogging-coenergy]
+    paths: ['.github/workflows/p7-cogging-input.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: p7-angle-dynamics
+          path: evidence
+          run-id: 42004300771
+          github-token: ${{ github.token }}
+      - name: Verify source and print immutable file digests
+        run: |
+          python -c 'import json,pathlib,hashlib; p=pathlib.Path("evidence"); f=json.loads((p/"fields.json").read_text()); d=json.loads((p/"deep.json").read_text()); u=json.loads((p/"ui-validation.json").read_text()); assert f["evidence_passed"] and f["report_commit"]=="a6f4db38df8c24c5f75eb1a1a8ad007925efbc20" and d["evidence_passed"] and len(d["rows"])==130 and u["passed"]; [print("cogging-input-sha256:",n,hashlib.sha256((p/n).read_bytes()).hexdigest()) for n in ("fields.json","deep.json","model.json","ui-validation.json")]'

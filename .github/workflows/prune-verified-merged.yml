@@ -1,21 +1,22 @@
-name: Prune verified merged branches
+name: Finish verified branch cleanup
 on:
   pull_request:
-    types: [opened]
+    types: [synchronize]
     paths:
       - '.github/workflows/prune-verified-merged.yml'
 permissions:
   contents: write
   pull-requests: read
 jobs:
-  prune:
-    if: github.event.pull_request.head.ref == 'codex/verified-branch-cleanup-20261106' && github.event.pull_request.base.ref == 'main'
+  finish:
+    if: github.event.pull_request.number == 65 && github.event.pull_request.head.ref == 'codex/verified-branch-cleanup-20261106'
     runs-on: ubuntu-latest
     steps:
-      - name: Delete only unchanged, merged branches without open PRs
+      - name: Remove merged follow-up and temporary cleanup branch
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          CLEANUP_HEAD: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -28,56 +29,22 @@ jobs:
               if p.returncode:
                   raise RuntimeError(f"{method} {path}: {p.stderr.strip()}")
               return json.loads(p.stdout) if p.stdout else None
-          manifest = """codex/msl-identification-robustness 9aeecedd1cd35f6115df542406efbb0e4b4623a0
-          codex/p7-angle-refinement 99fea73a955bf59e713a39f75aeab4e446165553
-          codex/p7-bdm-flux 0c16489a1c48b569770a0842cb88bc6f5e55cb49
-          codex/p7-conservative-flux 138d49d5064624f754cf87d6e4d3b767439592a9
-          codex/p7-contact-heat 06b91e0d03373bfef141f3ffcf0c5292f9662149
-          codex/p7-current-holdout 7a76b3522bba7d41bc57ec3ddab4f0892052db52
-          codex/p7-dq-calibration b4cbaba13ff4e4a6fbb221d3a2c32dbf04923ee9
-          codex/p7-drive-cycle 8d0ff0654a54b903393c4df3115d17b92898aaf3
-          codex/p7-femm-motor 055646ebd1068355b56d5119c4b01cd944b8ddec
-          codex/p7-femm-nonlinear 199464f742bfea64826f1c1dbea822b149375c71
-          codex/p7-layered-thermal cc064ef06e8b5c12b4c328ff7e4b803c4ba0c57f
-          codex/p7-loaded-angle-dynamics 6eb0bfd5b345ad307a8e422cb9e8493bcb0bf616
-          codex/p7-loaded-angular e4827011b78e24a54802c9dc8a453d40ef0aa210
-          codex/p7-loaded-frame 67674fe1fd668c55140fa188102e4ae81945ee88
-          codex/p7-loaded-mesh 3807447451812a4163e7431a02b6653fc73436ad
-          codex/p7-local-flux-model 0d82b888c11c0a90f149d8091af3f64454daa1e6
-          codex/p7-locked-current-loop 07810cacf0f09e65de6717e0dd43b6063d646519
-          codex/p7-magnetic 5a91b5f984b0407d4dd179dbc5c8b0e087463b7c
-          codex/p7-multirate-drive 5dd4d3857afdfe566d08ac6421dbe3ee2d79b570
-          codex/p7-param-rom b2a621469de0f6ff6c39ad05cb34ceb72c170355
-          codex/p7-prescribed-rotation 27d2bcfcc3a23ab725267a4ce46d93cdfb5be8ba
-          codex/p7-pyleecan-angle 28fc6ccaee80ebea25a365e3f1a25ba801a64274
-          codex/p7-pymor-rom 8fe9ef842cad15325969c522ed699b09bcc6d8ac
-          codex/p7-transient-heat 18cc7e580c16dfd183e41415306ae07baeca6ddd
-          codex/thermal-observation-quality 3afdffbf22d9f45a50f97c00361b6863c49d705d"""
-          candidates = [line.split() for line in manifest.splitlines()]
-          if len(candidates) != 25 or len({name for name, _ in candidates}) != 25:
-              raise RuntimeError("invalid manifest")
-          open_pulls = api(f"repos/{repo}/pulls?state=open&per_page=100")
-          protected = {p["head"]["ref"] for p in open_pulls} | {
-              p["base"]["ref"] for p in open_pulls}
-          failed = []
-          for name, expected in candidates:
-              try:
-                  if name in protected or name == "main":
-                      raise RuntimeError("open PR or protected branch")
-                  ref = api(f"repos/{repo}/git/ref/heads/{name}")
-                  if ref["object"]["sha"] != expected:
-                      raise RuntimeError("branch changed")
-                  comparison = api(f"repos/{repo}/compare/main...{expected}")
-                  if comparison["ahead_by"] != 0 or comparison["status"] not in ("behind", "identical"):
-                      raise RuntimeError("not contained in main")
-                  ref = api(f"repos/{repo}/git/ref/heads/{name}")
-                  if ref["object"]["sha"] != expected:
-                      raise RuntimeError("branch changed before deletion")
-                  api(f"repos/{repo}/git/refs/heads/{name}", "DELETE")
-                  print(f"deleted {name} {expected}", flush=True)
-              except Exception as exc:
-                  failed.append(name)
-                  print(f"skipped {name}: {exc}", flush=True)
-          if failed:
-              raise SystemExit("Some branches were skipped: " + ", ".join(failed))
+          follow = "codex/p7-thermal-evidence-followup"
+          expected = "e93e56552ef0f82978e2114324191ce066a55de9"
+          if api(f"repos/{repo}/git/ref/heads/{follow}")["object"]["sha"] != expected:
+              raise RuntimeError("follow-up branch changed")
+          base = api(f"repos/{repo}/git/ref/heads/codex/p7-period-crossing")["object"]["sha"]
+          comparison = api(f"repos/{repo}/compare/{base}...{expected}")
+          if comparison["ahead_by"] != 0:
+              raise RuntimeError("follow-up not contained in active P7 branch")
+          pulls = api(f"repos/{repo}/pulls?state=open&per_page=100")
+          if any(follow in (p["head"]["ref"], p["base"]["ref"]) for p in pulls):
+              raise RuntimeError("follow-up still used by an open PR")
+          api(f"repos/{repo}/git/refs/heads/{follow}", "DELETE")
+          print("deleted merged thermal follow-up", flush=True)
+          cleanup = "codex/verified-branch-cleanup-20261106"
+          if api(f"repos/{repo}/git/ref/heads/{cleanup}")["object"]["sha"] != os.environ["CLEANUP_HEAD"]:
+              raise RuntimeError("cleanup branch changed")
+          api(f"repos/{repo}/git/refs/heads/{cleanup}", "DELETE")
+          print("deleted temporary cleanup branch", flush=True)
           PY

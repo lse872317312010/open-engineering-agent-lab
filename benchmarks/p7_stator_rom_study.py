@@ -83,6 +83,17 @@ def load_fom():
                 mesh=mesh, upstream_sha256=digest(UPSTREAM / "summary.json"))
 
 
+
+def max_channel_rmse(errors):
+    """Worst output RMSE over time; never average across temperature channels."""
+    values = np.asarray(errors, dtype=float)
+    if values.ndim != 2 or values.shape[0] == 0 or values.shape[1] != 2:
+        raise ValueError("expected nonempty two-channel temperature errors")
+    if not np.isfinite(values).all():
+        raise ValueError("finite temperature errors required")
+    return float(np.max(np.sqrt(np.mean(values**2, axis=0))))
+
+
 def full_replay(fom, h, name, dt, *, basis=None, model=None):
     power = powers(name, dt, fom["p0"])
     mass = fom["mass"]
@@ -118,8 +129,7 @@ def full_replay(fom, h, name, dt, *, basis=None, model=None):
     return dict(outputs=output, snapshots=np.array(snapshots),
                 max_balance_j=float(max_balance), rom_balance_j=float(max_rom_balance),
                 max_field_error_k=float(max_field),
-                rmse_k=float(max(np.sqrt(np.mean(np.array(rom_error)**2, axis=0))))
-                if rom_error else None)
+                rmse_k=max_channel_rmse(rom_error) if rom_error else None)
 
 
 def orthogonal_basis(weighted, mass, forcing):

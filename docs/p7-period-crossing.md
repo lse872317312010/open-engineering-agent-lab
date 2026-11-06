@@ -40,4 +40,4 @@ python benchmarks/p7_period_crossing.py
 这些小误差说明同一冻结方程的数值一致性，不能解释为真实电机预测误差。
 
 这是冻结模型的跨周期数值验证，没有新增FE、速度闭环或物理精度认证。
-完整Gate B、独立场参照、同机型损耗到工程热场/ROM映射继续保留。
+完整 Gate B 和独立场参照继续保留；后续已将铜耗映射到[同机型定子热场](p7-stator-thermal.md)及其[参数 ROM](p7-stator-rom.md)，范围仅限文中合成参数与规定热源。

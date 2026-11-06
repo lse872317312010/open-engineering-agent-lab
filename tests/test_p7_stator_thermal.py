@@ -80,3 +80,18 @@ def test_missing_annular_sector_creates_rejected_exposed_interface(thermal):
     missing = MeshTri(points, np.array(triangles[2:]).T)
     with pytest.raises(ValueError, match="exposed slot"):
         thermal.validate_exposed_boundary(missing, exterior(missing))
+
+
+def test_rom_rmse_gate_does_not_average_away_one_bad_channel(thermal):
+    study = importlib.import_module("p7_stator_rom_study")
+    errors = np.array([[0., 25e-6], [0., 25e-6]])
+    assert np.sqrt(np.mean(errors**2)) < 20e-6
+    assert study.max_channel_rmse(errors) == pytest.approx(25e-6)
+    assert study.max_channel_rmse(errors) > 20e-6
+
+
+@pytest.mark.parametrize("errors", [[], [[1.]], [[1., float("nan")]], [[1., float("inf")]]])
+def test_rom_rmse_rejects_missing_or_nonfinite_channels(thermal, errors):
+    study = importlib.import_module("p7_stator_rom_study")
+    with pytest.raises(ValueError):
+        study.max_channel_rmse(errors)

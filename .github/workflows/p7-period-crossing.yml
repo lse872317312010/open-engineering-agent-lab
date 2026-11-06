@@ -1,0 +1,65 @@
+name: P7 multi-period mechanical evidence
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/p7_period_crossing.py'
+      - 'benchmarks/p7_cogging_model.py'
+      - 'benchmarks/p7_cogging_simulation.py'
+      - 'tests/test_p7_cogging_model.py'
+      - 'src/oeal/heat_sources.py'
+      - 'tests/test_heat_sources.py'
+      - 'benchmarks/p7_winding_heat.py'
+      - 'benchmarks/p7_stator_*.py'
+      - 'benchmarks/build_p7_stator_figure.py'
+      - 'benchmarks/p7-stator-requirements.txt'
+      - 'tests/test_p7_stator_thermal.py'
+      - 'src/oeal/stator_rom.py'
+      - 'tests/test_stator_rom.py'
+      - 'benchmarks/build_p7_stator_rom_figure.py'
+      - '.github/workflows/p7-period-crossing.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa
+      - run: python -m pip install -r benchmarks/p7-stator-requirements.txt
+      - run: python -m pip install -e ".[dev]"
+      - run: python -c "from pathlib import Path; Path('outputs').mkdir(exist_ok=True)"
+      - run: gh release download snapshot-2026-11-05 --pattern open-engineering-report.zip --dir outputs
+      - run: python benchmarks/p7_cogging_extract.py
+      - run: ruff check .
+      - run: python -m pytest
+      - run: python benchmarks/p7_cogging_evaluate.py
+      - run: python benchmarks/p7_cogging_simulation.py
+      - run: python -c "import json; assert json.load(open('outputs/p7-cogging-report/dynamics.json'))['passed']"
+      - run: python benchmarks/p7_period_crossing.py
+      - run: python benchmarks/p7_winding_heat.py
+      - run: python benchmarks/p7_stator_thermal.py
+      - run: python benchmarks/build_p7_stator_figure.py
+      - run: python benchmarks/p7_stator_rom_study.py train
+      - run: python benchmarks/p7_stator_rom_study.py validate
+      - run: python benchmarks/build_p7_stator_rom_figure.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: p7-period-crossing-evidence
+          path: |
+            outputs/p7-cogging-report/
+            outputs/p7-winding-heat/
+            outputs/p7-stator-thermal/
+            outputs/p7-stator-rom/
+          if-no-files-found: error

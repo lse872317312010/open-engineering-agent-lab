@@ -65,3 +65,18 @@ def test_zero_current_mechanical_limit_and_invalid_inputs():
         model.flux(0, [1.1, 1.1])
     with pytest.raises(ValueError):
         mod.CoggingMotor(model.psi, model.cog, [[.002, 0], [0, .003]], inertia=0)
+
+
+@pytest.mark.parametrize("turn", [-3, -1, 0, 1, 3])
+@pytest.mark.parametrize("offset", [-1e-9, 0., 1e-9])
+def test_period_boundaries_keep_coenergy_and_power_identity(turn, offset):
+    model = setup_motor()
+    theta = turn*mod.PERIOD+offset
+    for function in (model.psi.value, model.psi.derivative, model.cog.integral):
+        np.testing.assert_allclose(function(theta), function(offset), atol=1e-12, rtol=0)
+    current, voltage, omega = np.array([.2, -.3]), [1., 2.], -40.
+    di, _, acceleration = model.rhs(theta, omega, current, voltage, .05)
+    power = model.powers(theta, omega, current, voltage, .05)
+    stored_rate = 1.5*current@model.inductance@di-model.cog.value(theta)[0]*omega
+    assert power[0]-sum(power[1:]) == pytest.approx(
+        stored_rate+model.inertia*omega*acceleration, abs=1e-10)

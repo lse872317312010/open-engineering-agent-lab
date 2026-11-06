@@ -10,9 +10,11 @@ on:
       - 'tests/test_heat_sources.py'
       - 'benchmarks/p7_winding_heat.py'
       - 'benchmarks/p7_stator_*.py'
+      - 'benchmarks/p7_electric_thermal_replay.py'
       - 'benchmarks/build_p7_stator_figure.py'
       - 'benchmarks/p7-stator-requirements.txt'
       - 'tests/test_p7_stator_thermal.py'
+      - 'tests/test_p7_electric_thermal_replay.py'
       - 'src/oeal/stator_rom.py'
       - 'tests/test_stator_rom.py'
       - 'benchmarks/build_p7_stator_rom_figure.py'
@@ -53,6 +55,7 @@ jobs:
       - run: python benchmarks/p7_stator_rom_study.py train
       - run: python benchmarks/p7_stator_rom_study.py validate
       - run: python benchmarks/build_p7_stator_rom_figure.py
+      - run: python benchmarks/p7_electric_thermal_replay.py
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -62,4 +65,5 @@ jobs:
             outputs/p7-winding-heat/
             outputs/p7-stator-thermal/
             outputs/p7-stator-rom/
+            outputs/p7-electric-thermal-replay/
           if-no-files-found: error

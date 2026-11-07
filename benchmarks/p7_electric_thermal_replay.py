@@ -19,6 +19,12 @@ CASES = ("forward-base", "forward-fine", "reverse-base", "reverse-fine")
 DT = .0025
 
 
+def plot_window_power(axis, power, **kwargs):
+    """Draw interval means on their actual edges, including the first and last windows."""
+    edges_ms = np.arange(len(power)+1)*DT*1000
+    return axis.stairs(power, edges_ms, **kwargs)
+
+
 def window_power(rows, case, upper):
     selected = [r for r in rows if r["case"] == case]
     if len(selected) != 20:
@@ -49,7 +55,8 @@ def main():
     if digest(ROOT / "src/oeal/stator_rom.py") != frozen["inference_api_sha256"]:
         raise ValueError("frozen inference implementation changed")
     source = json.loads((HEAT / "summary.json").read_text(encoding="utf-8"))
-    if not source["passed"] or digest(HEAT / "windows.csv") != source["output_sha256"]["windows.csv"]:
+    if (not source["passed"]
+            or digest(HEAT / "windows.csv") != source["output_sha256"]["windows.csv"]):
         raise ValueError("copper source integrity failure")
     with (HEAT / "windows.csv").open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
@@ -116,9 +123,8 @@ def main():
                    evidence_kind="model_simulated", dt_s=DT)
     (OUT / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
-    time_ms = np.arange(1, 21)*DT*1000
     for case in CASES:
-        axes[0].step(time_ms, powers[case], where="post", label=case)
+        plot_window_power(axes[0], powers[case], label=case)
     axes[0].set(xlabel="Time (ms)", ylabel="Mean copper loss (W)", title="Drive loss windows")
     axes[0].legend(fontsize=7)
     for case in CASES:

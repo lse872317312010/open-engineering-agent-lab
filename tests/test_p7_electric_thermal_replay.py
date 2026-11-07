@@ -23,6 +23,26 @@ def test_copper_windows_preserve_integrated_energy(replay):
     assert sum(power)*.0025 == pytest.approx(.005)
 
 
+def test_power_plot_covers_every_actual_interval_and_preserves_energy(replay):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    power = np.linspace(.1, .3, 20)
+    fig, axis = plt.subplots()
+    try:
+        patch = replay.plot_window_power(axis, power)
+        data = patch.get_data()
+        np.testing.assert_allclose(data.edges, np.arange(21)*2.5)
+        np.testing.assert_array_equal(data.values, power)
+        assert sum(data.values*np.diff(data.edges)/1000) == pytest.approx(.01)
+        vertices = patch.get_path().vertices
+        for i, value in enumerate(power):
+            for edge in (i*2.5, (i+1)*2.5):
+                assert np.any(np.all(np.isclose(vertices, [edge, value]), axis=1))
+    finally:
+        plt.close(fig)
+
+
 @pytest.mark.parametrize("fault", ["missing", "out_of_order", "nan", "over_power"])
 def test_copper_windows_reject_invalid_input(replay, fault):
     rows = sample()

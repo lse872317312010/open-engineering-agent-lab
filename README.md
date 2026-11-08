@@ -1,5 +1,9 @@
 # Open Engineering Agent Lab
 
+新增[24,000s规定电流包络热反馈](docs/p7-feedback-endurance.md)：独立FE/ROM轨迹、
+稳态解、恒流热反馈稳定性、步长细化与前1200s的400Hz检查。长时电气采用规定dq电流，
+实际FOC仍由50ms专项验证；数值结果以对应分支的P7专项证据为准。
+
 新增[温度—电阻—铜耗双向接口](docs/p7-temperature-feedback.md)：实际FOC按2.5ms铜耗窗更新
 同几何热ROM，再将绕组均温换算为下一窗电阻。25/75°C环境、正反转及独立全阶热闭环
 用于核验时钟与联合能量；当前验证范围为50ms微小自热及合成电阻参数。

@@ -80,6 +80,10 @@ class StatorCopperFeedback:
         return self._window
 
     @property
+    def window_s(self):
+        return self._dt
+
+    @property
     def copper_j(self):
         return self._copper_j
 

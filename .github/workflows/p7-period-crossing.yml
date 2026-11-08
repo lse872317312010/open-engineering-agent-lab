@@ -11,6 +11,10 @@ on:
       - 'benchmarks/p7_winding_heat.py'
       - 'benchmarks/p7_stator_*.py'
       - 'benchmarks/p7_electric_thermal_replay.py'
+      - 'benchmarks/p7_temperature_feedback.py'
+      - 'src/oeal/stator_feedback.py'
+      - 'tests/test_stator_feedback.py'
+      - 'docs/p7-temperature-feedback-contract.md'
       - 'benchmarks/build_p7_stator_figure.py'
       - 'benchmarks/p7-stator-requirements.txt'
       - 'tests/test_p7_stator_thermal.py'
@@ -60,6 +64,7 @@ jobs:
       - run: python benchmarks/p7_electric_thermal_replay.py
       - run: python benchmarks/p7_stator_fast_rom.py train
       - run: python benchmarks/p7_stator_fast_rom.py validate
+      - run: python benchmarks/p7_temperature_feedback.py
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -71,4 +76,5 @@ jobs:
             outputs/p7-stator-rom/
             outputs/p7-electric-thermal-replay/
             outputs/p7-stator-fast-rom/
+            outputs/p7-temperature-feedback/
           if-no-files-found: error

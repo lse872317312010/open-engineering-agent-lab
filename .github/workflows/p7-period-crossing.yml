@@ -13,6 +13,12 @@ on:
       - 'benchmarks/p7_electric_thermal_replay.py'
       - 'benchmarks/p7_temperature_feedback.py'
       - 'benchmarks/p7_feedback_endurance.py'
+      - 'benchmarks/p7_foc_loss_map.py'
+      - 'benchmarks/p7_locked_electrical.py'
+      - 'src/oeal/foc_loss_map.py'
+      - 'tests/test_foc_loss_map.py'
+      - 'tests/test_p7_locked_electrical.py'
+      - 'docs/p7-foc-loss-map-contract.md'
       - 'src/oeal/current_envelope.py'
       - 'tests/test_current_envelope.py'
       - 'tests/test_p7_feedback_endurance.py'
@@ -71,6 +77,8 @@ jobs:
       - run: python benchmarks/p7_stator_fast_rom.py validate
       - run: python benchmarks/p7_temperature_feedback.py
       - run: python benchmarks/p7_feedback_endurance.py
+      - run: python benchmarks/p7_foc_loss_map.py train
+      - run: python benchmarks/p7_foc_loss_map.py validate
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -84,4 +92,5 @@ jobs:
             outputs/p7-stator-fast-rom/
             outputs/p7-temperature-feedback/
             outputs/p7-feedback-endurance/
+            outputs/p7-foc-loss-map/
           if-no-files-found: error

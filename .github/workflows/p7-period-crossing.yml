@@ -14,6 +14,8 @@ on:
       - 'benchmarks/build_p7_stator_figure.py'
       - 'benchmarks/p7-stator-requirements.txt'
       - 'tests/test_p7_stator_thermal.py'
+      - 'tests/test_p7_stator_fast_rom.py'
+      - 'docs/p7-stator-fast-rom-contract.md'
       - 'tests/test_p7_electric_thermal_replay.py'
       - 'src/oeal/stator_rom.py'
       - 'tests/test_stator_rom.py'
@@ -56,6 +58,8 @@ jobs:
       - run: python benchmarks/p7_stator_rom_study.py validate
       - run: python benchmarks/build_p7_stator_rom_figure.py
       - run: python benchmarks/p7_electric_thermal_replay.py
+      - run: python benchmarks/p7_stator_fast_rom.py train
+      - run: python benchmarks/p7_stator_fast_rom.py validate
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -66,4 +70,5 @@ jobs:
             outputs/p7-stator-thermal/
             outputs/p7-stator-rom/
             outputs/p7-electric-thermal-replay/
+            outputs/p7-stator-fast-rom/
           if-no-files-found: error

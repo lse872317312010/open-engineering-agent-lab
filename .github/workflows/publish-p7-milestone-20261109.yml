@@ -1,0 +1,49 @@
+name: Publish P7 simulation milestone
+on:
+  pull_request:
+    types: [opened]
+    paths:
+      - '.github/workflows/publish-p7-milestone-20261109.yml'
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    if: github.event.pull_request.head.ref == 'codex/p7-publish-milestone-20261109' && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      MILESTONE_COMMIT: '76924b814b1a47c6b94b55603c798197dc0c2137'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MILESTONE_COMMIT }}
+      - name: Verify milestone commit and evidence provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" = "$MILESTONE_COMMIT"
+          gh api "repos/$GH_REPO/actions/artifacts/13621047563" > artifact.json
+          python - <<'PY'
+          import json
+          with open("artifact.json", encoding="utf-8") as f:
+              x = json.load(f)
+          assert x["workflow_run"]["head_sha"] == "a39822eb1595d4392f81618924d448a9d206ae4d"
+          assert x["digest"] == "sha256:2ed1575b8d59b530305830f5f58b9d5c16c3f1eea504cd0e356a699a078dbcee"
+          assert not x["expired"]
+          PY
+      - name: Download and check complete evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/actions/artifacts/13621047563/zip" > p7-simulation-evidence.zip
+          echo '2ed1575b8d59b530305830f5f58b9d5c16c3f1eea504cd0e356a699a078dbcee  p7-simulation-evidence.zip' | sha256sum -c -
+      - name: Publish research prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create p7-simulation-milestone-2026-11-09 p7-simulation-evidence.zip \
+            --target "$MILESTONE_COMMIT" --title 'P7 仿真研究里程碑 · 2026-11-09' \
+            --notes-file docs/milestone-p7-2026-11-09.md --prerelease

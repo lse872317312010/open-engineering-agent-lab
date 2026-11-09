@@ -32,3 +32,8 @@ def test_rl_current_and_source_loss_energy_match_closed_form(flow):
     assert work[1] == pytest.approx(resistance*square_integral, abs=1e-14)
     assert work[0]-work[1] == pytest.approx(.5*inductance*(expected_current**2-initial**2),
                                            abs=1e-14)
+
+
+def test_repeat_period_must_match_model_and_control_clocks(flow):
+    with pytest.raises(ValueError, match="aligned repeat"):
+        flow.simulate_locked(None, 1., 0., repeat_s=.021)

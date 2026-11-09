@@ -80,12 +80,22 @@ def generator_and_work(motor, omega):
     return generator, np.stack((source, copper, shaft)), magnetic, identity_error
 
 
-def simulate_locked(motor, direction, theta0, *, replay=False):
-    omega = direction*OMEGA
+def simulate_locked(motor, direction, theta0, *, replay=False, omega_abs_rad_s=OMEGA,
+                    repeat_s=PERIOD_S, burn_cycles=BURN, score_cycles=SCORE):
+    per_cycle = round(repeat_s/TS)
+    periods = omega_abs_rad_s*repeat_s/cogging.PERIOD
+    if (direction not in (-1., 1.) or not math.isfinite(theta0)
+            or not math.isfinite(omega_abs_rad_s) or omega_abs_rad_s <= 0
+            or not math.isclose(per_cycle*TS, repeat_s, rel_tol=0, abs_tol=1e-12)
+            or periods < 1 or not math.isclose(periods, round(periods), abs_tol=1e-10)
+            or type(burn_cycles) is not int or burn_cycles < 1
+            or type(score_cycles) is not int or score_cycles < 2):
+        raise ValueError("aligned repeat period, positive speed and integer cycle counts required")
+    omega = direction*omega_abs_rad_s
     generator, work, magnetic, identity = generator_and_work(motor, omega)
     advance, integrals = quadratic_flow(generator, work, DT)
-    per_control, per_cycle = round(TS/DT), round(PERIOD_S/TS)
-    count = (BURN+SCORE)*per_cycle
+    per_control = round(TS/DT)
+    count = (burn_cycles+score_cycles)*per_cycle
     matrix = motor.inductance
     parameters = CurrentPIParameters(matrix[0, 0]*1000, .3*1000,
                                      matrix[1, 1]*1000, .3*1000,
@@ -137,18 +147,20 @@ def simulate_locked(motor, direction, theta0, *, replay=False):
     balance = energy[0]-energy[1]-energy[2]-motor.stored(theta, current)+initial
     rows.append(np.r_[count*TS, theta, current, voltage, energy, balance])
     trace, cycles = np.array(rows), np.array(cycles)
-    first = (BURN+SCORE-1)*per_cycle
+    first = (burn_cycles+score_cycles-1)*per_cycle
     periodic = float(np.max(abs(trace[first:first+per_cycle+1, 2:4]
                                 -trace[first-per_cycle:first+1, 2:4])))
-    cycle_power = cycles[-SCORE:, 1]/PERIOD_S
+    cycle_power = cycles[-score_cycles:, 1]/repeat_s
     mean = float(np.mean(cycle_power))
     spread = float(np.ptp(cycle_power)/mean)
     reference_errors = np.zeros(4)
     reference_trace = np.empty((0, 5))
     if replay:
-        reference_errors, reference_trace = dop_replay(motor, omega, theta0, trace, commands)
+        reference_errors, reference_trace = dop_replay(
+            motor, omega, theta0, trace, commands, start_control=burn_cycles*per_cycle)
     metrics = dict(direction=direction, resistance_ohm=motor.resistance, theta0_rad=theta0,
-                   omega_rad_s=omega, burn_cycles=BURN, score_cycles=SCORE,
+                   omega_rad_s=omega, burn_cycles=burn_cycles, score_cycles=score_cycles,
+                   repeat_s=repeat_s, mechanical_periods_per_repeat=round(periods),
                    mean_copper_w=mean, ideal_copper_w=1.5*motor.resistance*.25,
                    ideal_relative_bias=1.5*motor.resistance*.25/mean-1,
                    periodic_current_difference_a=periodic, cycle_power_relative_spread=spread,
@@ -162,12 +174,12 @@ def simulate_locked(motor, direction, theta0, *, replay=False):
                                and reference_errors[0] <= 1e-6
                                and max(reference_errors[1:]) <= 1e-8))
     arrays = dict(control=trace, stationary_commands=np.array(commands), cycle_energy_j=cycles,
-                  cycle_mean_copper_w=cycles[:, 1]/PERIOD_S, dop_trace=reference_trace)
+                  cycle_mean_copper_w=cycles[:, 1]/repeat_s, dop_trace=reference_trace)
     return metrics, arrays
 
 
-def dop_replay(motor, omega, theta0, trace, commands):
-    start = BURN*round(PERIOD_S/TS)
+def dop_replay(motor, omega, theta0, trace, commands, *, start_control=None):
+    start = BURN*round(PERIOD_S/TS) if start_control is None else start_control
     state = np.r_[trace[start, 2:4], np.zeros(3)]
     errors = np.zeros(4)
     result_trace = [state.copy()]

@@ -11,9 +11,32 @@ on:
       - 'benchmarks/p7_winding_heat.py'
       - 'benchmarks/p7_stator_*.py'
       - 'benchmarks/p7_electric_thermal_replay.py'
+      - 'benchmarks/p7_temperature_feedback.py'
+      - 'benchmarks/p7_feedback_endurance.py'
+      - 'benchmarks/p7_foc_loss_map.py'
+      - 'benchmarks/p7_speed_loss_map.py'
+      - 'benchmarks/p7_speed_ramp.py'
+      - 'src/oeal/speed_loss_map.py'
+      - 'tests/test_speed_loss_map.py'
+      - 'tests/test_p7_speed_ramp.py'
+      - 'docs/p7-speed-loss-map-contract.md'
+      - 'benchmarks/p7_locked_electrical.py'
+      - 'src/oeal/foc_loss_map.py'
+      - 'tests/test_foc_loss_map.py'
+      - 'tests/test_p7_locked_electrical.py'
+      - 'docs/p7-foc-loss-map-contract.md'
+      - 'src/oeal/current_envelope.py'
+      - 'tests/test_current_envelope.py'
+      - 'tests/test_p7_feedback_endurance.py'
+      - 'docs/p7-feedback-endurance-contract.md'
+      - 'src/oeal/stator_feedback.py'
+      - 'tests/test_stator_feedback.py'
+      - 'docs/p7-temperature-feedback-contract.md'
       - 'benchmarks/build_p7_stator_figure.py'
       - 'benchmarks/p7-stator-requirements.txt'
       - 'tests/test_p7_stator_thermal.py'
+      - 'tests/test_p7_stator_fast_rom.py'
+      - 'docs/p7-stator-fast-rom-contract.md'
       - 'tests/test_p7_electric_thermal_replay.py'
       - 'src/oeal/stator_rom.py'
       - 'tests/test_stator_rom.py'
@@ -56,6 +79,14 @@ jobs:
       - run: python benchmarks/p7_stator_rom_study.py validate
       - run: python benchmarks/build_p7_stator_rom_figure.py
       - run: python benchmarks/p7_electric_thermal_replay.py
+      - run: python benchmarks/p7_stator_fast_rom.py train
+      - run: python benchmarks/p7_stator_fast_rom.py validate
+      - run: python benchmarks/p7_temperature_feedback.py
+      - run: python benchmarks/p7_feedback_endurance.py
+      - run: python benchmarks/p7_foc_loss_map.py train
+      - run: python benchmarks/p7_foc_loss_map.py validate
+      - run: python benchmarks/p7_speed_loss_map.py train
+      - run: python benchmarks/p7_speed_loss_map.py validate
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -66,4 +97,9 @@ jobs:
             outputs/p7-stator-thermal/
             outputs/p7-stator-rom/
             outputs/p7-electric-thermal-replay/
+            outputs/p7-stator-fast-rom/
+            outputs/p7-temperature-feedback/
+            outputs/p7-feedback-endurance/
+            outputs/p7-foc-loss-map/
+            outputs/p7-speed-loss-map/
           if-no-files-found: error

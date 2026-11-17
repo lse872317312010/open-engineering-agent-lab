@@ -11,10 +11,9 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import motulator.drive.gradnet as gn  # noqa: E402
+from import_magnetic_points import convert  # noqa: E402
 from motulator.drive import utils  # noqa: E402
 from motulator_gradnet import train_gradnet  # noqa: E402
-
-from import_magnetic_points import convert  # noqa: E402
 
 
 def sha(path):

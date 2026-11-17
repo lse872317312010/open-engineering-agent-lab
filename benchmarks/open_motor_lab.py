@@ -14,7 +14,7 @@ from motulator.drive import model, utils
 
 
 def run(model_map, nominal, cfg, bandwidth_hz, scenario, out):
-    current_map = model_map.invert()
+    current_map = model_map.invert(num=512)
     plant_par = model.SaturatedSynchronousMachinePars(
         n_p=cfg["pole_pairs"], R_s=cfg["resistance_ohm"], i_s_dq_fcn=current_map
     )
@@ -80,7 +80,8 @@ def main():
     flux = utils.import_syre_data(args.map)
     # Compare the imported FE torque against motulator's own average-torque model.
     # Results only cover original data points inside the inverse map rectangle.
-    inverse = flux.invert()
+    baseline_inverse = flux.invert()
+    inverse = flux.invert(num=512)
     inverse_grid = inverse.psi_s_dq
     valid = (np.isfinite(flux.i_s_dq) & np.isfinite(flux.psi_s_dq)
              & np.isfinite(flux.tau_M)
@@ -93,6 +94,10 @@ def main():
     machine_par = model.SaturatedSynchronousMachinePars(
         n_p=cfg["pole_pairs"], R_s=cfg["resistance_ohm"], i_s_dq_fcn=inverse
     )
+    baseline_par = model.SaturatedSynchronousMachinePars(
+        n_p=cfg["pole_pairs"], R_s=cfg["resistance_ohm"], i_s_dq_fcn=baseline_inverse
+    )
+    baseline_i, baseline_tau_per_pole = baseline_par.magnetic_map(flux.psi_s_dq[valid])
     predicted_i, predicted_tau_per_pole = machine_par.magnetic_map(flux.psi_s_dq[valid])
     predicted_tau = cfg["pole_pairs"] * np.asarray(predicted_tau_per_pole)
     source_tau = np.asarray(flux.tau_M[valid])
@@ -100,17 +105,26 @@ def main():
     if not np.isfinite(predicted_i).all() or not np.isfinite(predicted_tau).all():
         raise ValueError("nonfinite inverse-map comparison")
     comparison = dict(
+        original_inverse_grid=256, refined_inverse_grid=512,
         source_points=int(flux.i_s_dq.size), valid_points=int(np.count_nonzero(valid)),
         valid_fraction=float(np.mean(valid)),
         inverse_current_max_error_a=float(np.max(abs(predicted_i-original_i))),
         source_torque_max_error_nm=float(np.max(abs(predicted_tau-source_tau))),
         source_torque_rmse_nm=float(np.sqrt(np.mean((predicted_tau-source_tau)**2))),
+        original_inverse_current_max_error_a=float(np.max(abs(baseline_i-original_i))),
+        original_source_torque_max_error_nm=float(np.max(abs(
+            cfg["pole_pairs"] * baseline_tau_per_pole-source_tau))),
+        original_source_torque_rmse_nm=float(np.sqrt(np.mean((
+            cfg["pole_pairs"] * baseline_tau_per_pole-source_tau)**2))),
     )
     np.savez_compressed(out / "source-map.npz", current_dq=flux.i_s_dq,
                         flux_dq=flux.psi_s_dq, torque_nm=flux.tau_M,
                         comparison_valid=valid)
     fig, ax = plt.subplots(figsize=(7, 5))
-    plot = ax.scatter(original_i.real, original_i.imag, c=source_tau, s=2, rasterized=True)
+    source_valid = (np.isfinite(flux.i_s_dq) & np.isfinite(flux.tau_M))
+    source_i = flux.i_s_dq[source_valid]
+    plot = ax.scatter(source_i.real, source_i.imag, c=flux.tau_M[source_valid],
+                      s=2, rasterized=True)
     ax.set(xlabel="d-axis current (A)", ylabel="q-axis current (A)",
            title="Source electromagnetic torque (Nm)")
     fig.colorbar(plot, ax=ax, label="Torque (Nm)")

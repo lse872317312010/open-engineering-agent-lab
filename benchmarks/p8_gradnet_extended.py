@@ -107,7 +107,8 @@ def main():
         "model_sha256": {name: sha(out / (name + "-model.npz")) for name in models},
         "versions": {name: version(name) for name in ("motulator", "motulator-gradnet", "torch",
                                                         "numpy", "scipy")},
-        "split": "validation -4 <= id <= 4 A; final |iq| >= 16 A outside validation; remainder train",
+        "split": ("validation -4 <= id <= 4 A; final |iq| >= 16 A outside validation; "
+                  "remainder train"),
         "training": "upstream train_gradnet, 2000 epochs each, default seed and parameters",
         "results": results,
         "limitations": [

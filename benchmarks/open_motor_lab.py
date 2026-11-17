@@ -13,8 +13,7 @@ import optuna
 from motulator.drive import model, utils
 
 
-def run(model_map, nominal, cfg, bandwidth_hz, scenario, out):
-    current_map = model_map.invert(num=512)
+def run(model_map, current_map, nominal, cfg, bandwidth_hz, scenario, out):
     plant_par = model.SaturatedSynchronousMachinePars(
         n_p=cfg["pole_pairs"], R_s=cfg["resistance_ohm"], i_s_dq_fcn=current_map
     )
@@ -81,7 +80,7 @@ def main():
     # Compare the imported FE torque against motulator's own average-torque model.
     # Results only cover original data points inside the inverse map rectangle.
     baseline_inverse = flux.invert()
-    inverse = flux.invert(num=512)
+    inverse = flux.invert(num=768)
     inverse_grid = inverse.psi_s_dq
     valid = (np.isfinite(flux.i_s_dq) & np.isfinite(flux.psi_s_dq)
              & np.isfinite(flux.tau_M)
@@ -105,7 +104,7 @@ def main():
     if not np.isfinite(predicted_i).all() or not np.isfinite(predicted_tau).all():
         raise ValueError("nonfinite inverse-map comparison")
     comparison = dict(
-        original_inverse_grid=256, refined_inverse_grid=512,
+        original_inverse_grid=512, refined_inverse_grid=768,
         source_points=int(flux.i_s_dq.size), valid_points=int(np.count_nonzero(valid)),
         valid_fraction=float(np.mean(valid)),
         inverse_current_max_error_a=float(np.max(abs(predicted_i-original_i))),
@@ -154,14 +153,14 @@ def main():
 
     def objective(trial):
         hz = trial.suggest_categorical("bandwidth_hz", [2., 4.])
-        result = run(flux, base, cfg, hz, "train", out)
+        result = run(flux, inverse, base, cfg, hz, "train", out)
         records.append(result)
         return result["speed_rmse_rad_s"]
 
     study.optimize(objective, n_trials=2)
     best = float(study.best_params["bandwidth_hz"])
     for hz in (2., 4.):
-        records.append(run(flux, base, cfg, hz, "holdout", out))
+        records.append(run(flux, inverse, base, cfg, hz, "holdout", out))
     summary = dict(
         input_map_sha256=hashlib.sha256(args.map.read_bytes()).hexdigest(),
         input_config_sha256=hashlib.sha256(args.config.read_bytes()).hexdigest(),

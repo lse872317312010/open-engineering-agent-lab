@@ -1,0 +1,50 @@
+name: P8 upstream GradNet example
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/p8-gradnet-example.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  upstream-example:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator-gradnet
+          ref: 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          path: upstream-gradnet
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify upstream sample identities
+        run: |
+          test "$(git -C upstream-gradnet rev-parse HEAD)" = 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          test "$(git hash-object upstream-gradnet/examples/datasets/baldor_meas.npz)" = 13205be7fd92362f6a3ed0178f7c1652f942fd64
+          test "$(git hash-object upstream-gradnet/examples/trained_models/baldor_meas_flux_map_pnorm_d6_sub10.npz)" = 1cfb4e3a7df456aadeac49ff43ece6c92011fca2
+      - name: Install pinned upstream toolchain
+        run: |
+          python -m pip install "torch==2.8.0" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "motulator==0.25.0" ./upstream-gradnet
+          python -m pip freeze > upstream-gradnet-versions.txt
+      - name: Run unmodified upstream measured-data example
+        env:
+          MPLBACKEND: Agg
+        shell: bash
+        run: |
+          set -o pipefail
+          python upstream-gradnet/examples/plot_6kw_pmsyrm_flux_map_meas.py 2>&1 | tee upstream-gradnet-example.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-gradnet-upstream-example
+          path: |
+            upstream-gradnet-versions.txt
+            upstream-gradnet-example.log
+          if-no-files-found: warn

@@ -24,7 +24,7 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
     if not isinstance(metadata, dict):
         raise ValueError("metadata must be a JSON object")
     for name in REQUIRED_METADATA:
-        if name not in metadata or metadata[name] is None or metadata[name] == "":
+        if name not in metadata or (name != "temperature_c" and metadata[name] in (None, "")):
             raise ValueError(f"missing metadata: {name}")
     if metadata["dq_convention"] != CONVENTION:
         raise ValueError("convert coordinates to the declared motulator peak convention first")
@@ -32,9 +32,13 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
     if isinstance(poles, bool) or not isinstance(poles, int) or poles < 1:
         raise ValueError("pole_pairs must be a positive integer")
     temperature = metadata["temperature_c"]
-    if (isinstance(temperature, bool) or not isinstance(temperature, (int, float))
-            or not math.isfinite(temperature)):
-        raise ValueError("temperature_c must be finite")
+    if temperature is None:
+        note = metadata.get("temperature_note")
+        if not isinstance(note, str) or not note.strip():
+            raise ValueError("unknown temperature requires an explanatory temperature_note")
+    elif (isinstance(temperature, bool) or not isinstance(temperature, (int, float))
+          or not math.isfinite(temperature)):
+        raise ValueError("temperature_c must be finite or explicitly unknown")
     for name in ("source_software", "source_version", "model_id", "phase_sequence", "domain"):
         if not isinstance(metadata[name], str) or not metadata[name].strip():
             raise ValueError(f"{name} must be a non-empty string")

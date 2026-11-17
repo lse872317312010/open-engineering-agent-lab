@@ -33,7 +33,8 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
     if isinstance(poles, bool) or not isinstance(poles, int) or poles < 1:
         raise ValueError("pole_pairs must be a positive integer")
     temperature = metadata["temperature_c"]
-    if (isinstance(temperature, bool) or not isinstance(temperature, (int, float))\n            or not math.isfinite(temperature)):
+    if (isinstance(temperature, bool) or not isinstance(temperature, (int, float))
+            or not math.isfinite(temperature)):
         raise ValueError("temperature_c must be finite")
     for name in ("source_software", "source_version", "model_id", "phase_sequence", "domain"):
         if not isinstance(metadata[name], str) or not metadata[name].strip():

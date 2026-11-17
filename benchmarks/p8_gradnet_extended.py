@@ -57,7 +57,7 @@ def main():
 
     # Freeze disjoint regions before fitting either model. This is a new experiment.
     validation = (i.real >= -4.0) & (i.real <= 4.0)
-    final = (~validation) & (i.imag >= 16.0)
+    final = (~validation) & (np.abs(i.imag) >= 16.0)
     train = ~(validation | final)
     if min(np.count_nonzero(mask) for mask in (train, validation, final)) < 10:
         raise ValueError("predeclared partition has too few points")
@@ -107,12 +107,13 @@ def main():
         "model_sha256": {name: sha(out / (name + "-model.npz")) for name in models},
         "versions": {name: version(name) for name in ("motulator", "motulator-gradnet", "torch",
                                                         "numpy", "scipy")},
-        "split": "validation -4 <= id <= 4 A; final iq >= 16 A outside validation; remainder train",
+        "split": "validation -4 <= id <= 4 A; final |iq| >= 16 A outside validation; remainder train",
         "training": "upstream train_gradnet, 2000 epochs each, default seed and parameters",
         "results": results,
         "limitations": [
             "single fixed split; no predeclared numerical acceptance thresholds",
             "the previous experiment trained on points in the new final region",
+            "upstream symmetrizes q; both q signs are held out together",
             "temperature and phase sequence not supplied by upstream example",
             "same source dataset: not independent physical validation",
             "no domain safety, torque, controller simulation, or optimization evaluation",

@@ -7,9 +7,9 @@ from importlib.metadata import version
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import motulator.drive.control.sm as control
 import numpy as np
 import optuna
-import motulator.drive.control.sm as control
 from motulator.drive import model, utils
 
 

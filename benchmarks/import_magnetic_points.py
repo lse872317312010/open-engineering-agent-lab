@@ -8,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 REQUIRED = ("id_A", "iq_A", "psi_d_Wb", "psi_q_Wb")
 REQUIRED_METADATA = ("source_software", "source_version", "model_id", "pole_pairs",
                      "temperature_c", "dq_convention", "phase_sequence", "domain")

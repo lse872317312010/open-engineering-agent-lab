@@ -17,6 +17,8 @@ CONVENTION = "motulator_peak_d_plus_jq"
 
 def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
     """Preserve input point pairs and provenance without interpolating or extrapolating."""
+    if output_path.resolve() in (csv_path.resolve(), metadata_path.resolve()):
+        raise ValueError("output must not overwrite an input file")
     raw = csv_path.read_bytes()
     metadata_raw = metadata_path.read_bytes()
     metadata = json.loads(metadata_raw)
@@ -36,8 +38,11 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
     for name in ("source_software", "source_version", "model_id", "phase_sequence", "domain"):
         if not isinstance(metadata[name], str) or not metadata[name].strip():
             raise ValueError(f"{name} must be a non-empty string")
-    rows = list(csv.DictReader(raw.decode("utf-8-sig").splitlines()))
-    if not rows or any(name not in rows[0] for name in REQUIRED):
+    reader = csv.DictReader(raw.decode("utf-8-sig").splitlines())
+    if reader.fieldnames is None or len(set(reader.fieldnames)) != len(reader.fieldnames):
+        raise ValueError("missing or duplicate CSV column names")
+    rows = list(reader)
+    if not rows or any(name not in reader.fieldnames for name in REQUIRED):
         raise ValueError("CSV must contain the four required columns and at least one row")
     points, seen = [], set()
     for index, row in enumerate(rows, start=2):

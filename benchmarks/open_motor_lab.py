@@ -78,6 +78,45 @@ def main():
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
     flux = utils.import_syre_data(args.map)
+    # Compare the imported FE torque against motulator's own average-torque model.
+    # Results only cover original data points inside the inverse map rectangle.
+    inverse = flux.invert()
+    inverse_grid = inverse.psi_s_dq
+    valid = (np.isfinite(flux.i_s_dq) & np.isfinite(flux.psi_s_dq)
+             & np.isfinite(flux.tau_M)
+             & (flux.psi_s_dq.real >= np.min(inverse_grid.real))
+             & (flux.psi_s_dq.real <= np.max(inverse_grid.real))
+             & (flux.psi_s_dq.imag >= np.min(inverse_grid.imag))
+             & (flux.psi_s_dq.imag <= np.max(inverse_grid.imag)))
+    if not np.any(valid):
+        raise ValueError("no finite source points in inverse-map domain")
+    machine_par = model.SaturatedSynchronousMachinePars(
+        n_p=cfg["pole_pairs"], R_s=cfg["resistance_ohm"], i_s_dq_fcn=inverse
+    )
+    predicted_i, predicted_tau_per_pole = machine_par.magnetic_map(flux.psi_s_dq[valid])
+    predicted_tau = cfg["pole_pairs"] * np.asarray(predicted_tau_per_pole)
+    source_tau = np.asarray(flux.tau_M[valid])
+    original_i = np.asarray(flux.i_s_dq[valid])
+    if not np.isfinite(predicted_i).all() or not np.isfinite(predicted_tau).all():
+        raise ValueError("nonfinite inverse-map comparison")
+    comparison = dict(
+        source_points=int(flux.i_s_dq.size), valid_points=int(np.count_nonzero(valid)),
+        valid_fraction=float(np.mean(valid)),
+        inverse_current_max_error_a=float(np.max(abs(predicted_i-original_i))),
+        source_torque_max_error_nm=float(np.max(abs(predicted_tau-source_tau))),
+        source_torque_rmse_nm=float(np.sqrt(np.mean((predicted_tau-source_tau)**2))),
+    )
+    np.savez_compressed(out / "source-map.npz", current_dq=flux.i_s_dq,
+                        flux_dq=flux.psi_s_dq, torque_nm=flux.tau_M,
+                        comparison_valid=valid)
+    fig, ax = plt.subplots(figsize=(7, 5))
+    plot = ax.scatter(original_i.real, original_i.imag, c=source_tau, s=2, rasterized=True)
+    ax.set(xlabel="d-axis current (A)", ylabel="q-axis current (A)",
+           title="Source electromagnetic torque (Nm)")
+    fig.colorbar(plot, ax=ax, label="Torque (Nm)")
+    fig.tight_layout()
+    fig.savefig(out / "source-torque-map.png", dpi=160)
+    plt.close(fig)
     nominal = utils.NominalValues(U=cfg["nominal_voltage_v"], I=cfg["nominal_current_a"],
                                   f=cfg["nominal_frequency_hz"], P=cfg["nominal_power_w"],
                                   tau=cfg["nominal_torque_nm"])
@@ -107,13 +146,14 @@ def main():
 
     study.optimize(objective, n_trials=2)
     best = float(study.best_params["bandwidth_hz"])
-    for hz in sorted({4., best}):
+    for hz in (2., 4.):
         records.append(run(flux, base, cfg, hz, "holdout", out))
     summary = dict(
         input_map_sha256=hashlib.sha256(args.map.read_bytes()).hexdigest(),
         input_config_sha256=hashlib.sha256(args.config.read_bytes()).hexdigest(),
         tool_versions={name: version(name) for name in ("motulator", "optuna", "numpy", "scipy")},
-        map_shape=list(flux.i_s_dq.shape), selected_bandwidth_hz=best,
+        map_shape=list(flux.i_s_dq.shape), source_map_comparison=comparison,
+        selected_bandwidth_hz=best,
         fixed_baseline_bandwidth_hz=4., records=records,
         source="SyR-e MAT flux map; motulator import_syre_data",
         inverter="averaged ZOH, u_th=0, no dead time; one-sample delay and voltage limits",

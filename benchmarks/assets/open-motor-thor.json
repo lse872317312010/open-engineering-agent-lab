@@ -1,0 +1,20 @@
+{
+  "pole_pairs": 2,
+  "resistance_ohm": 0.2,
+  "inertia_kg_m2": 0.0084,
+  "dc_voltage_v": 310,
+  "nominal_voltage_v": 220,
+  "nominal_current_a": 15.6,
+  "nominal_frequency_hz": 85,
+  "nominal_power_w": 5070,
+  "nominal_torque_nm": 19,
+  "current_max_a": 44.12,
+  "speed_reference_rad_s": 100,
+  "train_load_nm": 4,
+  "holdout_load_nm": 7,
+  "characteristic_current_pu": [
+    1,
+    1.5,
+    2
+  ]
+}

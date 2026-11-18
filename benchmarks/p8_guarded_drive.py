@@ -8,9 +8,8 @@ import matplotlib.pyplot as plt
 import motulator.drive.control.sm as control
 import motulator.drive.gradnet as gn
 import numpy as np
-from motulator.drive import model, utils
-
 from guarded_magnetic_map import GuardedMagneticMap, MagneticDomainError
+from motulator.drive import model, utils
 
 
 def execute(flux_radius):

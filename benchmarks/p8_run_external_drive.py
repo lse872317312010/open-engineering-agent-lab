@@ -111,8 +111,8 @@ def main():
             i_s_dq_fcn=plant_map, psi_s_dq_fcn=control_map
         )
         ctrl_cfg = control.FluxVectorControllerCfg(
-            i_s_max=params["current_limit_a"], J=params["inertia_kg_m2"],
-            sensorless=False, online_ref=True
+            i_s_max=params["current_limit_a"], J=params["inertia_kg_m2"], alpha_i=0,
+            alpha_o=2 * math.pi * 8, sensorless=False, online_ref=True
         )
         ctrl = control.VectorControlSystem(
             control.FluxVectorController(estimated, ctrl_cfg),

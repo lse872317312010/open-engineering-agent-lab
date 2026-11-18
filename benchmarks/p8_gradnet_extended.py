@@ -14,6 +14,7 @@ import motulator.drive.gradnet as gn  # noqa: E402
 from import_magnetic_points import convert  # noqa: E402
 from motulator.drive import utils  # noqa: E402
 from motulator_gradnet import train_gradnet  # noqa: E402
+from scipy.spatial import Delaunay  # noqa: E402
 
 
 def sha(path):
@@ -83,13 +84,53 @@ def main():
             raise ValueError("nonfinite prediction")
         return {"rmse": float(np.sqrt(np.mean(error**2))),
                 "p95": float(np.percentile(error, 95)), "max": float(np.max(error))}
+    # Convex-hull coverage is a geometric diagnostic, not a physical validity guarantee.
+    def points(z):
+        return np.column_stack((z.real, z.imag))
+
+    in_current_hull = Delaunay(points(i[train])).find_simplex(points(i)) >= 0
+    in_flux_hull = Delaunay(points(psi[train])).find_simplex(points(psi)) >= 0
+    flux_pred = np.asarray(models["flux"](i))
+    current_pred = np.asarray(models["current"](psi))
+    flux_error = np.abs(flux_pred - psi)
+    current_error = np.abs(current_pred - i)
     results = {}
+    split_name = np.full(len(i), "training", dtype="<U16")
+    split_name[validation] = "validation"
+    split_name[final] = "final_holdout"
     for label, mask in (("training", train), ("validation", validation), ("final_holdout", final)):
         results[label] = {
             "points": int(np.count_nonzero(mask)),
-            "flux_error_wb": metrics(psi[mask], models["flux"](i[mask])),
-            "current_error_a": metrics(i[mask], models["current"](psi[mask])),
+            "flux_error_wb": metrics(psi[mask], flux_pred[mask]),
+            "current_error_a": metrics(i[mask], current_pred[mask]),
+            "current_hull_inside": int(np.count_nonzero(mask & in_current_hull)),
+            "flux_hull_inside": int(np.count_nonzero(mask & in_flux_hull)),
+            "flux_rmse_pu": metrics(psi[mask], flux_pred[mask])["rmse"] / float(base.psi),
+            "current_rmse_pu": metrics(i[mask], current_pred[mask])["rmse"] / float(base.i),
         }
+    with (out / "point-errors.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(("split", "id_A", "iq_A", "psi_d_Wb", "psi_q_Wb",
+                         "flux_error_Wb", "current_error_A", "inside_current_hull",
+                         "inside_flux_hull"))
+        writer.writerows(zip(split_name, i.real, i.imag, psi.real, psi.imag, flux_error,
+                             current_error, in_current_hull, in_flux_hull, strict=True))
+    for name, errors, unit in (("flux", flux_error, "Wb"),
+                               ("current", current_error, "A")):
+        fig, axes = plt.subplots(1, 3, figsize=(13, 4), sharex=True, sharey=True)
+        vmax = float(np.max(errors))
+        for ax, (label, mask) in zip(
+            axes, (("Training", train), ("Validation", validation), ("Holdout", final)),
+            strict=True,
+        ):
+            plot = ax.scatter(i.real[mask], i.imag[mask], c=errors[mask], s=20,
+                              vmin=0, vmax=vmax, cmap="viridis")
+            ax.set(title=label, xlabel="d-axis current (A peak)")
+        axes[0].set_ylabel("q-axis current (A peak)")
+        fig.colorbar(plot, ax=axes, label=f"Vector error ({unit})")
+        fig.savefig(out / f"{name}-error-map.png", dpi=160, bbox_inches="tight")
+        plt.close(fig)
+
     fig, ax = plt.subplots(figsize=(7, 5))
     ax.scatter(i.real[train], i.imag[train], s=8, label="Training")
     ax.scatter(i.real[validation], i.imag[validation], s=8, label="Validation")
@@ -111,6 +152,9 @@ def main():
                   "remainder train"),
         "training": "upstream train_gradnet, 2000 epochs each, default seed and parameters",
         "results": results,
+        "base_values": {"current_a": float(base.i), "flux_wb": float(base.psi)},
+        "coverage_note": ("Convex hull in each map input space is geometric only; "
+                          "it does not establish physical validity or solver-stage safety."),
         "limitations": [
             "single fixed split; no predeclared numerical acceptance thresholds",
             "the previous experiment trained on points in the new final region",

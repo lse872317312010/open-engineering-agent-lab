@@ -58,7 +58,7 @@ def split_points(source, metadata, output):
             check_exact_separation(parsed[left], parsed[right])
         with (folder / "source-rows.csv").open("w", newline="", encoding="utf-8") as stream:
             writer = csv.writer(stream)
-            writer.writerow(("source_row_number", "split"))
+            writer.writerow(("source_record_number", "split"))
             writer.writerows(row_index)
         manifest = {
             "source_csv_sha256": hashlib.sha256(source_bytes).hexdigest(),

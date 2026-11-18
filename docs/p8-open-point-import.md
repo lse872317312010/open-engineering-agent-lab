@@ -4,7 +4,7 @@
 
 CSV 必需列：id_A、iq_A、psi_d_Wb、psi_q_Wb。每行是同一工况的一个点，电流单位为峰值 A，磁链单位 Wb，复数约定为 d + j q。重复电流坐标和非有限数值会被拒绝。角度相关多组数据暂不支持；不要把不同转角或温度混在同一文件中。额外 CSV 列不进入 NPZ。
 
-JSON 元数据必须包含 source_software、source_version、model_id、pole_pairs（正整数）、temperature_c（摄氏度）、dq_convention（固定为 motulator_peak_d_plus_jq）、phase_sequence、domain（源数据适用域说明）。坐标、相序和峰值约定须由导出方确认，工具不自动变换或推断。
+JSON 元数据必须包含 source_software、source_version、model_id、pole_pairs（正整数）、temperature_c（摄氏度；未知时填 null 并附非空 temperature_note）、dq_convention（固定为 motulator_peak_d_plus_jq）、phase_sequence、domain（源数据适用域说明）。坐标、相序和峰值约定须由导出方确认，工具不自动变换或推断。
 
 ```sh
 python benchmarks/import_magnetic_points.py --csv motor.csv --metadata motor.json --output motor.npz

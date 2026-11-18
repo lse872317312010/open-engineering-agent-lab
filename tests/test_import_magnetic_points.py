@@ -63,3 +63,17 @@ class MagneticPointsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             adapter.convert(self.source, self.meta, self.source)
         self.assertEqual(self.source.read_bytes(), original)
+
+    def test_unknown_temperature_requires_note(self):
+        data = json.loads(self.meta.read_text())
+        data["temperature_c"] = None
+        self.meta.write_text(json.dumps(data))
+        with self.assertRaises(ValueError):
+            adapter.convert(self.source, self.meta, self.output)
+        data["temperature_note"] = "not supplied by source"
+        self.meta.write_text(json.dumps(data))
+        adapter.convert(self.source, self.meta, self.output)
+        with np.load(self.output, allow_pickle=False) as result:
+            manifest = json.loads(str(result["manifest_json"]))
+            self.assertIsNone(manifest["metadata"]["temperature_c"])
+            self.assertEqual(manifest["metadata"]["temperature_note"], "not supplied by source")

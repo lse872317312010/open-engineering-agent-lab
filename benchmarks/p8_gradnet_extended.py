@@ -14,6 +14,7 @@ import motulator.drive.gradnet as gn  # noqa: E402
 from import_magnetic_points import convert  # noqa: E402
 from motulator.drive import utils  # noqa: E402
 from motulator_gradnet import train_gradnet  # noqa: E402
+from scipy.interpolate import LinearNDInterpolator  # noqa: E402
 from scipy.spatial import Delaunay  # noqa: E402
 
 
@@ -92,6 +93,9 @@ def main():
     in_flux_hull = Delaunay(points(psi[train])).find_simplex(points(psi)) >= 0
     flux_pred = np.asarray(models["flux"](i))
     current_pred = np.asarray(models["current"](psi))
+    # Compare the established SciPy interpolator only where it returns finite values.
+    flux_linear = LinearNDInterpolator(points(i[train]), psi[train])(points(i))
+    current_linear = LinearNDInterpolator(points(psi[train]), i[train])(points(psi))
     flux_error = np.abs(flux_pred - psi)
     current_error = np.abs(current_pred - i)
     results = {}
@@ -108,6 +112,17 @@ def main():
             "flux_rmse_pu": metrics(psi[mask], flux_pred[mask])["rmse"] / float(base.psi),
             "current_rmse_pu": metrics(i[mask], current_pred[mask])["rmse"] / float(base.i),
         }
+    for label, mask in (("training", train), ("validation", validation), ("final_holdout", final)):
+        for name, target, linear, pred in (
+            ("flux", psi, flux_linear, flux_pred),
+            ("current", i, current_linear, current_pred),
+        ):
+            valid = mask & np.isfinite(linear)
+            results[label][name + "_linear_comparison"] = {
+                "points": int(np.count_nonzero(valid)),
+                "linear": metrics(target[valid], linear[valid]) if valid.any() else None,
+                "gradnet_same_points": metrics(target[valid], pred[valid]) if valid.any() else None,
+            }
     with (out / "point-errors.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
         writer.writerow(("split", "id_A", "iq_A", "psi_d_Wb", "psi_q_Wb",

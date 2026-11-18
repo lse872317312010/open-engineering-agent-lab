@@ -27,6 +27,8 @@ def split_points(source, metadata, output):
         raise ValueError("missing or duplicated CSV header")
     if not set((*REQUIRED, "split")).issubset(reader.fieldnames):
         raise ValueError("CSV requires split and the four dq columns")
+    if "torque_Nm" in reader.fieldnames:
+        raise ValueError("splitting source torque is not yet supported; preserve original data")
     rows = {role: [] for role in ROLES}
     row_index = []
     for line, row in enumerate(reader, start=2):

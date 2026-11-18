@@ -48,7 +48,8 @@ class MagneticSplitTest(unittest.TestCase):
             module.split_points(self.source, self.meta, self.out)
 
     def test_rejects_reflected_input_without_publishing_partial_bundle(self):
-        rows = list(csv.reader(self.source.open()))
+        with self.source.open() as stream:
+            rows = list(csv.reader(stream))
         rows[5][0], rows[5][1] = rows[1][0], "-1"
         with self.source.open("w", newline="") as stream:
             csv.writer(stream).writerows(rows)

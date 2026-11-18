@@ -35,7 +35,7 @@ def execute(flux_radius):
         sensors=model.DriveSensors(theta_M=model.Sensor()),
     )
     estimated = control.SaturatedSynchronousMachinePars(
-        n_p=2, R_s=0.63, psi_s_dq_fcn=control_map
+        n_p=2, R_s=0.63, i_s_dq_fcn=plant_map, psi_s_dq_fcn=control_map
     )
     cfg = control.FluxVectorControllerCfg(
         i_s_max=2 * base.i, alpha_i=0, alpha_o=2 * np.pi * 8, J=0.05, sensorless=False
@@ -91,6 +91,7 @@ def main():
             "radii 5 Wb and 100 A are synthetic and do not define physical validity",
             "upper and lower model limits are not inferred from measured source data",
             "instrumented calls cover these two guarded interfaces in this example only",
+            "negative rejection may occur during construction, not necessarily integration",
             "no solver-stage independent trace, optimization, or physical validation",
         ],
     }

@@ -59,6 +59,12 @@ flowchart LR
 
 随后单独运行 motulator 上游在线参考生成，宽合成域下完成 0.1 s，保存 1600 个轨迹点，植物磁图调用 6441 次、控制磁图调用 4817 次，未出现宽域拒绝；零磁链半径的反例被拒绝。[运行数据和图表](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/44276156242/artifacts/14414169078)。5 Wb 与 100 A 是接口演示边界，不代表样本电机的物理有效域。反例可能在构造阶段拒绝，不能据此认定所有积分阶段都有独立逐次审计，也不能将在线场景的成功作为离线初始化通过。代码还在检查中，尚未合并。
 
+## 外部数据入口与控制实验（待合并）
+
+[外部 NPZ 拟合 PR](https://github.com/lse872317312010/open-engineering-agent-lab/pull/87) 的公开样本接口运行成功，生成拟合模型和两轴验证点图；其 20 轮训练仅作接口检查，验证磁链 RMSE 0.6902 Wb、电流 RMSE 9.075 A，不适合用作控制模型。[下载实验数据与图表](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/44277098631/artifacts/14419822679)。
+
+[标注点表分组 PR](https://github.com/lse872317312010/open-engineering-agent-lab/pull/88) 保留用户指定的训练、验证与留出角色；[转矩分组 PR](https://github.com/lse872317312010/open-engineering-agent-lab/pull/90) 正在验证源转矩不被丢弃。[外部模型受保护控制 PR](https://github.com/lse872317312010/open-engineering-agent-lab/pull/92) 将拟合结果哈希、用户声明误差预算和 dq 域与 motulator 在线参考控制连接，专用运行仍待检查。用户所声明的范围及预算不能作为独立物理验证。
+
 ## 接下来
 
 - 对比上游模型与插值方案在相同训练区域、相同留出区域的误差与计算开销，报告域内/域外点数。

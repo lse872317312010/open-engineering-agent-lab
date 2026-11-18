@@ -1,0 +1,57 @@
+name: P8 source torque plot
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "benchmarks/import_magnetic_points.py"
+      - "benchmarks/p8_source_torque_map.py"
+      - ".github/workflows/p8-source-torque.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source-torque:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install plotting dependencies
+        run: python -m pip install "numpy>=1.26,<3" "matplotlib>=3.10,<4"
+      - name: Prepare synthetic interface example and draw source points
+        env:
+          MPLBACKEND: Agg
+        run: |
+          mkdir -p outputs/p8-torque-input
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+          out = Path("outputs/p8-torque-input")
+          with (out / "points.csv").open("w", newline="", encoding="utf-8") as stream:
+              writer = csv.writer(stream)
+              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "torque_Nm"])
+              for d in (-1, 0, 1):
+                  for q in (-1, 0, 1):
+                      writer.writerow([d, q, 0.1 + d * 0.01, q * 0.01, q * 2.0])
+          metadata = {"source_software": "synthetic interface example", "source_version": "1",
+                      "model_id": "not a physical motor", "pole_pairs": 2,
+                      "temperature_c": None, "temperature_note": "synthetic",
+                      "dq_convention": "motulator_peak_d_plus_jq", "phase_sequence": "abc",
+                      "domain": "nine synthetic points", "torque_convention": "electromagnetic_total_Nm"}
+          (out / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+          PY
+          python benchmarks/import_magnetic_points.py --csv outputs/p8-torque-input/points.csv --metadata outputs/p8-torque-input/metadata.json --output outputs/p8-torque-input/model.npz
+          python benchmarks/p8_source_torque_map.py --map outputs/p8-torque-input/model.npz --output outputs/p8-torque-plot
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-source-torque
+          path: |
+            outputs/p8-torque-input/
+            outputs/p8-torque-plot/
+          if-no-files-found: warn

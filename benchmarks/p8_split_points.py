@@ -56,7 +56,8 @@ def split_points(source, metadata, output):
             convert(csv_path, metadata, npz)
             if has_torque:
                 with np.load(npz, allow_pickle=False) as data:
-                    if "torque_total_nm" not in data or len(data["torque_total_nm"]) != len(rows[role]):
+                    if ("torque_total_nm" not in data
+                            or len(data["torque_total_nm"]) != len(rows[role])):
                         raise ValueError("source torque was not preserved by importer")
             parsed[role] = load_points(npz)
         for left, right in (("train", "validation"), ("train", "holdout"),

@@ -40,3 +40,19 @@ class GuardedMapTest(unittest.TestCase):
         bad_result = module.GuardedMagneticMap(lambda x: complex(float("inf"), 0), lambda x: True)
         with self.assertRaises(ValueError):
             bad_result(0j)
+
+    def test_guarded_jacobian_preserves_upstream_derivatives(self):
+        class Map:
+            def __call__(self, dq):
+                return dq
+
+            def jacobian(self, dq):
+                return np.broadcast_to(np.eye(2), np.shape(dq) + (2, 2))
+
+        guard = module.GuardedMagneticMap(Map(), lambda x: np.abs(x) <= 1)
+        np.testing.assert_array_equal(guard.jacobian(0j), np.eye(2))
+        with self.assertRaises(module.MagneticDomainError):
+            guard.jacobian(2j)
+        self.assertEqual(guard.jacobian_evaluations, 1)
+        without_jacobian = module.GuardedMagneticMap(lambda x: x, lambda x: True)
+        self.assertFalse(hasattr(without_jacobian, "jacobian"))

@@ -6,6 +6,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import numpy as np
+
 from import_magnetic_points import REQUIRED, convert
 from p8_fit_external import check_exact_separation, load_points
 
@@ -27,15 +29,15 @@ def split_points(source, metadata, output):
         raise ValueError("missing or duplicated CSV header")
     if not set((*REQUIRED, "split")).issubset(reader.fieldnames):
         raise ValueError("CSV requires split and the four dq columns")
-    if "torque_Nm" in reader.fieldnames:
-        raise ValueError("splitting source torque is not yet supported; preserve original data")
+    has_torque = "torque_Nm" in reader.fieldnames
+    fields = (*REQUIRED, "torque_Nm") if has_torque else REQUIRED
     rows = {role: [] for role in ROLES}
     row_index = []
     for line, row in enumerate(reader, start=2):
         role = row["split"]
         if role not in rows or None in row:
             raise ValueError(f"invalid split or unexpected fields at row {line}")
-        rows[role].append({key: row[key] for key in REQUIRED})
+        rows[role].append({key: row[key] for key in fields})
         row_index.append((line, role))
     if any(len(rows[role]) < 4 for role in ROLES):
         raise ValueError("each split needs at least four rows")
@@ -47,11 +49,15 @@ def split_points(source, metadata, output):
         for role in ROLES:
             csv_path = folder / f"{role}.csv"
             with csv_path.open("w", newline="", encoding="utf-8") as stream:
-                writer = csv.DictWriter(stream, fieldnames=REQUIRED)
+                writer = csv.DictWriter(stream, fieldnames=fields)
                 writer.writeheader()
                 writer.writerows(rows[role])
             npz = folder / f"{role}.npz"
             convert(csv_path, metadata, npz)
+            if has_torque:
+                with np.load(npz, allow_pickle=False) as data:
+                    if "torque_total_nm" not in data or len(data["torque_total_nm"]) != len(rows[role]):
+                        raise ValueError("source torque was not preserved by importer")
             parsed[role] = load_points(npz)
         for left, right in (("train", "validation"), ("train", "holdout"),
                             ("validation", "holdout")):
@@ -63,6 +69,7 @@ def split_points(source, metadata, output):
         manifest = {
             "source_csv_sha256": hashlib.sha256(source_bytes).hexdigest(),
             "metadata_sha256": metadata_hash,
+            "source_torque_included": has_torque,
             "counts": {role: len(rows[role]) for role in ROLES},
             "split_npz_sha256": {role: digest(folder / f"{role}.npz") for role in ROLES},
             "source_row_mapping_sha256": digest(folder / "source-rows.csv"),

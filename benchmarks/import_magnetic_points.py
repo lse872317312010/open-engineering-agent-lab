@@ -48,7 +48,10 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
     rows = list(reader)
     if not rows or any(name not in reader.fieldnames for name in REQUIRED):
         raise ValueError("CSV must contain the four required columns and at least one row")
-    points, seen = [], set()
+    has_torque = "torque_Nm" in reader.fieldnames
+    if has_torque and metadata.get("torque_convention") != "electromagnetic_total_Nm":
+        raise ValueError("torque_Nm requires electromagnetic_total_Nm convention")
+    points, torques, seen = [], [], set()
     for index, row in enumerate(rows, start=2):
         try:
             point = tuple(float(row[name]) for name in REQUIRED)
@@ -60,6 +63,14 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
             raise ValueError(f"duplicate current coordinates at CSV row {index}")
         seen.add(point[:2])
         points.append(point)
+        if has_torque:
+            try:
+                torque = float(row["torque_Nm"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"invalid torque at CSV row {index}") from exc
+            if not math.isfinite(torque):
+                raise ValueError(f"nonfinite torque at CSV row {index}")
+            torques.append(torque)
     data = np.asarray(points, dtype=np.float64)
     manifest = {
         "format": "oeal-magnetic-points-v1",
@@ -67,14 +78,18 @@ def convert(csv_path: Path, metadata_path: Path, output_path: Path) -> None:
         "metadata_sha256": hashlib.sha256(metadata_raw).hexdigest(),
         "metadata": metadata,
         "point_count": len(points),
+        "source_torque_included": has_torque,
         "units": {"current": "A peak", "flux_linkage": "Wb"},
         "limits": "source points only; valid interpolation domain is not established",
     }
     # Save through a file handle: numpy otherwise silently appends .npz to the name.
+    arrays = {"i_s_dq": data[:, 0] + 1j * data[:, 1],
+              "psi_s_dq": data[:, 2] + 1j * data[:, 3],
+              "manifest_json": np.asarray(json.dumps(manifest, ensure_ascii=False))}
+    if has_torque:
+        arrays["torque_total_nm"] = np.asarray(torques, dtype=np.float64)
     with output_path.open("wb") as output:
-        np.savez_compressed(output, i_s_dq=data[:, 0] + 1j * data[:, 1],
-                            psi_s_dq=data[:, 2] + 1j * data[:, 3],
-                            manifest_json=np.asarray(json.dumps(manifest, ensure_ascii=False)))
+        np.savez_compressed(output, **arrays)
 
 
 def main() -> None:

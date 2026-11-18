@@ -30,7 +30,7 @@ def main():
     fig, ax = plt.subplots(figsize=(7, 5))
     points = ax.scatter(current.real, current.imag, c=torque, cmap="coolwarm", s=20)
     ax.set(xlabel="d-axis current (A peak)", ylabel="q-axis current (A peak)",
-           title="Source electromagnetic torque: measured/exported points")
+           title="Source electromagnetic torque: supplied points")
     fig.colorbar(points, ax=ax, label="Total electromagnetic torque (Nm)")
     fig.tight_layout()
     fig.savefig(args.output / "source-torque.png", dpi=160)

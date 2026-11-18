@@ -1,0 +1,47 @@
+name: P8 upstream GradNet FVC simulation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "benchmarks/p8_gradnet_fvc_example.py"
+      - ".github/workflows/p8-gradnet-fvc.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator
+          ref: 9971fcb77a08cc8d1f1603554a047ff5a59291e9
+          path: upstream-motulator
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned upstream motulator
+        run: |
+          test "$(git -C upstream-motulator rev-parse HEAD)" = 9971fcb77a08cc8d1f1603554a047ff5a59291e9
+          python -m pip install ./upstream-motulator
+      - name: Execute upstream example and collect figures
+        env:
+          MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p outputs/p8-gradnet-fvc
+          python -m pip freeze > outputs/p8-gradnet-fvc/versions.txt
+          python benchmarks/p8_gradnet_fvc_example.py 2>&1 | tee outputs/p8-gradnet-fvc/run.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-gradnet-fvc
+          path: outputs/p8-gradnet-fvc/
+          if-no-files-found: warn

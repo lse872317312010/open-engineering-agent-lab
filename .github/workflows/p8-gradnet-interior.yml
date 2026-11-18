@@ -1,0 +1,52 @@
+name: P8 GradNet interior validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "benchmarks/p8_gradnet_interior.py"
+      - "benchmarks/import_magnetic_points.py"
+      - ".github/workflows/p8-gradnet-interior.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator-gradnet
+          ref: 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          path: upstream-gradnet
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify sample identity
+        run: |
+          test "$(git -C upstream-gradnet rev-parse HEAD)" = 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          test "$(git hash-object upstream-gradnet/examples/datasets/baldor_meas.npz)" = 13205be7fd92362f6a3ed0178f7c1652f942fd64
+      - name: Install upstream dependencies
+        run: |
+          python -m pip install "torch==2.8.0" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "motulator==0.25.0" ./upstream-gradnet
+      - name: Run fixed symmetric stripe evaluation
+        env:
+          MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p outputs/p8-gradnet-interior
+          python -m pip freeze > outputs/p8-gradnet-interior/versions.txt
+          python benchmarks/p8_gradnet_interior.py 2>&1 | tee outputs/p8-gradnet-interior/run.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-gradnet-interior
+          path: outputs/p8-gradnet-interior/
+          if-no-files-found: warn

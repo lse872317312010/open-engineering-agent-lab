@@ -52,7 +52,7 @@ class GuardedMagneticMap:
         # Only expose a Jacobian when the wrapped upstream map actually supplies one.
         if name != "jacobian":
             raise AttributeError(name)
-        upstream = getattr(self.magnetic_map, "jacobian")
+        upstream = self.magnetic_map.jacobian
         if not callable(upstream):
             raise AttributeError(name)
 

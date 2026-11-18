@@ -12,7 +12,7 @@ PR #75 已把上游 motulator 0.25.0 接入主线，以公开 THOR/SyR-e 磁链�
 
 该基线还暴露了需要优先解决的精度边界：
 
-- SyR-e 导入只覆盖一种 MAT 结构；其他电磁软件的导出文件尚未接入。
+- 联合控制实验目前只直接接受 SyR-e 结构 MAT；已合并 CSV 点表到 NPZ 的单独转换器，其他软件的真实导出约定和转换结果尚未验证，CSV 尚未直接连入联合仿真。
 - 上游 512×512 反向磁链网格覆盖 57,220/131,072 个源点（43.66%）。768 网格在同一可比较子集上改善了电流重建最大差，但转矩误差没有改善、有效域没有扩大；这是事后诊断，不是独立留出验证。
 - 当前示例的 Optuna 选择等于固定基线，尚未证明优化效果。
 - 没有可靠的损耗、温度、角度谐波和独立实测/商业参考数据，因而不能声称完整效率、转矩脉动或商业软件等效精度。
@@ -24,7 +24,7 @@ PR #75 已把上游 motulator 0.25.0 接入主线，以公开 THOR/SyR-e 磁链�
 | 能力 | 采用的上游 | 本项目职责 |
 |---|---|---|
 | 饱和电机、驱动控制、积分器、MTPA/MTPV 和机特性图 | [motulator 0.25.0](https://github.com/Aalto-Electric-Drives/motulator/tree/v0.25.0)（现有固定依赖） | 传入经记录的模型和工况；保存结果及证据 |
-| 磁链/电流图的结构化拟合、角度谐波和留出误差分析 | [motulator-gradnet 0.1.8](https://github.com/Aalto-Electric-Drives/motulator-gradnet/tree/940d3b2daf3abd3ecca157f93cf4cc5363f5bb80)，MIT（候选可选依赖，尚未接入） | 评估后决定是否接入；训练仅在研究环境运行，导出的 NumPy 模型供 motulator 使用 |
+| 磁链/电流图的结构化拟合、角度谐波和留出误差分析 | [motulator-gradnet 0.1.8](https://github.com/Aalto-Electric-Drives/motulator-gradnet/tree/940d3b2daf3abd3ecca157f93cf4cc5363f5bb80)，MIT（已接入公开样本实验，非通用模型验收） | 使用上游训练与 NumPy 推理；公开样本的空间留出误差仍较大，真实用户模型尚未验证 |
 | 控制参数搜索 | [Optuna 4.5.0](https://optuna.org/)（现有固定依赖） | 定义冻结的目标函数、工况分组和报告，不另造优化器 |
 | 求解器软件导出 | 软件原生 CSV/表格/NPZ 等开放导出 | 仅编写格式、单位与坐标适配；不写商业软件私有二进制解析器或 FE 求解器 |
 

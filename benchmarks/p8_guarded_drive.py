@@ -38,7 +38,8 @@ def execute(flux_radius):
         n_p=2, R_s=0.63, i_s_dq_fcn=plant_map, psi_s_dq_fcn=control_map
     )
     cfg = control.FluxVectorControllerCfg(
-        i_s_max=2 * base.i, alpha_i=0, alpha_o=2 * np.pi * 8, J=0.05, sensorless=False
+        i_s_max=2 * base.i, alpha_i=0, alpha_o=2 * np.pi * 8, J=0.05,
+        sensorless=False, online_ref=True
     )
     ctrl = control.VectorControlSystem(
         control.FluxVectorController(estimated, cfg),
@@ -78,6 +79,7 @@ def main():
         raise RuntimeError("narrow-domain negative case failed to reject")
     report = {
         "source": "motulator v0.25.0 upstream measured GradNet models",
+        "reference_generation": "motulator online_ref=True",
         "input_hashes": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                          for p in (current_path, flux_path)},
         "versions": {n: version(n) for n in ("motulator", "numpy", "scipy")},
@@ -91,6 +93,7 @@ def main():
             "radii 5 Wb and 100 A are synthetic and do not define physical validity",
             "upper and lower model limits are not inferred from measured source data",
             "instrumented calls cover these two guarded interfaces in this example only",
+            "online reference generation differs from the rejected offline MTPV initialization",
             "negative rejection may occur during construction, not necessarily integration",
             "no solver-stage independent trace, optimization, or physical validation",
         ],

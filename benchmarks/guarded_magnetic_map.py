@@ -22,8 +22,9 @@ class GuardedMagneticMap:
         self.domain = domain
         self.evaluations = 0
         self.rejected = 0
+        self.jacobian_evaluations = 0
 
-    def __call__(self, dq):
+    def _check_input(self, dq):
         values = np.asarray(dq)
         if not np.issubdtype(values.dtype, np.number) or not np.isfinite(values).all():
             self.rejected += 1
@@ -34,6 +35,10 @@ class GuardedMagneticMap:
         if not allowed.all():
             self.rejected += 1
             raise MagneticDomainError("map input is outside the declared domain")
+        return values
+
+    def __call__(self, dq):
+        values = self._check_input(dq)
         self.evaluations += 1
         output = self.magnetic_map(dq)
         result = np.asarray(output)
@@ -42,3 +47,21 @@ class GuardedMagneticMap:
         if not np.isfinite(result).all():
             raise ValueError("magnetic map returned nonfinite values")
         return output
+
+    def __getattr__(self, name):
+        # Only expose a Jacobian when the wrapped upstream map actually supplies one.
+        if name != "jacobian":
+            raise AttributeError(name)
+        upstream = getattr(self.magnetic_map, "jacobian")
+        if not callable(upstream):
+            raise AttributeError(name)
+
+        def checked_jacobian(dq):
+            values = self._check_input(dq)
+            self.jacobian_evaluations += 1
+            result = np.asarray(upstream(dq))
+            if result.shape != values.shape + (2, 2) or not np.isfinite(result).all():
+                raise ValueError("magnetic map Jacobian must be finite and have shape (..., 2, 2)")
+            return result
+
+        return checked_jacobian

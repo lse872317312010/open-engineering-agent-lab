@@ -77,3 +77,26 @@ class MagneticPointsTest(unittest.TestCase):
             manifest = json.loads(str(result["manifest_json"]))
             self.assertIsNone(manifest["metadata"]["temperature_c"])
             self.assertEqual(manifest["metadata"]["temperature_note"], "not supplied by source")
+
+    def test_optional_source_torque_requires_units_and_preserves_values(self):
+        self.source.write_text(
+            "id_A,iq_A,psi_d_Wb,psi_q_Wb,torque_Nm\n-1,2,0.1,0.2,7.5\n0,3,0.3,0.4,-2\n"
+        )
+        with self.assertRaises(ValueError):
+            adapter.convert(self.source, self.meta, self.output)
+        metadata = json.loads(self.meta.read_text())
+        metadata["torque_convention"] = "electromagnetic_total_Nm"
+        self.meta.write_text(json.dumps(metadata))
+        adapter.convert(self.source, self.meta, self.output)
+        with np.load(self.output, allow_pickle=False) as data:
+            np.testing.assert_array_equal(data["torque_total_nm"], [7.5, -2])
+            manifest = json.loads(str(data["manifest_json"]))
+            self.assertTrue(manifest["source_torque_included"])
+
+    def test_rejects_nonfinite_source_torque(self):
+        self.source.write_text("id_A,iq_A,psi_d_Wb,psi_q_Wb,torque_Nm\n0,0,0.1,0,nan\n")
+        metadata = json.loads(self.meta.read_text())
+        metadata["torque_convention"] = "electromagnetic_total_Nm"
+        self.meta.write_text(json.dumps(metadata))
+        with self.assertRaises(ValueError):
+            adapter.convert(self.source, self.meta, self.output)

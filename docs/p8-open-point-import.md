@@ -11,3 +11,11 @@ python benchmarks/import_magnetic_points.py --csv motor.csv --metadata motor.jso
 ```
 
 NPZ 包含上游使用的 i_s_dq、psi_s_dq 复数数组、可选的原始 torque_total_nm 和 manifest_json（源 CSV/元数据 SHA-256、单位、元数据及点数）。须保留原始文件；NPZ 的点集不等于经过验证的插值有效域。输出尚未连接 open_motor_lab.py，原有联合仿真入口仍仅支持 SyR-e MAT。训练、误差留出、转矩图和效率图尚未实现。
+
+当输入包含已声明的总电磁转矩时，可绘制源点转矩图：
+
+```sh
+python benchmarks/p8_source_torque_map.py --map motor.npz --output outputs/source-torque
+```
+
+图仅标出源数据点，保留完整数值和来源摘要；不声称插值区域、角度相关脉动或模型转矩精度。该命令需安装 matplotlib。

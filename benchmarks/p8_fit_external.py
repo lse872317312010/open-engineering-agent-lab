@@ -115,14 +115,21 @@ def main():
         ("flux", valid_i, valid_psi, valid_flux_prediction, "A peak", "Wb"),
         ("current", valid_psi, valid_i, valid_current_prediction, "Wb", "A peak"),
     ):
-        fig, axes = plt.subplots(1, 3, figsize=(13, 4), sharex=True, sharey=True)
-        panels = ((target.real, "Source d"), (predicted.real, "Predicted d"),
-                  (np.abs(predicted - target), "Vector error"))
-        for ax, (colors, title) in zip(axes, panels, strict=True):
-            scatter = ax.scatter(inputs.real, inputs.imag, c=colors, s=18, cmap="viridis")
-            ax.set(title=title, xlabel=f"d input ({input_unit})")
-            fig.colorbar(scatter, ax=ax, label=output_unit)
-        axes[0].set_ylabel(f"q input ({input_unit})")
+        fig, axes = plt.subplots(2, 3, figsize=(13, 8), sharex=True, sharey=True)
+        for row, (source, prediction, component) in enumerate((
+            (target.real, predicted.real, "d"), (target.imag, predicted.imag, "q")
+        )):
+            lo = float(min(np.min(source), np.min(prediction)))
+            hi = float(max(np.max(source), np.max(prediction)))
+            panels = ((source, f"Source {component}", lo, hi),
+                      (prediction, f"Predicted {component}", lo, hi),
+                      (np.abs(prediction - source), f"Absolute {component} error", None, None))
+            for ax, (colors, title, vmin, vmax) in zip(axes[row], panels, strict=True):
+                scatter = ax.scatter(inputs.real, inputs.imag, c=colors, s=18, cmap="viridis",
+                                     vmin=vmin, vmax=vmax)
+                ax.set(title=title, xlabel=f"d input ({input_unit})")
+                fig.colorbar(scatter, ax=ax, label=output_unit)
+            axes[row, 0].set_ylabel(f"q input ({input_unit})")
         fig.suptitle(f"{name.capitalize()} map: validation points only")
         fig.tight_layout()
         fig.savefig(output / f"validation-{name}.png", dpi=160)

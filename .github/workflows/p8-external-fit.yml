@@ -69,7 +69,7 @@ jobs:
                      "frequency_hz": 60, "power_w": 5600, "torque_nm": 29.7}
           (out / "nominal.json").write_text(json.dumps(nominal), encoding="utf-8")
           PY
-          python benchmarks/p8_split_points.py --csv outputs/p8-external-input/points.csv \\
+          python benchmarks/p8_split_points.py --csv outputs/p8-external-input/points.csv \
             --metadata outputs/p8-external-input/metadata.json --output outputs/p8-splits
           python -m pip freeze > outputs/p8-external-input/versions.txt
           python benchmarks/p8_fit_external.py --train outputs/p8-splits/train.npz \

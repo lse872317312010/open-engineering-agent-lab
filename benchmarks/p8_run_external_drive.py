@@ -76,8 +76,12 @@ def main():
     current_bounds = bounds(cfg, "current_domain_a")
     params = {name: positive(cfg, name) for name in (
         "resistance_ohm", "inertia_kg_m2", "dc_voltage_v", "current_limit_a",
-        "speed_reference_rad_s", "duration_s",
+        "speed_bandwidth_hz", "duration_s",
     )}
+    speed_ref = cfg["speed_reference_rad_s"]
+    if (isinstance(speed_ref, bool) or not isinstance(speed_ref, (int, float))
+            or not math.isfinite(speed_ref)):
+        raise ValueError("speed_reference_rad_s must be finite")
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("output directory must be empty")
     args.output.mkdir(parents=True, exist_ok=True)
@@ -112,9 +116,10 @@ def main():
         )
         ctrl = control.VectorControlSystem(
             control.FluxVectorController(estimated, ctrl_cfg),
-            control.SpeedController(J=params["inertia_kg_m2"]),
+            control.SpeedController(J=params["inertia_kg_m2"],
+                                    alpha_s=2 * math.pi * params["speed_bandwidth_hz"]),
         )
-        ctrl.set_speed_ref(lambda t: params["speed_reference_rad_s"] if t > 0.01 else 0.0)
+        ctrl.set_speed_ref(lambda t: speed_ref if t > 0.01 else 0.0)
         result = model.Simulation(plant, ctrl, show_progress=False).simulate(
             t_stop=params["duration_s"]
         )
@@ -150,7 +155,8 @@ def main():
         "versions": {name: version(name) for name in ("motulator", "numpy", "scipy")},
         "declared_config": cfg, "fit_validation": fit["results"]["validation"],
         "time_end_s": float(t[-1]), "samples": len(t),
-        "plant_map_calls": plant_map.evaluations, "plant_jacobian_calls": plant_map.jacobian_evaluations,
+        "plant_map_calls": plant_map.evaluations,
+        "plant_jacobian_calls": plant_map.jacobian_evaluations,
         "control_map_calls": control_map.evaluations,
         "control_jacobian_calls": control_map.jacobian_evaluations,
         "limitations": [

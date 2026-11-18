@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - "benchmarks/p8_fit_external.py"
+      - "benchmarks/p8_split_points.py"
+      - "tests/test_p8_split_points.py"
       - "tests/test_p8_external_fit_inputs.py"
       - ".github/workflows/p8-external-fit.yml"
 
@@ -41,6 +43,7 @@ jobs:
           set -o pipefail
           mkdir -p outputs/p8-external-input
           python - <<'PY'
+          import csv
           import json
           import numpy as np
           from pathlib import Path
@@ -48,16 +51,29 @@ jobs:
           with np.load("upstream-gradnet/examples/datasets/baldor_meas.npz", allow_pickle=False) as d:
               i = d["i_s_dq"].flatten()
               psi = d["psi_s_dq"].flatten()
-          validation = np.isclose(np.abs(i.imag), 6.0, atol=1e-6, rtol=0)
-          np.savez_compressed(out / "train.npz", i_s_dq=i[~validation], psi_s_dq=psi[~validation])
-          np.savez_compressed(out / "validation.npz", i_s_dq=i[validation], psi_s_dq=psi[validation])
+          with (out / "points.csv").open("w", newline="", encoding="utf-8") as stream:
+              writer = csv.writer(stream)
+              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "split"])
+              for current, flux in zip(i, psi, strict=True):
+                  q = abs(current.imag)
+                  role = ("validation" if np.isclose(q, 6.0, atol=1e-6, rtol=0) else
+                          "holdout" if np.isclose(q, 14.0, atol=1e-6, rtol=0) else "train")
+                  writer.writerow([current.real, current.imag, flux.real, flux.imag, role])
+          metadata = {"source_software": "upstream measured example", "source_version": "pinned",
+                      "model_id": "Baldor", "pole_pairs": 2, "temperature_c": None,
+                      "temperature_note": "not supplied by source",
+                      "dq_convention": "motulator_peak_d_plus_jq",
+                      "phase_sequence": "unspecified", "domain": "source points"}
+          (out / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
           nominal = {"pole_pairs": 2, "voltage_v": 460, "current_a": 8.8,
                      "frequency_hz": 60, "power_w": 5600, "torque_nm": 29.7}
           (out / "nominal.json").write_text(json.dumps(nominal), encoding="utf-8")
           PY
+          python benchmarks/p8_split_points.py --csv outputs/p8-external-input/points.csv \\
+            --metadata outputs/p8-external-input/metadata.json --output outputs/p8-splits
           python -m pip freeze > outputs/p8-external-input/versions.txt
-          python benchmarks/p8_fit_external.py --train outputs/p8-external-input/train.npz \
-            --validation outputs/p8-external-input/validation.npz \
+          python benchmarks/p8_fit_external.py --train outputs/p8-splits/train.npz \
+            --validation outputs/p8-splits/validation.npz \
             --nominal outputs/p8-external-input/nominal.json --epochs 20 \
             --output outputs/p8-external-fit 2>&1 | tee outputs/p8-external-input/run.log
       - uses: actions/upload-artifact@v4
@@ -66,5 +82,6 @@ jobs:
           name: p8-external-fit-smoke
           path: |
             outputs/p8-external-input/
+            outputs/p8-splits/
             outputs/p8-external-fit/
           if-no-files-found: warn

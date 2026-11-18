@@ -56,3 +56,15 @@ class MagneticSplitTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.split_points(self.source, self.meta, self.out)
         self.assertFalse(self.out.exists())
+
+    def test_rejects_unsupported_torque_instead_of_discarding_it(self):
+        with self.source.open() as stream:
+            rows = list(csv.reader(stream))
+        rows[0].append("torque_Nm")
+        for row in rows[1:]:
+            row.append("1.0")
+        with self.source.open("w", newline="") as stream:
+            csv.writer(stream).writerows(rows)
+        with self.assertRaises(ValueError):
+            module.split_points(self.source, self.meta, self.out)
+        self.assertFalse(self.out.exists())

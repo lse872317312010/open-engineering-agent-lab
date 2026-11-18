@@ -78,6 +78,7 @@ def main():
         raise ValueError("pole_pairs must be a positive integer")
     vals = {key: positive_number(cfg, key) for key in
             ("voltage_v", "current_a", "frequency_hz", "power_w", "torque_nm")}
+    import matplotlib.pyplot as plt
     import motulator.drive.gradnet as gn
     import torch
     from motulator.drive import utils
@@ -102,6 +103,30 @@ def main():
                           "current_error_a": current_error,
                           "flux_rmse_pu": flux_error["rmse"] / float(base.psi),
                           "current_rmse_pu": current_error["rmse"] / float(base.i)}
+    # Point-only plots avoid suggesting that unsampled areas are valid.
+    valid_i, valid_psi = validation
+    valid_flux_prediction = np.asarray(models["flux"](valid_i))
+    valid_current_prediction = np.asarray(models["current"](valid_psi))
+    np.savez_compressed(output / "validation-predictions.npz",
+                        current_dq=valid_i, flux_dq=valid_psi,
+                        predicted_current_dq=valid_current_prediction,
+                        predicted_flux_dq=valid_flux_prediction)
+    for name, inputs, target, predicted, input_unit, output_unit in (
+        ("flux", valid_i, valid_psi, valid_flux_prediction, "A peak", "Wb"),
+        ("current", valid_psi, valid_i, valid_current_prediction, "Wb", "A peak"),
+    ):
+        fig, axes = plt.subplots(1, 3, figsize=(13, 4), sharex=True, sharey=True)
+        panels = ((target.real, "Source d"), (predicted.real, "Predicted d"),
+                  (np.abs(predicted - target), "Vector error"))
+        for ax, (colors, title) in zip(axes, panels, strict=True):
+            scatter = ax.scatter(inputs.real, inputs.imag, c=colors, s=18, cmap="viridis")
+            ax.set(title=title, xlabel=f"d input ({input_unit})")
+            fig.colorbar(scatter, ax=ax, label=output_unit)
+        axes[0].set_ylabel(f"q input ({input_unit})")
+        fig.suptitle(f"{name.capitalize()} map: validation points only")
+        fig.tight_layout()
+        fig.savefig(output / f"validation-{name}.png", dpi=160)
+        plt.close(fig)
     summary = {
         "input_sha256": {name: file_hash(path) for name, path in
                          (("train", args.train), ("validation", args.validation),
@@ -111,6 +136,7 @@ def main():
                                                         "torch", "numpy", "scipy")},
         "nominal": cfg, "base_current_a": float(base.i), "base_flux_wb": float(base.psi),
         "epochs": args.epochs, "device": "cpu", "upstream_seed": 42, "results": results,
+        "plots": ["validation-flux.png", "validation-current.png"],
         "limitations": [
             "validation is used for evaluation and is not a protected final holdout",
             "exact input and q-reflection checks do not detect near-duplicates or spatial leakage",

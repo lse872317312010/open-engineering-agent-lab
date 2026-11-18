@@ -39,7 +39,8 @@ def split_points(source, metadata, output):
         raise ValueError("each split needs at least four rows")
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".p8-split-", dir=output.parent) as tmp:
-        folder = Path(tmp)
+        folder = Path(tmp) / "bundle"
+        folder.mkdir()
         parsed = {}
         for role in ROLES:
             csv_path = folder / f"{role}.csv"

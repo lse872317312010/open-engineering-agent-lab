@@ -1,0 +1,98 @@
+name: P8 external guarded drive
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "benchmarks/p8_run_external_drive.py"
+      - "benchmarks/guarded_magnetic_map.py"
+      - "tests/test_p8_external_drive_inputs.py"
+      - ".github/workflows/p8-external-drive.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  external-drive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator
+          ref: 9971fcb77a08cc8d1f1603554a047ff5a59291e9
+          path: upstream-motulator
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator-gradnet
+          ref: 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          path: upstream-gradnet
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned upstream motulator
+        run: |
+          test "$(git -C upstream-motulator rev-parse HEAD)" = 9971fcb77a08cc8d1f1603554a047ff5a59291e9
+          test "$(git -C upstream-gradnet rev-parse HEAD)" = 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          test "$(git hash-object upstream-gradnet/examples/datasets/baldor_meas.npz)" = 13205be7fd92362f6a3ed0178f7c1652f942fd64
+          python -m pip install ./upstream-motulator
+      - name: Prepare upstream-model interface fixture
+        env:
+          MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: |
+          mkdir -p outputs/p8-external-fixture
+          python - <<'PY'
+          import hashlib
+          import json
+          import shutil
+          from pathlib import Path
+          import motulator.drive.gradnet as gn
+          import numpy as np
+          out = Path("outputs/p8-external-fixture")
+          source = Path("upstream-motulator/examples/drive/flux_vector/trained_models")
+          names = {"flux": "baldor_meas_flux_map_pnorm_d6_sub10.npz",
+                   "current": "baldor_meas_curr_map_squareplus_d12_sub10.npz"}
+          models, hashes = {}, {}
+          for role, name in names.items():
+              path = out / (role + "-model.npz")
+              shutil.copyfile(source / name, path)
+              hashes[role] = hashlib.sha256(path.read_bytes()).hexdigest()
+              loaded = gn.load_gradnet(path)
+              models[role] = gn.FluxMap(loaded) if role == "flux" else gn.CurrentMap(loaded)
+          with np.load("upstream-gradnet/examples/datasets/baldor_meas.npz", allow_pickle=False) as data:
+              i, psi = data["i_s_dq"].flatten(), data["psi_s_dq"].flatten()
+          flux_rmse = float(np.sqrt(np.mean(np.abs(models["flux"](i) - psi) ** 2)))
+          current_rmse = float(np.sqrt(np.mean(np.abs(models["current"](psi) - i) ** 2)))
+          summary = {"model_sha256": hashes, "nominal": {"pole_pairs": 2},
+                     "results": {"validation": {"flux_error_wb": {"rmse": flux_rmse},
+                                                "current_error_a": {"rmse": current_rmse}}},
+                     "source": "upstream pretrained example; data may overlap training"}
+          (out / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+          config = {"max_validation_flux_rmse_wb": 2, "max_validation_current_rmse_a": 30,
+                    "flux_domain_wb": [-5, 5, -5, 5], "current_domain_a": [-100, 100, -100, 100],
+                    "resistance_ohm": 0.63, "inertia_kg_m2": 0.05, "dc_voltage_v": 540,
+                    "current_limit_a": 24.89, "speed_reference_rad_s": 50,
+                    "speed_bandwidth_hz": 4, "duration_s": 0.1,
+                    "note": "synthetic broad domains and loose budgets; interface smoke only"}
+          (out / "config.json").write_text(json.dumps(config), encoding="utf-8")
+          PY
+      - name: Run external guarded drive
+        env:
+          MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        shell: bash
+        run: |
+          set -o pipefail
+          python benchmarks/p8_run_external_drive.py --fit-dir outputs/p8-external-fixture --config outputs/p8-external-fixture/config.json --output outputs/p8-external-drive 2>&1 | tee outputs/p8-external-fixture/run.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-external-drive
+          path: |
+            outputs/p8-external-fixture/
+            outputs/p8-external-drive/
+          if-no-files-found: warn

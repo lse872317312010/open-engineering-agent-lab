@@ -2,6 +2,14 @@
 
 先按[点表导入说明](p8-open-point-import.md)准备已明确 dq 约定的 NPZ，再由数据提供方按电流和角度区域生成独立训练与验证 NPZ。两个文件均包含 i_s_dq 和 psi_s_dq 复数数组（峰值 A、Wb）。本入口使用上游 motulator-gradnet 训练磁链图和电流图，验证数据只作诊断；最终留出数据须单独保管，不用于调参。
 
+也可在原始 CSV 中增加 split 列，逐行填写 train、validation 或 holdout，三组各至少四点，再使用：
+
+```sh
+python benchmarks/p8_split_points.py --csv motor-labeled.csv --metadata motor.json --output outputs/motor-splits
+```
+
+它按用户标签生成各组 CSV/NPZ、源 CSV 记录序号映射（标题为第 1 条）和哈希清单，拒绝跨组完全相同或 q 轴共轭的电流及磁链输入。检查不覆盖数值近似、测量相关性或相邻点泄漏；有效域和分组必须由用户按来源数据确定。输出 holdout.npz 单独封存，不提供给拟合命令。目前分组命令遇到 torque_Nm 会拒绝处理，以免丢失转矩；请保存源文件，等待转矩分组接口。
+
 依赖 Python 3.12+，motulator 0.25.0，以及固定上游提交 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80 的 motulator-gradnet；训练使用 CPU 和上游固定种子 42。提供 JSON 名义配置，值必须与源电机一致：
 
 ```json

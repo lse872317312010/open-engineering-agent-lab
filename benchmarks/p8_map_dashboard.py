@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
@@ -108,6 +109,7 @@ def main():
         "fit_summary_sha256": hashlib.sha256(summary_path.read_bytes()).hexdigest(),
         "output_html_sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(),
         "points": len(current), "fit_validation": summary["results"]["validation"],
+        "versions": {"plotly": version("plotly"), "numpy": version("numpy")},
         "limitations": ["validation points only; no continuous validity or physical proof",
                         "user must keep source data and independent final holdout"],
     }

@@ -91,6 +91,16 @@ def main():
         text="仅显示验证数据点；模型有效域、独立物理精度和控制性能未由此图证明。",
         x=0, y=1.07, xref="paper", yref="paper", showarrow=False, align="left"
     )
+    validation = summary["results"]["validation"]
+    flux_rmse = float(validation["flux_error_wb"]["rmse"])
+    current_rmse = float(validation["current_error_a"]["rmse"])
+    if not np.isfinite([flux_rmse, current_rmse]).all():
+        raise ValueError("validation metrics must be finite")
+    fig.add_annotation(
+        text=(f"验证点 {len(current)} · 磁链 RMSE {flux_rmse:.4g} Wb"
+              f" · 电流 RMSE {current_rmse:.4g} A"),
+        x=0, y=1.02, xref="paper", yref="paper", showarrow=False, align="left"
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(str(args.output), include_plotlyjs=True, full_html=True)
     evidence = {

@@ -15,6 +15,6 @@ python benchmarks/p8_evaluate_final_holdout.py --fit-dir outputs/fit \
   --holdout outputs/motor-splits/holdout.npz --budget budget.json --output outputs/final
 ```
 
-程序比对拟合摘要中的训练/验证数据和模型 SHA-256，检查三组之间电流和磁链输入是否完全重复或为 q 轴镜像，调用上游 motulator GradNet 模型求留出点误差。输出逐点预测、两张误差点图与含 SHA、RMSE、P95、最大误差和各项预算结果的 summary.json；若任一预算失败，结果仍保存，命令以失败状态退出。
+程序比对拟合摘要中的训练/验证数据和模型 SHA-256，检查三组之间电流和磁链输入是否完全重复或为 q 轴镜像，调用上游 motulator GradNet 模型求留出点误差。输出逐点预测、包含两幅子图的误差点图与含 SHA、RMSE、P95、最大误差和各项预算结果的 summary.json；若任一预算失败，结果仍保存，命令以失败状态退出。
 
 精确检查不能发现近似重复点、空间相邻数据泄漏或同源误差，数据独立性和物理来源需要用户记录。该评估尚未连接控制入口的强制门槛；它不能证明连续域内精度、转矩或损耗精度、积分阶段安全或算法优化效果。

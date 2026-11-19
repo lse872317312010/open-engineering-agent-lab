@@ -1,0 +1,48 @@
+name: P8 guarded motor drive
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "benchmarks/guarded_magnetic_map.py"
+      - "benchmarks/p8_guarded_drive.py"
+      - ".github/workflows/p8-guarded-drive.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guarded-drive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator
+          ref: 9971fcb77a08cc8d1f1603554a047ff5a59291e9
+          path: upstream-motulator
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install fixed upstream motulator
+        run: |
+          test "$(git -C upstream-motulator rev-parse HEAD)" = 9971fcb77a08cc8d1f1603554a047ff5a59291e9
+          python -m pip install ./upstream-motulator
+      - name: Run guarded drive and rejection case
+        env:
+          MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p outputs/p8-domain-integration
+          python -m pip freeze > outputs/p8-domain-integration/versions.txt
+          python benchmarks/p8_guarded_drive.py 2>&1 | tee outputs/p8-domain-integration/run.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-domain-integration
+          path: outputs/p8-domain-integration/
+          if-no-files-found: warn

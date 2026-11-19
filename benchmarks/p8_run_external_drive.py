@@ -81,6 +81,15 @@ def validate_final_evidence(fit_dir, fit, holdout, budget, evidence):
     if (report.get("fit_summary_sha256") != sha(fit_dir / "summary.json")
             or report.get("model_sha256") != fit["model_sha256"]):
         raise ValueError("final evidence does not match fit summary or models")
+    source_manifests = fit.get("source_manifests")
+    if (not isinstance(source_manifests, dict)
+            or report.get("source_manifests") != source_manifests):
+        raise ValueError("final evidence source manifests do not match fit")
+    source_metadata = source_manifests["train"]["metadata"]
+    holdout_metadata = report["holdout_source_manifest"]["metadata"]
+    for key in ("model_id", "pole_pairs", "temperature_c", "dq_convention", "phase_sequence"):
+        if source_metadata[key] != holdout_metadata[key]:
+            raise ValueError(f"final holdout source metadata mismatch: {key}")
     points = report.get("points")
     if isinstance(points, bool) or not isinstance(points, int) or points < 4:
         raise ValueError("invalid final holdout point count")
@@ -204,6 +213,7 @@ def main():
         "control_jacobian_calls": control_map.jacobian_evaluations,
         "limitations": [
             "rectangles and validation budgets are user declarations, not physical proof",
+            "source consistency is based on user declarations, not authenticated data",
             "recorded holdout provenance requires independent source verification",
             "evidence JSON is not cryptographically authenticated",
             "no solver-stage trace beyond wrapped map calls",

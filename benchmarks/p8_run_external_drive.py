@@ -7,7 +7,6 @@ from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
-
 from guarded_magnetic_map import GuardedMagneticMap
 
 

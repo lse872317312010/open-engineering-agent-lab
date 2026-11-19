@@ -70,7 +70,9 @@ class ExternalDriveInputsTest(unittest.TestCase):
                                  "current_a": {"rmse": 0.3, "max": 0.4}},
                       "budgets": limits, "checks": {key: True for key in limits}}
             evidence.write_text(json.dumps(report))
-            self.assertTrue(module.validate_final_evidence(folder, fit, holdout, budget, evidence))
+            self.assertTrue(
+                module.validate_final_evidence(folder, fit, holdout, budget, evidence)
+            )
             report["errors"]["current_a"]["max"] = 8.0
             evidence.write_text(json.dumps(report))
             with self.assertRaises(ValueError):

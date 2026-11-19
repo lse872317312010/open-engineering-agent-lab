@@ -25,6 +25,53 @@ def load_points(path):
     return current, flux
 
 
+
+def load_source_manifest(path):
+    """Require importer metadata without inferring unprovided source conventions."""
+    with np.load(path, allow_pickle=False) as data:
+        if "manifest_json" not in data or np.asarray(data["manifest_json"]).shape != ():
+            raise ValueError(f"missing scalar importer manifest: {path}")
+        manifest = json.loads(str(data["manifest_json"].item()))
+    if not isinstance(manifest, dict) or manifest.get("format") != "oeal-magnetic-points-v1":
+        raise ValueError("unsupported magnetic point manifest")
+    metadata = manifest.get("metadata")
+    if not isinstance(metadata, dict):
+        raise ValueError("magnetic point metadata is missing")
+    for key in ("source_software", "source_version", "model_id", "phase_sequence", "domain"):
+        if not isinstance(metadata.get(key), str) or not metadata[key].strip():
+            raise ValueError(f"missing source metadata: {key}")
+    if metadata.get("dq_convention") != "motulator_peak_d_plus_jq":
+        raise ValueError("source dq convention is unsupported or unknown")
+    poles = metadata.get("pole_pairs")
+    if isinstance(poles, bool) or not isinstance(poles, int) or poles < 1:
+        raise ValueError("source pole_pairs must be a positive integer")
+    if "temperature_c" not in metadata:
+        raise ValueError("source temperature must be specified or explicitly unknown")
+    temperature = metadata["temperature_c"]
+    if temperature is None:
+        if (not isinstance(metadata.get("temperature_note"), str)
+                or not metadata["temperature_note"].strip()):
+            raise ValueError("unknown temperature requires a source note")
+    elif (isinstance(temperature, bool) or not isinstance(temperature, (int, float))
+          or not math.isfinite(temperature)):
+        raise ValueError("source temperature must be finite or explicitly unknown")
+    for key in ("source_csv_sha256", "metadata_sha256"):
+        value = manifest.get(key)
+        if (not isinstance(value, str) or len(value) != 64
+                or any(c not in "0123456789abcdef" for c in value)):
+            raise ValueError(f"missing or invalid recorded source hash: {key}")
+    return manifest
+
+
+def check_source_compatibility(train_manifest, validation_manifest, pole_pairs):
+    train = train_manifest["metadata"]
+    validation = validation_manifest["metadata"]
+    for key in ("model_id", "pole_pairs", "temperature_c", "dq_convention", "phase_sequence"):
+        if train[key] != validation[key]:
+            raise ValueError(f"incompatible source metadata: {key}")
+    if train["pole_pairs"] != pole_pairs:
+        raise ValueError("nominal pole_pairs differs from source data")
+
 def check_exact_separation(train, validation):
     """Reject exact and q-reflected duplicate current or flux inputs across splits."""
     for index, label in ((0, "current"), (1, "flux")):
@@ -69,6 +116,8 @@ def main():
     if output.exists() and any(output.iterdir()):
         raise ValueError("output directory must be empty")
     output.mkdir(parents=True, exist_ok=True)
+    train_manifest = load_source_manifest(args.train)
+    validation_manifest = load_source_manifest(args.validation)
     train = load_points(args.train)
     validation = load_points(args.validation)
     check_exact_separation(train, validation)
@@ -76,6 +125,7 @@ def main():
     pole_pairs = cfg["pole_pairs"]
     if isinstance(pole_pairs, bool) or not isinstance(pole_pairs, int) or pole_pairs < 1:
         raise ValueError("pole_pairs must be a positive integer")
+    check_source_compatibility(train_manifest, validation_manifest, pole_pairs)
     vals = {key: positive_number(cfg, key) for key in
             ("voltage_v", "current_a", "frequency_hz", "power_w", "torque_nm")}
     import matplotlib.pyplot as plt
@@ -162,6 +212,7 @@ def main():
         "versions": {name: version(name) for name in ("motulator", "motulator-gradnet",
                                                         "torch", "numpy", "scipy")},
         "nominal": cfg, "base_current_a": float(base.i), "base_flux_wb": float(base.psi),
+        "source_manifests": {"train": train_manifest, "validation": validation_manifest},
         "epochs": args.epochs, "device": "cpu", "upstream_seed": 42, "results": results,
         "plots": ["validation-flux.png", "validation-current.png", "validation-inductance.png"],
         "jacobian_cross_asymmetry_max_h": float(
@@ -169,7 +220,8 @@ def main():
         "limitations": [
             "validation is used for evaluation and is not a protected final holdout",
             "exact input and q-reflection checks do not detect near-duplicates or spatial leakage",
-            "input units, dq convention, physical domain and provenance must be supplied by user",
+            "source metadata and hashes are user declarations, not authenticated measurements",
+            "input physical domain and source provenance must be verified independently",
             "Jacobian is model-derived and not validated against source differential inductance",
             "no torque, loss, extrapolation safety, physical validation, or drive simulation",
         ],

@@ -134,6 +134,26 @@ def main():
         fig.tight_layout()
         fig.savefig(output / f"validation-{name}.png", dpi=160)
         plt.close(fig)
+    # Differentiate only at validation points using the upstream GradNet Jacobian.
+    incremental = np.asarray(models["flux"].jacobian(valid_i))
+    if incremental.shape != (len(valid_i), 2, 2) or not np.isfinite(incremental).all():
+        raise ValueError("upstream incremental inductance is nonfinite or has an unexpected shape")
+    np.savez_compressed(output / "validation-inductance.npz",
+                        current_dq=valid_i, incremental_h=incremental)
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
+    for row in range(2):
+        for col in range(2):
+            ax = axes[row, col]
+            scatter = ax.scatter(valid_i.real, valid_i.imag, c=incremental[:, row, col],
+                                 s=18, cmap="viridis")
+            component = ("d", "q")
+            ax.set(title=f"L{component[row]}{component[col]}",
+                   xlabel="d-axis current (A peak)", ylabel="q-axis current (A peak)")
+            fig.colorbar(scatter, ax=ax, label="Incremental inductance (H)")
+    fig.suptitle("Upstream GradNet Jacobian: validation points only")
+    fig.tight_layout()
+    fig.savefig(output / "validation-inductance.png", dpi=160)
+    plt.close(fig)
     summary = {
         "input_sha256": {name: file_hash(path) for name, path in
                          (("train", args.train), ("validation", args.validation),
@@ -143,11 +163,14 @@ def main():
                                                         "torch", "numpy", "scipy")},
         "nominal": cfg, "base_current_a": float(base.i), "base_flux_wb": float(base.psi),
         "epochs": args.epochs, "device": "cpu", "upstream_seed": 42, "results": results,
-        "plots": ["validation-flux.png", "validation-current.png"],
+        "plots": ["validation-flux.png", "validation-current.png", "validation-inductance.png"],
+        "jacobian_cross_asymmetry_max_h": float(
+            np.max(np.abs(incremental[:, 0, 1] - incremental[:, 1, 0]))),
         "limitations": [
             "validation is used for evaluation and is not a protected final holdout",
             "exact input and q-reflection checks do not detect near-duplicates or spatial leakage",
             "input units, dq convention, physical domain and provenance must be supplied by user",
+            "Jacobian is model-derived and not validated against source differential inductance",
             "no torque, loss, extrapolation safety, physical validation, or drive simulation",
         ],
     }

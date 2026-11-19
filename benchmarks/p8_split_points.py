@@ -7,7 +7,6 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-
 from import_magnetic_points import REQUIRED, convert
 from p8_fit_external import check_exact_separation, load_points
 

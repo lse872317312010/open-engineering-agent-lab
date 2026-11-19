@@ -7,7 +7,14 @@ from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
-from p8_fit_external import check_exact_separation, evaluate, load_points, positive_number
+from p8_fit_external import (
+    check_exact_separation,
+    check_source_compatibility,
+    evaluate,
+    load_points,
+    load_source_manifest,
+    positive_number,
+)
 
 
 def digest(path):
@@ -27,6 +34,12 @@ def verify_inputs(fit_dir, train_path, validation_path, holdout_path):
     for name, path in model_paths.items():
         if digest(path) != fit["model_sha256"][name]:
             raise ValueError(f"{name} model does not match fit summary")
+    manifests = [load_source_manifest(path) for path in paths]
+    pole_pairs = fit["nominal"]["pole_pairs"]
+    check_source_compatibility(manifests[0], manifests[1], pole_pairs)
+    check_source_compatibility(manifests[0], manifests[2], pole_pairs)
+    if fit.get("source_manifests") != {"train": manifests[0], "validation": manifests[1]}:
+        raise ValueError("fit source manifests do not match the input files")
     train, validation, holdout = (load_points(path) for path in paths)
     for left, right in ((train, validation), (train, holdout), (validation, holdout)):
         check_exact_separation(left, right)
@@ -86,7 +99,9 @@ def main():
                          "holdout": digest(args.holdout), "budget": digest(args.budget)},
         "model_sha256": {name: digest(path) for name, path in models.items()},
         "versions": {name: version(name) for name in ("motulator", "numpy", "scipy")},
-        "points": int(len(current)), "errors": {"flux_wb": flux_error,
+        "points": int(len(current)), "source_manifests": fit["source_manifests"],
+        "holdout_source_manifest": load_source_manifest(args.holdout),
+        "errors": {"flux_wb": flux_error,
                                                  "current_a": current_error},
         "base_current_a": positive_number(fit, "base_current_a"),
         "base_flux_wb": positive_number(fit, "base_flux_wb"),
@@ -95,6 +110,7 @@ def main():
         "budgets": limits, "checks": decisions, "passed": all(decisions.values()),
         "limitations": [
             "separation checks reject exact and q-reflected duplicates only",
+            "source metadata is user-declared, not authenticated",
             "user must predeclare budgets and establish independence and physical provenance",
             "point errors do not certify continuous domain, torque, losses or solver stages",
         ],

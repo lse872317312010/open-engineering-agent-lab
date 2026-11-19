@@ -44,7 +44,7 @@ def main():
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("output directory must be empty")
-    fit, models, (current, flux) = verify_inputs(
+    _, models, (current, flux) = verify_inputs(
         args.fit_dir, args.train, args.validation, args.holdout
     )
     cfg = json.loads(args.budget.read_text(encoding="utf-8"))

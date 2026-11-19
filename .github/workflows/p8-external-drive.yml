@@ -31,7 +31,7 @@ jobs:
           path: upstream-gradnet
       - uses: actions/checkout@v4
         with:
-          ref: fa2054e6bd61b5fbf621a67286b21cd2ecabf61b
+          ref: b1cbdca42c9078d10cfa34852a15c2c89608c1ca
           path: final-evaluator
       - uses: actions/setup-python@v5
         with:
@@ -50,9 +50,12 @@ jobs:
         run: |
           mkdir -p outputs/p8-external-fixture
           python - <<'PY'
+          import csv
           import hashlib
           import json
           import shutil
+          import subprocess
+          import sys
           from pathlib import Path
           import motulator.drive.gradnet as gn
           import numpy as np
@@ -73,12 +76,27 @@ jobs:
           current_rmse = float(np.sqrt(np.mean(np.abs(models["current"](psi) - i) ** 2)))
           val_mask = np.isclose(np.abs(i.imag), 6.0, atol=1e-6, rtol=0)
           hold_mask = np.isclose(np.abs(i.imag), 14.0, atol=1e-6, rtol=0)
-          for role, mask in (("train", ~(val_mask | hold_mask)),
-                             ("validation", val_mask), ("holdout", hold_mask)):
-              np.savez_compressed(out / (role + ".npz"), i_s_dq=i[mask], psi_s_dq=psi[mask])
-          source_hashes = {role: hashlib.sha256((out / (role + ".npz")).read_bytes()).hexdigest()
-                           for role in ("train", "validation")}
-          summary = {"model_sha256": hashes, "input_sha256": source_hashes,
+          metadata = {"source_software": "upstream measured dataset", "source_version": "pinned",
+                      "model_id": "baldor fixture", "pole_pairs": 2, "temperature_c": None,
+                      "temperature_note": "not stated in fixture", "dq_convention": "motulator_peak_d_plus_jq",
+                      "phase_sequence": "unspecified", "domain": "sample points only"}
+          (out / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+          with (out / "points.csv").open("w", newline="", encoding="utf-8") as stream:
+              writer = csv.writer(stream)
+              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "split"])
+              for current, flux, val, hold in zip(i, psi, val_mask, hold_mask):
+                  role = "validation" if val else "holdout" if hold else "train"
+                  writer.writerow([current.real, current.imag, flux.real, flux.imag, role])
+          subprocess.run([sys.executable, "final-evaluator/benchmarks/p8_split_points.py",
+                          "--csv", str(out / "points.csv"), "--metadata", str(out / "metadata.json"),
+                          "--output", str(out / "splits")], check=True)
+          source_hashes, manifests = {}, {}
+          for role in ("train", "validation"):
+              path = out / "splits" / (role + ".npz")
+              source_hashes[role] = hashlib.sha256(path.read_bytes()).hexdigest()
+              with np.load(path, allow_pickle=False) as data:
+                  manifests[role] = json.loads(str(data["manifest_json"]))
+          summary = {"model_sha256": hashes, "input_sha256": source_hashes, "source_manifests": manifests,
                      "base_current_a": 12.445079348883239, "base_flux_wb": 0.9962792460208085,
                      "nominal": {"pole_pairs": 2},
                      "results": {"validation": {"flux_error_wb": {"rmse": flux_rmse},
@@ -105,13 +123,13 @@ jobs:
         run: |
           set -o pipefail
           python final-evaluator/benchmarks/p8_evaluate_final_holdout.py \
-            --fit-dir outputs/p8-external-fixture --train outputs/p8-external-fixture/train.npz \
-            --validation outputs/p8-external-fixture/validation.npz \
-            --holdout outputs/p8-external-fixture/holdout.npz \
+            --fit-dir outputs/p8-external-fixture --train outputs/p8-external-fixture/splits/train.npz \
+            --validation outputs/p8-external-fixture/splits/validation.npz \
+            --holdout outputs/p8-external-fixture/splits/holdout.npz \
             --budget outputs/p8-external-fixture/budget.json --output outputs/p8-final
           python benchmarks/p8_run_external_drive.py --fit-dir outputs/p8-external-fixture \
             --config outputs/p8-external-fixture/config.json \
-            --holdout outputs/p8-external-fixture/holdout.npz \
+            --holdout outputs/p8-external-fixture/splits/holdout.npz \
             --holdout-budget outputs/p8-external-fixture/budget.json \
             --final-evidence outputs/p8-final/summary.json --output outputs/p8-external-drive \
             2>&1 | tee outputs/p8-external-fixture/run.log

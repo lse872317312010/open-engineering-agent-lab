@@ -10,8 +10,8 @@
 - `speed_reference_rad_s`：有限的机械角速度，可为正、零或负。当前命令固定在 0.01 s 后施加参考，使用上游在线磁链矢量控制、传感器与理想平均逆变器，不设置外部载荷。
 
 ```sh
-python benchmarks/p8_run_external_drive.py --fit-dir outputs/fit --config drive.json \\
-  --holdout outputs/motor-splits/holdout.npz --holdout-budget budget.json \\
+python benchmarks/p8_run_external_drive.py --fit-dir outputs/fit --config drive.json \
+  --holdout outputs/motor-splits/holdout.npz --holdout-budget budget.json \
   --final-evidence outputs/final/summary.json --output outputs/drive
 ```
 

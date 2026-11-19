@@ -78,7 +78,18 @@ jobs:
             --nominal outputs/p8-external-input/nominal.json --epochs 20 \
             --output outputs/p8-external-fit 2>&1 | tee outputs/p8-external-input/run.log
       - name: Build offline point report
-        run: python benchmarks/p8_map_dashboard.py --fit-dir outputs/p8-external-fit --output outputs/p8-external-fit/report.html
+        run: |
+          python benchmarks/p8_map_dashboard.py --fit-dir outputs/p8-external-fit --output outputs/p8-external-fit/report.html
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          report = Path("outputs/p8-external-fit/report.html")
+          record = json.loads(Path(str(report) + ".json").read_text(encoding="utf-8"))
+          assert report.stat().st_size > 1000000
+          assert record["output_html_sha256"] == hashlib.sha256(report.read_bytes()).hexdigest()
+          assert record["points"] > 0
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

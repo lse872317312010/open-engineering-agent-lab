@@ -1,6 +1,6 @@
 # 外部磁图训练入口（实验性）
 
-先按[点表导入说明](p8-open-point-import.md)准备已明确 dq 约定的 NPZ，再由数据提供方按电流和角度区域生成独立训练与验证 NPZ。两个文件均包含 i_s_dq 和 psi_s_dq 复数数组（峰值 A、Wb）。本入口使用上游 motulator-gradnet 训练磁链图和电流图，验证数据只作诊断；最终留出数据须单独保管，不用于调参。
+先按[点表导入说明](p8-open-point-import.md)准备已明确 dq 约定的 NPZ，再由数据提供方按电流和角度区域生成独立训练与验证 NPZ。两个文件均须包含导入器写入的 manifest_json，以及 i_s_dq 和 psi_s_dq 复数数组（峰值 A、Wb）。本入口使用上游 motulator-gradnet 训练磁链图和电流图，验证数据只作诊断；最终留出数据须单独保管，不用于调参。
 
 也可在原始 CSV 中增加 split 列，逐行填写 train、validation 或 holdout，三组各至少四点，再使用：
 
@@ -16,6 +16,8 @@ python benchmarks/p8_split_points.py --csv motor-labeled.csv --metadata motor.js
 {"pole_pairs": 2, "voltage_v": 460, "current_a": 8.8,
  "frequency_hz": 60, "power_w": 5600, "torque_nm": 29.7}
 ```
+
+训练与验证文件的 model_id、极对数、温度、dq 约定和相序必须一致，配置中的极对数也必须相同。源温度未知时须明确留空并注明原因，不能填入假定值。摘要保存两份来源声明及记录的源文件哈希，但不会认证声明或重读原始 CSV。
 
 上述值仅来自公开 Baldor 示例，不能套用到其他电机。电压、电流与频率遵循 motulator NominalValues 的额定输入约定；源温度、相序、有效域和其他设备限制由用户记录。
 

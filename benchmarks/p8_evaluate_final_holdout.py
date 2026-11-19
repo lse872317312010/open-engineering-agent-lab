@@ -44,7 +44,7 @@ def main():
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("output directory must be empty")
-    _, models, (current, flux) = verify_inputs(
+    fit, models, (current, flux) = verify_inputs(
         args.fit_dir, args.train, args.validation, args.holdout
     )
     cfg = json.loads(args.budget.read_text(encoding="utf-8"))
@@ -88,6 +88,10 @@ def main():
         "versions": {name: version(name) for name in ("motulator", "numpy", "scipy")},
         "points": int(len(current)), "errors": {"flux_wb": flux_error,
                                                  "current_a": current_error},
+        "base_current_a": positive_number(fit, "base_current_a"),
+        "base_flux_wb": positive_number(fit, "base_flux_wb"),
+        "flux_rmse_pu": flux_error["rmse"] / positive_number(fit, "base_flux_wb"),
+        "current_rmse_pu": current_error["rmse"] / positive_number(fit, "base_current_a"),
         "budgets": limits, "checks": decisions, "passed": all(decisions.values()),
         "limitations": [
             "separation checks reject exact and q-reflected duplicates only",

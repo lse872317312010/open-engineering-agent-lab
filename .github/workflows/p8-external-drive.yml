@@ -1,10 +1,11 @@
-name: P8 external guarded drive
+name: P8 final-gated external drive
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "benchmarks/p8_run_external_drive.py"
+      - "tests/test_p8_external_drive_inputs.py"
       - "benchmarks/guarded_magnetic_map.py"
       - "tests/test_p8_external_drive_inputs.py"
       - ".github/workflows/p8-external-drive.yml"
@@ -28,6 +29,10 @@ jobs:
           repository: Aalto-Electric-Drives/motulator-gradnet
           ref: 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
           path: upstream-gradnet
+      - uses: actions/checkout@v4
+        with:
+          ref: fa2054e6bd61b5fbf621a67286b21cd2ecabf61b
+          path: final-evaluator
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -66,10 +71,22 @@ jobs:
               i, psi = data["i_s_dq"].flatten(), data["psi_s_dq"].flatten()
           flux_rmse = float(np.sqrt(np.mean(np.abs(models["flux"](i) - psi) ** 2)))
           current_rmse = float(np.sqrt(np.mean(np.abs(models["current"](psi) - i) ** 2)))
-          summary = {"model_sha256": hashes, "nominal": {"pole_pairs": 2},
+          val_mask = np.isclose(np.abs(i.imag), 6.0, atol=1e-6, rtol=0)
+          hold_mask = np.isclose(np.abs(i.imag), 14.0, atol=1e-6, rtol=0)
+          for role, mask in (("train", ~(val_mask | hold_mask)),
+                             ("validation", val_mask), ("holdout", hold_mask)):
+              np.savez_compressed(out / (role + ".npz"), i_s_dq=i[mask], psi_s_dq=psi[mask])
+          source_hashes = {role: hashlib.sha256((out / (role + ".npz")).read_bytes()).hexdigest()
+                           for role in ("train", "validation")}
+          summary = {"model_sha256": hashes, "input_sha256": source_hashes,
+                     "base_current_a": 12.445079348883239, "base_flux_wb": 0.9962792460208085,
+                     "nominal": {"pole_pairs": 2},
                      "results": {"validation": {"flux_error_wb": {"rmse": flux_rmse},
                                                 "current_error_a": {"rmse": current_rmse}}},
                      "source": "upstream pretrained example; data may overlap training"}
+          budget = {"flux_rmse_wb": 2, "flux_max_wb": 5,
+                    "current_rmse_a": 30, "current_max_a": 60}
+          (out / "budget.json").write_text(json.dumps(budget), encoding="utf-8")
           (out / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
           config = {"max_validation_flux_rmse_wb": 2, "max_validation_current_rmse_a": 30,
                     "flux_domain_wb": [-5, 5, -5, 5], "current_domain_a": [-100, 100, -100, 100],
@@ -87,7 +104,17 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python benchmarks/p8_run_external_drive.py --fit-dir outputs/p8-external-fixture --config outputs/p8-external-fixture/config.json --output outputs/p8-external-drive 2>&1 | tee outputs/p8-external-fixture/run.log
+          python final-evaluator/benchmarks/p8_evaluate_final_holdout.py \
+            --fit-dir outputs/p8-external-fixture --train outputs/p8-external-fixture/train.npz \
+            --validation outputs/p8-external-fixture/validation.npz \
+            --holdout outputs/p8-external-fixture/holdout.npz \
+            --budget outputs/p8-external-fixture/budget.json --output outputs/p8-final
+          python benchmarks/p8_run_external_drive.py --fit-dir outputs/p8-external-fixture \
+            --config outputs/p8-external-fixture/config.json \
+            --holdout outputs/p8-external-fixture/holdout.npz \
+            --holdout-budget outputs/p8-external-fixture/budget.json \
+            --final-evidence outputs/p8-final/summary.json --output outputs/p8-external-drive \
+            2>&1 | tee outputs/p8-external-fixture/run.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -95,4 +122,5 @@ jobs:
           path: |
             outputs/p8-external-fixture/
             outputs/p8-external-drive/
+            outputs/p8-final/
           if-no-files-found: warn

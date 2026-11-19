@@ -14,8 +14,9 @@ def main():
     parser.add_argument("--fit-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.output.exists():
-        raise ValueError("output HTML must not already exist")
+    sidecar = args.output.with_suffix(args.output.suffix + ".json")
+    if args.output.exists() or sidecar.exists():
+        raise ValueError("output HTML and evidence sidecar must not already exist")
     source = args.fit_dir / "validation-predictions.npz"
     summary_path = args.fit_dir / "summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -100,9 +101,6 @@ def main():
         "limitations": ["validation points only; no continuous validity or physical proof",
                         "user must keep source data and independent final holdout"],
     }
-    sidecar = args.output.with_suffix(args.output.suffix + ".json")
-    if sidecar.exists():
-        raise ValueError("output evidence sidecar must not already exist")
     sidecar.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     print(json.dumps(evidence, indent=2))
 

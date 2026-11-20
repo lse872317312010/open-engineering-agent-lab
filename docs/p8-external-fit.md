@@ -1,6 +1,6 @@
 # 外部磁图训练入口（实验性）
 
-先按[点表导入说明](p8-open-point-import.md)准备已明确 dq 约定的 NPZ，再由数据提供方按电流和角度区域生成独立训练与验证 NPZ。两个文件均包含 i_s_dq 和 psi_s_dq 复数数组（峰值 A、Wb）。本入口使用上游 motulator-gradnet 训练磁链图和电流图，验证数据只作诊断；最终留出数据须单独保管，不用于调参。
+先按[点表导入说明](p8-open-point-import.md)准备已明确 dq 约定的 NPZ，再由数据提供方按电流和角度区域生成独立训练与验证 NPZ。两个文件均须包含导入器写入的 manifest_json，以及 i_s_dq 和 psi_s_dq 复数数组（峰值 A、Wb）。本入口使用上游 motulator-gradnet 训练磁链图和电流图，验证数据只作诊断；最终留出数据须单独保管，不用于调参。
 
 也可在原始 CSV 中增加 split 列，逐行填写 train、validation 或 holdout，三组各至少四点，再使用：
 
@@ -8,7 +8,7 @@
 python benchmarks/p8_split_points.py --csv motor-labeled.csv --metadata motor.json --output outputs/motor-splits
 ```
 
-它按用户标签生成各组 CSV/NPZ、源 CSV 记录序号映射（标题为第 1 条）和哈希清单，拒绝跨组完全相同或 q 轴共轭的电流及磁链输入。检查不覆盖数值近似、测量相关性或相邻点泄漏；有效域和分组必须由用户按来源数据确定。输出 holdout.npz 单独封存，不提供给拟合命令。目前分组命令遇到 torque_Nm 会拒绝处理，以免丢失转矩；请保存源文件，等待转矩分组接口。
+它按用户标签生成各组 CSV/NPZ、源 CSV 记录序号映射（标题为第 1 条）和哈希清单，拒绝跨组完全相同或 q 轴共轭的电流及磁链输入。检查不覆盖数值近似、测量相关性或相邻点泄漏；有效域和分组必须由用户按来源数据确定。输出 holdout.npz 单独封存，不提供给拟合命令。CSV 若包含 torque_Nm，元数据必须明确 torque_convention 为 electromagnetic_total_Nm；源转矩将按同一行对应关系存入各组 NPZ，不做极对数或符号换算。训练入口暂不把转矩用于拟合。
 
 依赖 Python 3.12+，motulator 0.25.0，以及固定上游提交 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80 的 motulator-gradnet；训练使用 CPU 和上游固定种子 42。提供 JSON 名义配置，值必须与源电机一致：
 
@@ -16,6 +16,8 @@ python benchmarks/p8_split_points.py --csv motor-labeled.csv --metadata motor.js
 {"pole_pairs": 2, "voltage_v": 460, "current_a": 8.8,
  "frequency_hz": 60, "power_w": 5600, "torque_nm": 29.7}
 ```
+
+训练与验证文件的 model_id、极对数、温度、dq 约定和相序必须一致，配置中的极对数也必须相同。源温度未知时须明确留空并注明原因，不能填入假定值。摘要保存两份来源声明及记录的源文件哈希，但不会认证声明或重读原始 CSV。
 
 上述值仅来自公开 Baldor 示例，不能套用到其他电机。电压、电流与频率遵循 motulator NominalValues 的额定输入约定；源温度、相序、有效域和其他设备限制由用户记录。
 
@@ -29,3 +31,11 @@ python benchmarks/p8_fit_external.py --train train.npz --validation validation.n
 该命令不执行角度谐波、转矩/损耗、完整效率、有效域保护、控制联合仿真或物理误差验收。错误较大、来源不明或缺乏有效域的数据不能用于声称可信模型。
 
 增量电感由上游 GradNet 磁链映射的雅可比给出，仅在提供的验证点计算，单位 H；不等同于与有限元差分电感或物理测量的独立验证。源数据缺少可用参考时不宣称电感精度。
+
+训练结果还可生成离线交互验证点报告（需安装 plotly 6.3.0）：
+
+```sh
+python benchmarks/p8_map_dashboard.py --fit-dir outputs/fit --output outputs/map-report.html
+```
+
+HTML 内嵌 Plotly 脚本，支持切换磁链/电流及 d/q 分量、缩放和悬停，显示验证 RMSE 与源/预测/误差。报告只显示输入验证点，不将点外区域或物理有效域涂成可信曲面；旁车 JSON 保存输入和输出哈希。训练结果、数据、最终留出与来源声明需另行保存。

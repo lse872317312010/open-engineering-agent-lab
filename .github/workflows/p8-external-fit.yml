@@ -53,17 +53,19 @@ jobs:
               psi = d["psi_s_dq"].flatten()
           with (out / "points.csv").open("w", newline="", encoding="utf-8") as stream:
               writer = csv.writer(stream)
-              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "split"])
+              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "split", "torque_Nm"])
               for current, flux in zip(i, psi, strict=True):
                   q = abs(current.imag)
                   role = ("validation" if np.isclose(q, 6.0, atol=1e-6, rtol=0) else
                           "holdout" if np.isclose(q, 14.0, atol=1e-6, rtol=0) else "train")
-                  writer.writerow([current.real, current.imag, flux.real, flux.imag, role])
+                  writer.writerow([current.real, current.imag, flux.real, flux.imag, role, 0.0])
           metadata = {"source_software": "upstream measured example", "source_version": "pinned",
                       "model_id": "Baldor", "pole_pairs": 2, "temperature_c": None,
                       "temperature_note": "not supplied by source",
                       "dq_convention": "motulator_peak_d_plus_jq",
-                      "phase_sequence": "unspecified", "domain": "source points"}
+                      "phase_sequence": "unspecified", "domain": "source points",
+                      "torque_convention": "electromagnetic_total_Nm",
+                      "torque_note": "synthetic zeros for interface smoke only"}
           (out / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
           nominal = {"pole_pairs": 2, "voltage_v": 460, "current_a": 8.8,
                      "frequency_hz": 60, "power_w": 5600, "torque_nm": 29.7}

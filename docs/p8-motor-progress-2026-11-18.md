@@ -65,7 +65,7 @@ flowchart LR
 
 已合并的[外部 NPZ 拟合入口](p8-external-fit.md)的公开样本接口运行成功，生成拟合模型和两轴验证点图；其 20 轮训练仅作接口检查，验证磁链 RMSE 0.6902 Wb、电流 RMSE 9.075 A，不适合用作控制模型。[下载实验数据与图表](https://github.com/lse872317312010/open-engineering-agent-lab/actions/runs/44277098631/artifacts/14419822679)。
 
-已合并的[标注点表分组入口](p8-external-fit.md)保留用户指定的训练、验证、留出角色及可选源转矩。外部模型受保护控制接口通过了公开样本接口测试，并检查拟合结果哈希、用户声明的验证误差预算和 dq 域；域及预算不能作为独立物理验证。已合并的[最终留出评估](p8-external-final-holdout.md)可记录留出点误差和预先声明的预算，但当前主线控制入口尚不强制使用该评估；来源一致性和控制门槛分别见 [PR #97](https://github.com/lse872317312010/open-engineering-agent-lab/pull/97) 与 [PR #94](https://github.com/lse872317312010/open-engineering-agent-lab/pull/94)，以各自 CI 和合并状态为准。交互磁图报告见[拟合说明](p8-external-fit.md)。
+[标注点表分组入口](p8-external-fit.md)保留用户指定的训练、验证、留出角色及可选源转矩。[最终留出评估](p8-external-final-holdout.md)核对各组来源声明，并记录留出点误差和预先声明的预算。[受保护控制入口](p8-external-guarded-drive.md)要求通过的最终留出结果，同时检查拟合验证预算和 dq 域。接口验证使用公开样本，P8 磁图精度仍需用独立物理数据验收。交互磁图报告见[拟合说明](p8-external-fit.md)。
 
 ## 接下来
 

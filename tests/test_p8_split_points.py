@@ -57,14 +57,24 @@ class MagneticSplitTest(unittest.TestCase):
             module.split_points(self.source, self.meta, self.out)
         self.assertFalse(self.out.exists())
 
-    def test_rejects_unsupported_torque_instead_of_discarding_it(self):
+    def test_source_torque_is_retained_in_every_split(self):
         with self.source.open() as stream:
             rows = list(csv.reader(stream))
         rows[0].append("torque_Nm")
-        for row in rows[1:]:
-            row.append("1.0")
+        for index, row in enumerate(rows[1:], start=1):
+            row.append(str(index))
         with self.source.open("w", newline="") as stream:
             csv.writer(stream).writerows(rows)
         with self.assertRaises(ValueError):
             module.split_points(self.source, self.meta, self.out)
         self.assertFalse(self.out.exists())
+        metadata = json.loads(self.meta.read_text())
+        metadata["torque_convention"] = "electromagnetic_total_Nm"
+        self.meta.write_text(json.dumps(metadata))
+        module.split_points(self.source, self.meta, self.out)
+        for index, role in enumerate(module.ROLES):
+            with np.load(self.out / f"{role}.npz", allow_pickle=False) as data:
+                expected = np.arange(index * 4 + 1, index * 4 + 5)
+                np.testing.assert_array_equal(data["torque_total_nm"], expected)
+        manifest = json.loads((self.out / "split-manifest.json").read_text())
+        self.assertTrue(manifest["source_torque_included"])

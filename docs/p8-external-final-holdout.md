@@ -21,4 +21,10 @@ python benchmarks/p8_evaluate_final_holdout.py --fit-dir outputs/fit \
 
 误差图按两张磁图各自的输入坐标显示，圈出超出训练凸包的点。凸包描述几何覆盖，内部仍可能有采样空洞。四项预算继续以全部留出点的 GradNet 误差为依据。
 
+### 推理耗时对照
+
+运行上面的评估命令时，可在 Python 启动前设置 `OPENBLAS_NUM_THREADS=1`、`OMP_NUM_THREADS=1`、`MKL_NUM_THREADS=1` 和 `BLIS_NUM_THREADS=1`，并追加 `--benchmark-inference`。[最终留出专项](../.github/workflows/p8-final-holdout.yml)使用此设置。两种方法按同一顺序处理线性插值有结果的留出点，分别逐点调用和整批调用。每种模式预热 3 遍，交替先测的方法，记录 15 轮，每轮遍历 5 次。
+
+摘要保存每轮的平均调用耗时及其中位数和 P95，单位 ns/次。计时含 Python 调用、必要的输入转换和循环开销。模型读取、三角剖分、初次预热及图表处理在计时窗口之外。结果受主机和运行负载影响，用于比较同次运行的开销。
+
 评估通过后，将 `summary.json`、原留出 NPZ 和预算 JSON 一起交给[受保护控制入口](p8-external-guarded-drive.md)。来源清单及其记录的哈希由数据提供方声明。精确检查针对完全重复和 q 轴镜像。数据独立性、物理来源、连续域精度和求解器阶段仍需各自的验证证据。

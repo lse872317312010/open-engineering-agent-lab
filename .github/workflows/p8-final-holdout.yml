@@ -84,11 +84,15 @@ jobs:
       - name: Evaluate separately held out points
         env:
           MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+          BLIS_NUM_THREADS: "1"
         run: |
           python benchmarks/p8_evaluate_final_holdout.py --fit-dir outputs/p8-external-fit \
             --train outputs/p8-splits/train.npz --validation outputs/p8-splits/validation.npz \
             --holdout outputs/p8-splits/holdout.npz --budget outputs/p8-external-input/budget.json \
-            --output outputs/p8-final-holdout
+            --output outputs/p8-final-holdout --benchmark-inference
           python - <<'PY'
           import hashlib
           import json
@@ -99,12 +103,15 @@ jobs:
           path = out / "holdout-predictions.npz"
           assert hashlib.sha256(path.read_bytes()).hexdigest() == report["predictions_sha256"]
           assert report["points"] == 42
+          protocol = report["inference_benchmark"]
+          assert list(protocol["thread_environment"].values()) == ["1"] * 4
           with np.load(path, allow_pickle=False) as data:
               for name, quantity, inside_count in (("flux", "flux_wb", 42),
                                                     ("current", "current_a", 40)):
                   inside = data[f"{name}_map_input_coverage"] == "inside"
                   baseline = data[f"linear_{name}_dq"]
-                  comparison = report["training_coverage"][quantity]["linear_comparison"]
+                  coverage = report["training_coverage"][quantity]
+                  comparison = coverage["linear_comparison"]
                   assert inside.sum() == comparison["points"] == inside_count
                   np.testing.assert_array_equal(np.isfinite(baseline), inside)
                   truth = data[f"{name}_dq"][inside]
@@ -112,6 +119,17 @@ jobs:
                       (data[f"predicted_{name}_dq"][inside], "gradnet_same_points")):
                       rmse = np.sqrt(np.mean(np.abs(estimate - truth) ** 2))
                       np.testing.assert_allclose(comparison[metric]["rmse"], rmse)
+                  timing = coverage["inference_timing"]
+                  assert timing["scalar"]["calls_per_pass"] == inside_count
+                  assert timing["scalar"]["points_per_call"] == 1
+                  assert timing["batch"]["calls_per_pass"] == 1
+                  assert timing["batch"]["points_per_call"] == inside_count
+                  for workload in timing.values():
+                      for stats in workload["methods"].values():
+                          samples = np.asarray(stats["round_mean_ns_per_call"])
+                          assert samples.size == protocol["rounds"]
+                          assert np.isfinite(samples).all() and (samples > 0).all()
+                          np.testing.assert_allclose(stats["median_ns_per_call"], np.median(samples))
           PY
       - uses: actions/upload-artifact@v4
         if: always()

@@ -3,8 +3,11 @@ import argparse
 import hashlib
 import json
 import math
+import os
+import platform
 from importlib.metadata import version
 from pathlib import Path
+from time import perf_counter_ns
 
 import numpy as np
 from p8_fit_external import (
@@ -22,6 +25,9 @@ HOLDOUT_METRICS = {
     "current_rmse_a": ("current_a", "rmse"),
     "current_max_a": ("current_a", "max"),
 }
+TIMING_WARMUP_PASSES = 3
+TIMING_ROUNDS = 15
+TIMING_PASSES_PER_ROUND = 5
 
 
 def digest(path):
@@ -55,7 +61,40 @@ def verify_inputs(fit_dir, train_path, validation_path, holdout_path):
     return fit, model_paths, train, holdout, holdout_manifest
 
 
-def compare_training_coverage(train_input, train_target, holdout_input, target, predicted, base):
+def time_holdout_inference(gradnet, linear, inputs):
+    """Measure repeated passes over one shared set of supported API inputs."""
+    result = {}
+    methods = [("gradnet", gradnet), ("linear", linear)]
+    for workload, calls in (("scalar", tuple(inputs)), ("batch", (inputs,))):
+        for _, evaluate_map in methods:
+            for _ in range(TIMING_WARMUP_PASSES):
+                for dq in calls:
+                    evaluate_map(dq)
+        samples = {name: [] for name, _ in methods}
+        for index in range(TIMING_ROUNDS):
+            ordered_methods = methods if index % 2 == 0 else reversed(methods)
+            for name, evaluate_map in ordered_methods:
+                start = perf_counter_ns()
+                for _ in range(TIMING_PASSES_PER_ROUND):
+                    for dq in calls:
+                        evaluate_map(dq)
+                elapsed = perf_counter_ns() - start
+                samples[name].append(elapsed / (len(calls) * TIMING_PASSES_PER_ROUND))
+        result[workload] = {
+            "calls_per_pass": len(calls), "points_per_call": len(inputs) // len(calls),
+            "methods": {
+                name: {"median_ns_per_call": float(np.median(values)),
+                       "p95_ns_per_call": float(np.percentile(values, 95)),
+                       "round_mean_ns_per_call": values}
+                for name, values in samples.items()
+            },
+        }
+    return result
+
+
+def compare_training_coverage(
+    train_input, train_target, holdout_input, target, predicted, base, *, timed_map=None
+):
     """Compare GradNet with linear interpolation where the training geometry supports it."""
     from scipy.interpolate import LinearNDInterpolator
     from scipy.spatial import Delaunay, QhullError
@@ -67,6 +106,10 @@ def compare_training_coverage(train_input, train_target, holdout_input, target, 
     train_xy = np.column_stack((train_input.real, train_input.imag))[unique_rows]
     holdout_xy = np.column_stack((holdout_input.real, holdout_input.imag))
     geometry_reason = linear_reason = None
+
+    def linear_map(dq):
+        return interpolate(dq.real, dq.imag)
+
     try:
         triangulation = Delaunay(train_xy)
     except QhullError:
@@ -79,7 +122,7 @@ def compare_training_coverage(train_input, train_target, holdout_input, target, 
         elif inside.any():
             try:
                 interpolate = LinearNDInterpolator(triangulation, train_target[unique_rows])
-                linear[inside] = interpolate(holdout_xy[inside])
+                linear[inside] = linear_map(holdout_input[inside])
             except QhullError:
                 linear_reason = "scipy_interpolation_triangulation_failed"
 
@@ -106,6 +149,11 @@ def compare_training_coverage(train_input, train_target, holdout_input, target, 
             "gradnet_same_points": metrics(comparable, predicted),
         },
     }
+    if timed_map is not None:
+        report["inference_timing"] = (
+            time_holdout_inference(timed_map, linear_map, holdout_input[comparable])
+            if comparable.any() else None
+        )
     return report, coverage, linear
 
 
@@ -117,6 +165,8 @@ def main():
     parser.add_argument("--holdout", type=Path, required=True)
     parser.add_argument("--budget", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--benchmark-inference", action="store_true",
+                        help="time warmed GradNet and linear calls on identical supported points")
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("output directory must be empty")
@@ -145,10 +195,12 @@ def main():
     base_current = positive_number(fit, "base_current_a")
     base_flux = positive_number(fit, "base_flux_wb")
     flux_coverage, flux_labels, linear_flux = compare_training_coverage(
-        train_current, train_flux, current, flux, predicted_flux, base_flux
+        train_current, train_flux, current, flux, predicted_flux, base_flux,
+        timed_map=flux_map if args.benchmark_inference else None,
     )
     current_coverage, current_labels, linear_current = compare_training_coverage(
-        train_flux, train_current, flux, current, predicted_current, base_current
+        train_flux, train_current, flux, current, predicted_current, base_current,
+        timed_map=current_map if args.benchmark_inference else None,
     )
     args.output.mkdir(parents=True, exist_ok=True)
     predictions_path = args.output / "holdout-predictions.npz"
@@ -204,6 +256,17 @@ def main():
             "point errors do not certify continuous domain, torque, losses or solver stages",
         ],
     }
+    if args.benchmark_inference:
+        report["inference_benchmark"] = {
+            "clock": "perf_counter_ns", "warmup_passes": TIMING_WARMUP_PASSES,
+            "rounds": TIMING_ROUNDS, "passes_per_round": TIMING_PASSES_PER_ROUND,
+            "host": {"platform": platform.platform(), "cpu_count": os.cpu_count(),
+                     "python": platform.python_version()},
+            "thread_environment": {key: os.environ.get(key) for key in (
+                "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "BLIS_NUM_THREADS",
+            )},
+            "scope": "warmed API calls and loop overhead; excludes training and map setup",
+        }
     (args.output / "summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
     if not report["passed"]:

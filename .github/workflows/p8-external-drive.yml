@@ -1,12 +1,17 @@
-name: P8 external guarded drive
+name: P8 final-gated external drive
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "benchmarks/p8_run_external_drive.py"
-      - "benchmarks/guarded_magnetic_map.py"
+      - "benchmarks/p8_evaluate_final_holdout.py"
+      - "benchmarks/p8_fit_external.py"
+      - "benchmarks/p8_split_points.py"
+      - "benchmarks/import_magnetic_points.py"
+      - "tests/test_p8_final_holdout_inputs.py"
       - "tests/test_p8_external_drive_inputs.py"
+      - "benchmarks/guarded_magnetic_map.py"
       - ".github/workflows/p8-external-drive.yml"
 
 permissions:
@@ -45,9 +50,12 @@ jobs:
         run: |
           mkdir -p outputs/p8-external-fixture
           python - <<'PY'
+          import csv
           import hashlib
           import json
           import shutil
+          import subprocess
+          import sys
           from pathlib import Path
           import motulator.drive.gradnet as gn
           import numpy as np
@@ -64,12 +72,42 @@ jobs:
               models[role] = gn.FluxMap(loaded) if role == "flux" else gn.CurrentMap(loaded)
           with np.load("upstream-gradnet/examples/datasets/baldor_meas.npz", allow_pickle=False) as data:
               i, psi = data["i_s_dq"].flatten(), data["psi_s_dq"].flatten()
-          flux_rmse = float(np.sqrt(np.mean(np.abs(models["flux"](i) - psi) ** 2)))
-          current_rmse = float(np.sqrt(np.mean(np.abs(models["current"](psi) - i) ** 2)))
-          summary = {"model_sha256": hashes, "nominal": {"pole_pairs": 2},
+          val_mask = np.isclose(np.abs(i.imag), 6.0, atol=1e-6, rtol=0)
+          hold_mask = np.isclose(np.abs(i.imag), 14.0, atol=1e-6, rtol=0)
+          val_i, val_psi = i[val_mask], psi[val_mask]
+          flux_rmse = float(np.sqrt(np.mean(np.abs(models["flux"](val_i) - val_psi) ** 2)))
+          current_rmse = float(np.sqrt(np.mean(np.abs(models["current"](val_psi) - val_i) ** 2)))
+          metadata = {"source_software": "upstream measured dataset", "source_version": "pinned",
+                      "model_id": "baldor fixture", "pole_pairs": 2, "temperature_c": None,
+                      "temperature_note": "not stated in fixture", "dq_convention": "motulator_peak_d_plus_jq",
+                      "phase_sequence": "unspecified", "domain": "sample points only"}
+          (out / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+          with (out / "points.csv").open("w", newline="", encoding="utf-8") as stream:
+              writer = csv.writer(stream)
+              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "split"])
+              for current, flux, val, hold in zip(i, psi, val_mask, hold_mask):
+                  role = "validation" if val else "holdout" if hold else "train"
+                  writer.writerow([current.real, current.imag, flux.real, flux.imag, role])
+          subprocess.run([sys.executable, "benchmarks/p8_split_points.py",
+                          "--csv", str(out / "points.csv"), "--metadata", str(out / "metadata.json"),
+                          "--output", str(out / "splits")], check=True)
+          source_hashes, manifests = {}, {}
+          for role in ("train", "validation"):
+              path = out / "splits" / (role + ".npz")
+              source_hashes[role] = hashlib.sha256(path.read_bytes()).hexdigest()
+              with np.load(path, allow_pickle=False) as data:
+                  manifests[role] = json.loads(str(data["manifest_json"]))
+          summary = {"model_sha256": hashes, "input_sha256": source_hashes, "source_manifests": manifests,
+                     "base_current_a": 12.445079348883239, "base_flux_wb": 0.9962792460208085,
+                     "nominal": {"pole_pairs": 2},
                      "results": {"validation": {"flux_error_wb": {"rmse": flux_rmse},
                                                 "current_error_a": {"rmse": current_rmse}}},
                      "source": "upstream pretrained example; data may overlap training"}
+          budget = {"flux_rmse_wb": 2, "flux_max_wb": 5,
+                    "current_rmse_a": 30, "current_max_a": 60}
+          (out / "budget.json").write_text(json.dumps(budget), encoding="utf-8")
+          (out / "reject-budget.json").write_text(
+              json.dumps(dict.fromkeys(budget, 1e-12)), encoding="utf-8")
           (out / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
           config = {"max_validation_flux_rmse_wb": 2, "max_validation_current_rmse_a": 30,
                     "flux_domain_wb": [-5, 5, -5, 5], "current_domain_a": [-100, 100, -100, 100],
@@ -78,6 +116,9 @@ jobs:
                     "speed_bandwidth_hz": 4, "duration_s": 0.1,
                     "note": "synthetic broad domains and loose budgets; interface smoke only"}
           (out / "config.json").write_text(json.dumps(config), encoding="utf-8")
+          narrow_flux = dict(config, flux_domain_wb=[-5, 5, -0.01, 0.01],
+                             note="synthetic q-axis limit for RK45 rejection test")
+          (out / "narrow-flux-config.json").write_text(json.dumps(narrow_flux), encoding="utf-8")
           PY
       - name: Run external guarded drive
         env:
@@ -87,7 +128,82 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python benchmarks/p8_run_external_drive.py --fit-dir outputs/p8-external-fixture --config outputs/p8-external-fixture/config.json --output outputs/p8-external-drive 2>&1 | tee outputs/p8-external-fixture/run.log
+          fixture=outputs/p8-external-fixture
+          evaluate_holdout() {
+            python benchmarks/p8_evaluate_final_holdout.py --fit-dir "$fixture" \
+              --train "$fixture/splits/train.npz" --validation "$fixture/splits/validation.npz" \
+              --holdout "$fixture/splits/holdout.npz" --budget "$1" --output "$2"
+          }
+          run_drive() {
+            python benchmarks/p8_run_external_drive.py --fit-dir "$fixture" \
+              --config "$1" --holdout "$fixture/splits/holdout.npz" \
+              --holdout-budget "$2" --final-evidence "$3/summary.json" --output "$4"
+          }
+          evaluate_holdout "$fixture/budget.json" outputs/p8-final
+          run_drive "$fixture/config.json" "$fixture/budget.json" outputs/p8-final \
+            outputs/p8-external-drive 2>&1 | tee "$fixture/run.log"
+          if evaluate_holdout "$fixture/reject-budget.json" outputs/p8-final-rejected \
+              > "$fixture/reject-evaluation.log" 2>&1; then
+            echo 'Expected final holdout to fail the negative fixture budget'
+            exit 1
+          fi
+          grep -F 'one or more declared holdout error budgets failed' "$fixture/reject-evaluation.log"
+          if run_drive "$fixture/config.json" "$fixture/reject-budget.json" outputs/p8-final-rejected \
+              outputs/p8-external-drive-rejected > "$fixture/reject-drive.log" 2>&1; then
+            echo 'Expected the drive to reject failed final holdout evidence'
+            exit 1
+          fi
+          grep -F 'ValueError: final holdout did not pass' "$fixture/reject-drive.log"
+          test ! -e outputs/p8-external-drive-rejected
+          if run_drive "$fixture/narrow-flux-config.json" "$fixture/budget.json" outputs/p8-final \
+              outputs/p8-flux-rejected > "$fixture/reject-flux.log" 2>&1; then
+            echo 'Expected an internal solver evaluation to exceed the narrow flux domain'
+            exit 1
+          fi
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import numpy as np
+
+          def verify_trace(folder, report, limits):
+              audit = report["solver_flux_audit"]
+              path = folder / audit["file"]
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == audit["sha256"]
+              with np.load(path, allow_pickle=False) as data:
+                  rhs = data["rhs"]
+                  flux = rhs["flux_dq_wb"]
+                  d_min, d_max, q_min, q_max = limits
+                  inside = ((d_min <= flux.real) & (flux.real <= d_max)
+                            & (q_min <= flux.imag) & (flux.imag <= q_max))
+                  np.testing.assert_array_equal(data["in_domain"], inside)
+                  np.testing.assert_array_equal(rhs["map_calls"], inside)
+                  np.testing.assert_array_equal(rhs["map_rejections"], ~inside)
+                  assert data["guard_matches"].all()
+              assert len(rhs) == audit["rhs_calls"]
+              assert np.count_nonzero(~inside) == audit["outside_flux_domain"]
+              assert np.isfinite(rhs["time_s"]).all()
+              return rhs
+
+          wide = Path("outputs/p8-external-drive")
+          report = json.loads((wide / "summary.json").read_text(encoding="utf-8"))
+          assert report["solver_flux_audit"]["passed"]
+          rhs = verify_trace(wide, report, report["declared_config"]["flux_domain_wb"])
+          with np.load(wide / "trajectory.npz", allow_pickle=False) as trajectory:
+              saved_times = trajectory["time_s"]
+          assert np.unique(rhs["time_s"]).size > np.unique(saved_times).size
+
+          narrow = Path("outputs/p8-flux-rejected")
+          failure = json.loads((narrow / "failure.json").read_text(encoding="utf-8"))
+          audit = failure["solver_flux_audit"]
+          rejected = verify_trace(narrow, failure, failure["flux_domain_wb"])
+          assert failure["error_type"] == "MagneticDomainError"
+          assert not audit["passed"] and audit["outside_flux_domain"] == 1
+          assert len(rejected) > 1 and audit["first_outside_call_index"] == len(rejected) - 1
+          assert rejected["map_rejections"][-1] == 1
+          assert not np.any(np.isclose(saved_times, rejected["time_s"][-1], rtol=0, atol=1e-12))
+          assert not (narrow / "trajectory.npz").exists()
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -95,4 +211,7 @@ jobs:
           path: |
             outputs/p8-external-fixture/
             outputs/p8-external-drive/
+            outputs/p8-final/
+            outputs/p8-final-rejected/
+            outputs/p8-flux-rejected/
           if-no-files-found: warn

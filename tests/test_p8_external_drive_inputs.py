@@ -47,3 +47,81 @@ class ExternalDriveInputsTest(unittest.TestCase):
         np.testing.assert_array_equal(allowed, [True, True, False])
         with self.assertRaises(ValueError):
             module.bounds({"domain": [0, 0, -1, 1]}, "domain")
+
+    def test_solver_flux_audit_distinguishes_domain_and_guard_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            limits = [-1, 2, -3, 4]
+            boundary_call = (0.0, 2 + 4j, 1, 0)
+            accepted = module.save_solver_flux_audit(output, [boundary_call], limits)
+            self.assertTrue(accepted["passed"])
+            calls = [boundary_call, (0.1, -2j, 0, 0), (0.05, -4j, 0, 1)]
+            rejected = module.save_solver_flux_audit(output, calls, limits)
+            self.assertFalse(rejected["passed"])
+            self.assertEqual(rejected["guard_mismatches"], 1)
+            self.assertEqual(rejected["outside_flux_domain"], 1)
+            self.assertEqual(rejected["first_outside_call_index"], 2)
+            path = output / rejected["file"]
+            self.assertEqual(rejected["sha256"], module.sha(path))
+            with np.load(path, allow_pickle=False) as trace:
+                np.testing.assert_array_equal(trace["rhs"]["time_s"], [0.0, 0.1, 0.05])
+                np.testing.assert_array_equal(trace["in_domain"], [True, True, False])
+                np.testing.assert_array_equal(trace["guard_matches"], [True, False, True])
+            empty = module.save_solver_flux_audit(output, [], limits)
+            self.assertEqual(empty["rhs_calls"], 0)
+            self.assertFalse(empty["passed"])
+
+    def test_final_evidence_identity_and_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            metadata = {"source_software": "example", "source_version": "1",
+                        "model_id": "fixture", "pole_pairs": 2, "temperature_c": None,
+                        "temperature_note": "not supplied", "phase_sequence": "unknown",
+                        "dq_convention": "motulator_peak_d_plus_jq", "domain": "points"}
+            manifest = {"format": "oeal-magnetic-points-v1", "metadata": metadata,
+                        "source_csv_sha256": "a" * 64, "metadata_sha256": "b" * 64}
+            manifests = {"train": manifest, "validation": manifest}
+            fit = {"source_manifests": manifests,
+                   "nominal": {"pole_pairs": 2},
+                   "input_sha256": {"train": "train-sha", "validation": "validation-sha"},
+                   "model_sha256": {"flux": "flux-sha", "current": "current-sha"}}
+            (folder / "summary.json").write_text(json.dumps(fit))
+            holdout, budget, evidence = (folder / name for name in (
+                "holdout.npz", "budget.json", "final.json"
+            ))
+            np.savez(holdout, i_s_dq=np.arange(4) + 1j, psi_s_dq=np.arange(4) / 10 + 0.2j,
+                     manifest_json=np.asarray(json.dumps(manifest)))
+            limits = {"flux_rmse_wb": 1.0, "flux_max_wb": 2.0,
+                      "current_rmse_a": 3.0, "current_max_a": 4.0}
+            budget.write_text(json.dumps(limits))
+            report = {"passed": True, "points": 4, "source_manifests": manifests,
+                      "holdout_source_manifest": dict(manifest),
+                      "fit_summary_sha256": module.sha(folder / "summary.json"),
+                      "model_sha256": fit["model_sha256"],
+                      "input_sha256": {"train": "train-sha", "validation": "validation-sha",
+                                       "holdout": module.sha(holdout),
+                                       "budget": module.sha(budget)},
+                      "errors": {"flux_wb": {"rmse": 0.1, "max": 0.2},
+                                 "current_a": {"rmse": 0.3, "max": 0.4}},
+                      "budgets": limits, "checks": {key: True for key in limits}}
+            evidence.write_text(json.dumps(report))
+            self.assertTrue(
+                module.validate_final_evidence(folder, fit, holdout, budget, evidence)
+            )
+            report["holdout_source_manifest"]["source_csv_sha256"] = "c" * 64
+            evidence.write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "manifest does not match the holdout file"):
+                module.validate_final_evidence(folder, fit, holdout, budget, evidence)
+            report["holdout_source_manifest"] = manifest
+            report["points"] = 5
+            evidence.write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "point count does not match the holdout file"):
+                module.validate_final_evidence(folder, fit, holdout, budget, evidence)
+            report["points"] = 4
+            report["errors"]["current_a"]["max"] = 8.0
+            evidence.write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "budget mismatch or failure: current_max_a"):
+                module.validate_final_evidence(folder, fit, holdout, budget, evidence)
+            holdout.write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "final holdout inputs do not match"):
+                module.validate_final_evidence(folder, fit, holdout, budget, evidence)

@@ -1,0 +1,101 @@
+name: P8 interactive map report smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "benchmarks/p8_map_dashboard.py"
+      - "benchmarks/p8_fit_external.py"
+      - "benchmarks/p8_split_points.py"
+      - "tests/test_p8_split_points.py"
+      - "tests/test_p8_external_fit_inputs.py"
+      - ".github/workflows/p8-map-report.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Aalto-Electric-Drives/motulator-gradnet
+          ref: 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          path: upstream-gradnet
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install upstream
+        run: |
+          test "$(git -C upstream-gradnet rev-parse HEAD)" = 940d3b2daf3abd3ecca157f93cf4cc5363f5bb80
+          test "$(git hash-object upstream-gradnet/examples/datasets/baldor_meas.npz)" = 13205be7fd92362f6a3ed0178f7c1652f942fd64
+          python -m pip install "torch==2.8.0" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "motulator==0.25.0" "plotly==6.3.0" ./upstream-gradnet
+      - name: Prepare fixed example and run entry
+        env:
+          MPLBACKEND: Agg
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p outputs/p8-external-input
+          python - <<'PY'
+          import csv
+          import json
+          import numpy as np
+          from pathlib import Path
+          out = Path("outputs/p8-external-input")
+          with np.load("upstream-gradnet/examples/datasets/baldor_meas.npz", allow_pickle=False) as d:
+              i = d["i_s_dq"].flatten()
+              psi = d["psi_s_dq"].flatten()
+          with (out / "points.csv").open("w", newline="", encoding="utf-8") as stream:
+              writer = csv.writer(stream)
+              writer.writerow(["id_A", "iq_A", "psi_d_Wb", "psi_q_Wb", "split"])
+              for current, flux in zip(i, psi, strict=True):
+                  q = abs(current.imag)
+                  role = ("validation" if np.isclose(q, 6.0, atol=1e-6, rtol=0) else
+                          "holdout" if np.isclose(q, 14.0, atol=1e-6, rtol=0) else "train")
+                  writer.writerow([current.real, current.imag, flux.real, flux.imag, role])
+          metadata = {"source_software": "upstream measured example", "source_version": "pinned",
+                      "model_id": "Baldor", "pole_pairs": 2, "temperature_c": None,
+                      "temperature_note": "not supplied by source",
+                      "dq_convention": "motulator_peak_d_plus_jq",
+                      "phase_sequence": "unspecified", "domain": "source points"}
+          (out / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+          nominal = {"pole_pairs": 2, "voltage_v": 460, "current_a": 8.8,
+                     "frequency_hz": 60, "power_w": 5600, "torque_nm": 29.7}
+          (out / "nominal.json").write_text(json.dumps(nominal), encoding="utf-8")
+          PY
+          python benchmarks/p8_split_points.py --csv outputs/p8-external-input/points.csv \
+            --metadata outputs/p8-external-input/metadata.json --output outputs/p8-splits
+          python -m pip freeze > outputs/p8-external-input/versions.txt
+          python benchmarks/p8_fit_external.py --train outputs/p8-splits/train.npz \
+            --validation outputs/p8-splits/validation.npz \
+            --nominal outputs/p8-external-input/nominal.json --epochs 20 \
+            --output outputs/p8-external-fit 2>&1 | tee outputs/p8-external-input/run.log
+      - name: Build offline point report
+        run: |
+          python benchmarks/p8_map_dashboard.py --fit-dir outputs/p8-external-fit --output outputs/p8-external-fit/report.html
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          report = Path("outputs/p8-external-fit/report.html")
+          record = json.loads(Path(str(report) + ".json").read_text(encoding="utf-8"))
+          assert report.stat().st_size > 1000000
+          assert record["output_html_sha256"] == hashlib.sha256(report.read_bytes()).hexdigest()
+          assert record["points"] > 0
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p8-interactive-map-report
+          path: |
+            outputs/p8-external-input/
+            outputs/p8-splits/
+            outputs/p8-external-fit/
+          if-no-files-found: warn

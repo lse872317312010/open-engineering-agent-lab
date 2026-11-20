@@ -29,3 +29,11 @@ python benchmarks/p8_fit_external.py --train train.npz --validation validation.n
 该命令不执行角度谐波、转矩/损耗、完整效率、有效域保护、控制联合仿真或物理误差验收。错误较大、来源不明或缺乏有效域的数据不能用于声称可信模型。
 
 增量电感由上游 GradNet 磁链映射的雅可比给出，仅在提供的验证点计算，单位 H；不等同于与有限元差分电感或物理测量的独立验证。源数据缺少可用参考时不宣称电感精度。
+
+训练结果还可生成离线交互验证点报告（需安装 plotly 6.3.0）：
+
+```sh
+python benchmarks/p8_map_dashboard.py --fit-dir outputs/fit --output outputs/map-report.html
+```
+
+HTML 内嵌 Plotly 脚本，支持切换磁链/电流及 d/q 分量、缩放和悬停，显示验证 RMSE 与源/预测/误差。报告只显示输入验证点，不将点外区域或物理有效域涂成可信曲面；旁车 JSON 保存输入和输出哈希。训练结果、数据、最终留出与来源声明需另行保存。

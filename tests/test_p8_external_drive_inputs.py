@@ -48,6 +48,29 @@ class ExternalDriveInputsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.bounds({"domain": [0, 0, -1, 1]}, "domain")
 
+    def test_solver_flux_audit_distinguishes_domain_and_guard_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            limits = [-1, 2, -3, 4]
+            boundary_call = (0.0, 2 + 4j, 1, 0)
+            accepted = module.save_solver_flux_audit(output, [boundary_call], limits)
+            self.assertTrue(accepted["passed"])
+            calls = [boundary_call, (0.1, -2j, 0, 0), (0.05, -4j, 0, 1)]
+            rejected = module.save_solver_flux_audit(output, calls, limits)
+            self.assertFalse(rejected["passed"])
+            self.assertEqual(rejected["guard_mismatches"], 1)
+            self.assertEqual(rejected["outside_flux_domain"], 1)
+            self.assertEqual(rejected["first_outside_call_index"], 2)
+            path = output / rejected["file"]
+            self.assertEqual(rejected["sha256"], module.sha(path))
+            with np.load(path, allow_pickle=False) as trace:
+                np.testing.assert_array_equal(trace["rhs"]["time_s"], [0.0, 0.1, 0.05])
+                np.testing.assert_array_equal(trace["in_domain"], [True, True, False])
+                np.testing.assert_array_equal(trace["guard_matches"], [True, False, True])
+            empty = module.save_solver_flux_audit(output, [], limits)
+            self.assertEqual(empty["rhs_calls"], 0)
+            self.assertFalse(empty["passed"])
+
     def test_final_evidence_identity_and_budget(self):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)

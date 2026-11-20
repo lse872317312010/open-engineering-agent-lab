@@ -63,14 +63,63 @@ def validate_fit(folder, cfg):
     return fit, paths, pole_pairs
 
 
+
+def validate_final_evidence(fit_dir, fit, holdout, budget, evidence):
+    """Verify evidence identity and all four declared holdout metrics and limits."""
+    report = json.loads(evidence.read_text(encoding="utf-8"))
+    limits = json.loads(budget.read_text(encoding="utf-8"))
+    if report.get("passed") is not True:
+        raise ValueError("final holdout did not pass")
+    expected = {
+        "train": fit["input_sha256"]["train"],
+        "validation": fit["input_sha256"]["validation"],
+        "holdout": sha(holdout),
+        "budget": sha(budget),
+    }
+    if report.get("input_sha256") != expected:
+        raise ValueError("final holdout inputs do not match fit and supplied files")
+    if (report.get("fit_summary_sha256") != sha(fit_dir / "summary.json")
+            or report.get("model_sha256") != fit["model_sha256"]):
+        raise ValueError("final evidence does not match fit summary or models")
+    source_manifests = fit.get("source_manifests")
+    if (not isinstance(source_manifests, dict)
+            or report.get("source_manifests") != source_manifests):
+        raise ValueError("final evidence source manifests do not match fit")
+    source_metadata = source_manifests["train"]["metadata"]
+    holdout_metadata = report["holdout_source_manifest"]["metadata"]
+    for key in ("model_id", "pole_pairs", "temperature_c", "dq_convention", "phase_sequence"):
+        if source_metadata[key] != holdout_metadata[key]:
+            raise ValueError(f"final holdout source metadata mismatch: {key}")
+    points = report.get("points")
+    if isinstance(points, bool) or not isinstance(points, int) or points < 4:
+        raise ValueError("invalid final holdout point count")
+    entries = (("flux_rmse_wb", "flux_wb", "rmse"), ("flux_max_wb", "flux_wb", "max"),
+               ("current_rmse_a", "current_a", "rmse"), ("current_max_a", "current_a", "max"))
+    checks = report.get("checks", {})
+    recorded = report.get("budgets", {})
+    for key, quantity, metric in entries:
+        limit = positive(limits, key)
+        value = report["errors"][quantity][metric]
+        if (recorded.get(key) != limit or checks.get(key) is not True
+                or isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or value < 0 or value > limit):
+            raise ValueError(f"final holdout budget mismatch or failure: {key}")
+    return report
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fit-dir", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--holdout", type=Path, required=True)
+    parser.add_argument("--holdout-budget", type=Path, required=True)
+    parser.add_argument("--final-evidence", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     cfg = json.loads(args.config.read_text(encoding="utf-8"))
     fit, paths, pole_pairs = validate_fit(args.fit_dir, cfg)
+    final = validate_final_evidence(
+        args.fit_dir, fit, args.holdout, args.holdout_budget, args.final_evidence
+    )
     flux_bounds = bounds(cfg, "flux_domain_wb")
     current_bounds = bounds(cfg, "current_domain_a")
     params = {name: positive(cfg, name) for name in (
@@ -150,6 +199,10 @@ def main():
     report = {
         "fit_summary_sha256": sha(args.fit_dir / "summary.json"),
         "drive_config_sha256": sha(args.config),
+        "final_evidence_sha256": sha(args.final_evidence),
+        "final_holdout_sha256": sha(args.holdout),
+        "final_budget_sha256": sha(args.holdout_budget),
+        "final_holdout_checks": final["checks"],
         "model_sha256": {name: sha(path) for name, path in paths.items()},
         "versions": {name: version(name) for name in ("motulator", "numpy", "scipy")},
         "declared_config": cfg, "fit_validation": fit["results"]["validation"],
@@ -160,7 +213,10 @@ def main():
         "control_jacobian_calls": control_map.jacobian_evaluations,
         "limitations": [
             "rectangles and validation budgets are user declarations, not physical proof",
-            "no independent final holdout or solver-stage trace beyond wrapped map calls",
+            "source consistency is based on user declarations, not authenticated data",
+            "recorded holdout provenance requires independent source verification",
+            "evidence JSON is not cryptographically authenticated",
+            "no solver-stage trace beyond wrapped map calls",
             "online reference, averaged converter; no inverter device nonlinearity",
             "no losses, temperature dynamics, torque-map accuracy or control optimization",
         ],

@@ -52,7 +52,61 @@ def verify_inputs(fit_dir, train_path, validation_path, holdout_path):
     train, validation, holdout = (load_points(path) for path in paths)
     for left, right in ((train, validation), (train, holdout), (validation, holdout)):
         check_exact_separation(left, right)
-    return fit, model_paths, holdout, holdout_manifest
+    return fit, model_paths, train, holdout, holdout_manifest
+
+
+def compare_training_coverage(train_input, train_target, holdout_input, target, predicted, base):
+    """Compare GradNet with linear interpolation where the training geometry supports it."""
+    from scipy.interpolate import LinearNDInterpolator
+    from scipy.spatial import Delaunay, QhullError
+
+    coverage = np.full(target.shape, "unavailable", dtype="<U11")
+    linear = np.full(target.shape, complex(np.nan, np.nan))
+    _, first, inverse = np.unique(train_input, return_index=True, return_inverse=True)
+    unique_rows = np.sort(first)
+    train_xy = np.column_stack((train_input.real, train_input.imag))[unique_rows]
+    holdout_xy = np.column_stack((holdout_input.real, holdout_input.imag))
+    geometry_reason = linear_reason = None
+    try:
+        triangulation = Delaunay(train_xy)
+    except QhullError:
+        geometry_reason = linear_reason = "training_inputs_do_not_support_2d_triangulation"
+    else:
+        inside = triangulation.find_simplex(holdout_xy) >= 0
+        coverage[:] = np.where(inside, "inside", "outside")
+        if not np.array_equal(train_target, train_target[first[inverse]]):
+            linear_reason = "conflicting_targets_at_duplicate_training_inputs"
+        elif inside.any():
+            try:
+                interpolate = LinearNDInterpolator(triangulation, train_target[unique_rows])
+                linear[inside] = interpolate(holdout_xy[inside])
+            except QhullError:
+                linear_reason = "scipy_interpolation_triangulation_failed"
+
+    def metrics(mask, values):
+        if not mask.any():
+            return None
+        actual, estimate = target[mask], values[mask]
+        errors = evaluate(actual, estimate)
+        errors["mae"] = float(np.mean(np.abs(estimate - actual)))
+        errors["rmse_pu"] = errors["rmse"] / base
+        return errors
+
+    groups = {}
+    for label in ("inside", "outside", "unavailable"):
+        mask = coverage == label
+        groups[label] = {"points": int(mask.sum()), "gradnet_errors": metrics(mask, predicted)}
+    comparable = (coverage == "inside") & np.isfinite(linear)
+    report = {
+        "unavailable_reason": geometry_reason,
+        "coverage": groups,
+        "linear_comparison": {
+            "points": int(comparable.sum()), "unavailable_reason": linear_reason,
+            "linear_errors": metrics(comparable, linear),
+            "gradnet_same_points": metrics(comparable, predicted),
+        },
+    }
+    return report, coverage, linear
 
 
 def main():
@@ -66,7 +120,7 @@ def main():
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("output directory must be empty")
-    fit, models, (current, flux), holdout_manifest = verify_inputs(
+    fit, models, (train_current, train_flux), (current, flux), holdout_manifest = verify_inputs(
         args.fit_dir, args.train, args.validation, args.holdout
     )
     cfg = json.loads(args.budget.read_text(encoding="utf-8"))
@@ -88,19 +142,42 @@ def main():
     if not all(math.isfinite(x) for x in observed.values()):
         raise ValueError("nonfinite holdout result")
     decisions = {key: value <= limits[key] for key, value in observed.items()}
+    base_current = positive_number(fit, "base_current_a")
+    base_flux = positive_number(fit, "base_flux_wb")
+    flux_coverage, flux_labels, linear_flux = compare_training_coverage(
+        train_current, train_flux, current, flux, predicted_flux, base_flux
+    )
+    current_coverage, current_labels, linear_current = compare_training_coverage(
+        train_flux, train_current, flux, current, predicted_current, base_current
+    )
     args.output.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(args.output / "holdout-predictions.npz", current_dq=current, flux_dq=flux,
-                        predicted_current_dq=predicted_current, predicted_flux_dq=predicted_flux)
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True, sharey=True)
-    for ax, point_errors, title, unit in (
-        (axes[0], np.abs(predicted_flux - flux), "Flux vector error", "Wb"),
-        (axes[1], np.abs(predicted_current - current), "Current vector error", "A peak"),
+    predictions_path = args.output / "holdout-predictions.npz"
+    np.savez_compressed(
+        predictions_path, current_dq=current, flux_dq=flux,
+        predicted_current_dq=predicted_current, predicted_flux_dq=predicted_flux,
+        flux_map_input_coverage=flux_labels, current_map_input_coverage=current_labels,
+        linear_current_dq=linear_current, linear_flux_dq=linear_flux,
+    )
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+    for ax, inputs, labels, point_errors, title, input_unit, output_unit in (
+        (axes[0], current, flux_labels, np.abs(predicted_flux - flux),
+         "Flux vector error", "A peak", "Wb"),
+        (axes[1], flux, current_labels, np.abs(predicted_current - current),
+         "Current vector error", "Wb", "A peak"),
     ):
-        plot = ax.scatter(current.real, current.imag, c=point_errors, s=22, cmap="viridis")
-        ax.set(title=title, xlabel="d-axis current (A peak)")
-        fig.colorbar(plot, ax=ax, label=unit)
-    axes[0].set_ylabel("q-axis current (A peak)")
-    fig.suptitle("Final holdout: supplied points only")
+        plot = ax.scatter(inputs.real, inputs.imag, c=point_errors, s=22, cmap="viridis")
+        for label, marker, legend in (("outside", "o", "Outside training hull"),
+                                      ("unavailable", "s", "Coverage unavailable")):
+            mask = labels == label
+            if mask.any():
+                ax.scatter(inputs.real[mask], inputs.imag[mask], s=60, marker=marker,
+                           facecolors="none", edgecolors="black", label=legend)
+        if np.any(labels != "inside"):
+            ax.legend()
+        ax.set(title=title, xlabel=f"d-axis input ({input_unit})",
+               ylabel=f"q-axis input ({input_unit})")
+        fig.colorbar(plot, ax=ax, label=output_unit)
+    fig.suptitle("Final holdout GradNet errors and training coverage")
     fig.tight_layout()
     fig.savefig(args.output / "holdout-error.png", dpi=160)
     plt.close(fig)
@@ -109,19 +186,21 @@ def main():
         "input_sha256": {"train": digest(args.train), "validation": digest(args.validation),
                          "holdout": digest(args.holdout), "budget": digest(args.budget)},
         "model_sha256": {name: digest(path) for name, path in models.items()},
+        "predictions_sha256": digest(predictions_path),
         "versions": {name: version(name) for name in ("motulator", "numpy", "scipy")},
         "points": int(len(current)), "source_manifests": fit["source_manifests"],
         "holdout_source_manifest": holdout_manifest,
         "errors": errors,
-        "base_current_a": positive_number(fit, "base_current_a"),
-        "base_flux_wb": positive_number(fit, "base_flux_wb"),
-        "flux_rmse_pu": observed["flux_rmse_wb"] / positive_number(fit, "base_flux_wb"),
-        "current_rmse_pu": observed["current_rmse_a"] / positive_number(fit, "base_current_a"),
+        "training_coverage": {"flux_wb": flux_coverage, "current_a": current_coverage},
+        "base_current_a": base_current, "base_flux_wb": base_flux,
+        "flux_rmse_pu": observed["flux_rmse_wb"] / base_flux,
+        "current_rmse_pu": observed["current_rmse_a"] / base_current,
         "budgets": limits, "checks": decisions, "passed": all(decisions.values()),
         "limitations": [
             "separation checks reject exact and q-reflected duplicates only",
             "source checks compare user-declared metadata",
             "user must predeclare budgets and establish independence and physical provenance",
+            "training hulls describe geometric coverage and may contain unsampled regions",
             "point errors do not certify continuous domain, torque, losses or solver stages",
         ],
     }

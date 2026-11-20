@@ -89,6 +89,30 @@ jobs:
             --train outputs/p8-splits/train.npz --validation outputs/p8-splits/validation.npz \
             --holdout outputs/p8-splits/holdout.npz --budget outputs/p8-external-input/budget.json \
             --output outputs/p8-final-holdout
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import numpy as np
+          out = Path("outputs/p8-final-holdout")
+          report = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+          path = out / "holdout-predictions.npz"
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == report["predictions_sha256"]
+          assert report["points"] == 42
+          with np.load(path, allow_pickle=False) as data:
+              for name, quantity, inside_count in (("flux", "flux_wb", 42),
+                                                    ("current", "current_a", 40)):
+                  inside = data[f"{name}_map_input_coverage"] == "inside"
+                  baseline = data[f"linear_{name}_dq"]
+                  comparison = report["training_coverage"][quantity]["linear_comparison"]
+                  assert inside.sum() == comparison["points"] == inside_count
+                  np.testing.assert_array_equal(np.isfinite(baseline), inside)
+                  truth = data[f"{name}_dq"][inside]
+                  for estimate, metric in ((baseline[inside], "linear_errors"),
+                      (data[f"predicted_{name}_dq"][inside], "gradnet_same_points")):
+                      rmse = np.sqrt(np.mean(np.abs(estimate - truth) ** 2))
+                      np.testing.assert_allclose(comparison[metric]["rmse"], rmse)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

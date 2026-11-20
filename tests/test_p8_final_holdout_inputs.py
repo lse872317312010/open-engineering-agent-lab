@@ -46,7 +46,8 @@ class FinalHoldoutTest(unittest.TestCase):
                    "model_sha256": hashes, "nominal": {"pole_pairs": 2},
                    "source_manifests": {"train": manifest, "validation": manifest}}
             (folder / "summary.json").write_text(json.dumps(fit))
-            _, _, (current, _), holdout_manifest = module.verify_inputs(folder, *paths)
+            _, _, (train, _), (current, _), holdout_manifest = module.verify_inputs(folder, *paths)
+            np.testing.assert_array_equal(train, np.arange(4) + 1j)
             self.assertEqual(len(current), 4)
             self.assertEqual(holdout_manifest, manifest)
             other = json.loads(json.dumps(manifest))
@@ -65,3 +66,45 @@ class FinalHoldoutTest(unittest.TestCase):
             (folder / "flux-model.npz").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "flux model does not match"):
                 module.verify_inputs(folder, *paths)
+
+
+@unittest.skipUnless(importlib.util.find_spec("scipy"), "optional SciPy")
+class TrainingCoverageTest(unittest.TestCase):
+    def test_affine_interpolation_compares_only_supported_points(self):
+        train = np.array([0j, 1 + 0j, 1j, 1 + 1j])
+        holdout = np.array([0.25 + 0.25j, 0.5 + 0j, 2 + 0.25j])
+        target = 2 * holdout + 1j
+        predicted = target + np.array([1, 1, 4])
+        result, labels, linear = module.compare_training_coverage(
+            train, 2 * train + 1j, holdout, target, predicted, 2.0
+        )
+        np.testing.assert_array_equal(labels, ["inside", "inside", "outside"])
+        np.testing.assert_allclose(linear[:2], target[:2])
+        self.assertTrue(np.isnan(linear[2]))
+        self.assertEqual(result["coverage"]["outside"]["gradnet_errors"]["rmse_pu"], 2.0)
+        comparison = result["linear_comparison"]
+        self.assertEqual(comparison["points"], 2)
+        self.assertEqual(comparison["gradnet_same_points"]["mae"], 1.0)
+        self.assertEqual(comparison["linear_errors"]["rmse"], 0.0)
+
+    def test_degenerate_geometry_and_conflicting_samples_are_reported(self):
+        holdout = np.array([0.25 + 0.25j])
+        collinear = np.arange(4, dtype=complex)
+        result, labels, linear = module.compare_training_coverage(
+            collinear, collinear, holdout, holdout, holdout, 1.0
+        )
+        np.testing.assert_array_equal(labels, ["unavailable"])
+        self.assertTrue(np.isnan(linear).all())
+        self.assertEqual(result["coverage"]["unavailable"]["points"], 1)
+        self.assertEqual(result["linear_comparison"]["points"], 0)
+
+        train = np.array([0j, 1 + 0j, 1j, 1 + 1j, 0j])
+        target = train.copy()
+        target[-1] = 10
+        result, labels, linear = module.compare_training_coverage(
+            train, target, holdout, holdout, holdout, 1.0
+        )
+        np.testing.assert_array_equal(labels, ["inside"])
+        self.assertTrue(np.isnan(linear).all())
+        self.assertEqual(result["linear_comparison"]["unavailable_reason"],
+                         "conflicting_targets_at_duplicate_training_inputs")

@@ -54,7 +54,8 @@ class ExternalDriveInputsTest(unittest.TestCase):
             metadata = {"model_id": "fixture", "pole_pairs": 2, "temperature_c": None,
                         "dq_convention": "motulator_peak_d_plus_jq", "phase_sequence": "unknown"}
             manifests = {"train": {"metadata": metadata}, "validation": {"metadata": metadata}}
-            fit = {"source_manifests": manifests, "input_sha256": {"train": "train-sha", "validation": "validation-sha"},
+            fit = {"source_manifests": manifests,
+                   "input_sha256": {"train": "train-sha", "validation": "validation-sha"},
                    "model_sha256": {"flux": "flux-sha", "current": "current-sha"}}
             (folder / "summary.json").write_text(json.dumps(fit))
             holdout, budget, evidence = (folder / name for name in (
@@ -69,7 +70,8 @@ class ExternalDriveInputsTest(unittest.TestCase):
                       "fit_summary_sha256": module.sha(folder / "summary.json"),
                       "model_sha256": fit["model_sha256"],
                       "input_sha256": {"train": "train-sha", "validation": "validation-sha",
-                                       "holdout": module.sha(holdout), "budget": module.sha(budget)},
+                                       "holdout": module.sha(holdout),
+                                       "budget": module.sha(budget)},
                       "errors": {"flux_wb": {"rmse": 0.1, "max": 0.2},
                                  "current_a": {"rmse": 0.3, "max": 0.4}},
                       "budgets": limits, "checks": {key: True for key in limits}}
